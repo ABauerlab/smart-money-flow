@@ -4,31 +4,58 @@ import { MarketCard } from '@/components/dashboard/MarketCard';
 import { ConvictionRanking } from '@/components/dashboard/ConvictionRanking';
 import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
 import { ActionSuggestion } from '@/components/dashboard/ActionSuggestion';
-import { mockMarketData, mockGlobalMetrics, mockAlerts } from '@/lib/mockData';
+import { useMarketData } from '@/hooks/useMarketData';
+import { Loader2 } from 'lucide-react';
 
 const Index = () => {
+  const { data, isLoading, error, dataUpdatedAt } = useMarketData();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Carregando dados de mercado...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-bearish text-lg mb-2">Erro ao carregar dados</p>
+          <p className="text-muted-foreground text-sm">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { markets, globalMetrics, alerts } = data || { markets: [], globalMetrics: null, alerts: [] };
+
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header lastUpdated={dataUpdatedAt ? new Date(dataUpdatedAt) : undefined} />
       
       <main className="container py-6 space-y-6">
         {/* Verdict Banner */}
-        <VerdictBanner metrics={mockGlobalMetrics} />
+        {globalMetrics && <VerdictBanner metrics={globalMetrics} />}
         
         {/* Market Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {mockMarketData.map((market, index) => (
+          {markets.map((market, index) => (
             <MarketCard key={market.id} market={market} index={index} />
           ))}
         </div>
         
         {/* Bottom Grid: Ranking, Alerts, Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ConvictionRanking markets={mockMarketData} />
+          <ConvictionRanking markets={markets} />
           
           <div className="space-y-6">
-            <AlertsPanel alerts={mockAlerts} />
-            <ActionSuggestion hotMarket={mockGlobalMetrics.hotMarket} />
+            <AlertsPanel alerts={alerts} />
+            {globalMetrics && <ActionSuggestion hotMarket={globalMetrics.hotMarket} />}
           </div>
         </div>
       </main>
