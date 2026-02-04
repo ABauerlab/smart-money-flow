@@ -9,27 +9,37 @@ interface VolumeChartsProps {
 }
 
 export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
+  // Determine the maximum length of historical data available
+  const maxHistoryLength = markets.reduce((max, m) => Math.max(max, m.historicalVolumes?.length || 0), 0);
+
   // Prepare data for combined chart
-  const chartData = markets[0]?.historicalVolumes?.map((_, index) => {
-    const dataPoint: Record<string, number | string> = { day: `D-${index}` };
+  const chartData = Array.from({ length: maxHistoryLength }).map((_, index) => {
+    const dataPoint: Record<string, number | string> = { day: `D-${maxHistoryLength - 1 - index}` };
     
     markets.forEach(market => {
-      if (market.historicalVolumes && market.historicalVolumes[index] !== undefined) {
+      const historicalVolumes = market.historicalVolumes || [];
+      // We iterate backwards from D-0 (most recent) to D-N
+      const volumeIndex = maxHistoryLength - 1 - index; 
+      
+      if (historicalVolumes[volumeIndex] !== undefined) {
         // Normalize volumes to percentage of average for comparison
-        const normalizedValue = (market.historicalVolumes[index] / market.averageVolume) * 100;
+        const normalizedValue = (historicalVolumes[volumeIndex] / market.averageVolume) * 100;
         dataPoint[market.ticker] = Math.round(normalizedValue);
+      } else {
+        // Use null or undefined if data point is missing
+        dataPoint[market.ticker] = null;
       }
     });
     
     return dataPoint;
-  }).reverse() || [];
+  }).reverse(); // Reverse again to have D-0 on the right
 
   // Prepare individual market data
   const getMarketChartData = (market: MarketData) => {
     if (!market.historicalVolumes) return [];
     
     return market.historicalVolumes.map((vol, index) => ({
-      day: `D-${index}`,
+      day: `D-${market.historicalVolumes!.length - 1 - index}`,
       volume: vol,
       average: market.averageVolume,
       ratio: (vol / market.averageVolume) * 100,
@@ -47,7 +57,7 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
       return (
         <div className="glass-card p-3 border border-border/50">
           <p className="text-xs text-muted-foreground mb-1">{label}</p>
-          {payload.map((entry, index) => (
+          {payload.filter(p => p.value !== null).map((entry, index) => (
             <p key={index} className="text-sm font-mono" style={{ color: entry.color }}>
               {entry.name}: {entry.value}%
             </p>
@@ -82,7 +92,11 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart 
+                data={chartData} 
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                stackOffset="none" // Crucial to prevent stacking if data is constant
+              >
                 <defs>
                   {markets.map(market => (
                     <linearGradient key={market.ticker} id={`gradient-${market.ticker}`} x1="0" y1="0" x2="0" y2="1">
