@@ -4,6 +4,8 @@ import { MarketCard } from '@/components/dashboard/MarketCard';
 import { ConvictionRanking } from '@/components/dashboard/ConvictionRanking';
 import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
 import { ActionSuggestion } from '@/components/dashboard/ActionSuggestion';
+import { MarketComparison } from '@/components/dashboard/MarketComparison';
+import { VolumeCharts } from '@/components/dashboard/VolumeCharts';
 import { useMarketData } from '@/hooks/useMarketData';
 import { Loader2 } from 'lucide-react';
 
@@ -32,7 +34,12 @@ const Index = () => {
     );
   }
 
-  const { markets, globalMetrics, alerts } = data || { markets: [], globalMetrics: null, alerts: [] };
+  const { markets, globalMetrics, alerts, correlations } = data || { 
+    markets: [], 
+    globalMetrics: null, 
+    alerts: [],
+    correlations: []
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -48,6 +55,14 @@ const Index = () => {
             <MarketCard key={market.id} market={market} index={index} />
           ))}
         </div>
+
+        {/* Volume Charts */}
+        {markets.length > 0 && <VolumeCharts markets={markets} />}
+
+        {/* Market Comparison */}
+        {markets.length > 1 && correlations && (
+          <MarketComparison markets={markets} correlations={correlations} />
+        )}
         
         {/* Bottom Grid: Ranking, Alerts, Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
