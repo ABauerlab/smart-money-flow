@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Header } from '@/components/dashboard/Header';
 import { VerdictBanner } from '@/components/dashboard/VerdictBanner';
 import { MarketCard } from '@/components/dashboard/MarketCard';
-import { LiquidityRanking } from '@/components/dashboard/LiquidityRanking'; // Updated import
+import { LiquidityRanking } from '@/components/dashboard/LiquidityRanking';
 import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
 import { ActionSuggestion } from '@/components/dashboard/ActionSuggestion';
 import { MarketComparison } from '@/components/dashboard/MarketComparison';
@@ -73,7 +73,7 @@ const Index = () => {
         {/* Verdict Banner */}
         {globalMetrics && <VerdictBanner metrics={globalMetrics} />}
         
-        {/* Market Cards Grid */}
+        {/* Market Cards Grid: 1 col on mobile, 3 cols on medium/large screens */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {markets.map((market, index) => (
             <MarketCard key={market.id} market={market} index={index} />
@@ -88,9 +88,9 @@ const Index = () => {
           <MarketComparison markets={markets} correlations={correlations} />
         )}
         
-        {/* Bottom Grid: Ranking, Alerts, Actions */}
+        {/* Bottom Grid: Ranking, Alerts, Actions (1 col on mobile, 2 cols on large screens) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <LiquidityRanking markets={markets} /> {/* Using LiquidityRanking */}
+          <LiquidityRanking markets={markets} />
           
           <div className="space-y-6">
             <AlertsPanel alerts={alerts} />

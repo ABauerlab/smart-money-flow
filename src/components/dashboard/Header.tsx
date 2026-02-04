@@ -55,15 +55,15 @@ export const Header = ({
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-center justify-between px-6 py-4 border-b border-border/50"
+      className="flex flex-wrap items-center justify-between px-4 md:px-6 py-4 border-b border-border/50 gap-4"
     >
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3">
           <Logo />
           <div>
-            <h1 className="text-xl font-bold tracking-tight">
+            <h1 className="text-lg md:text-xl font-bold tracking-tight">
               <span className="gradient-text">Smart Nelson Money</span>
-              <span className="text-foreground/80 ml-2">Flow Tracker</span>
+              <span className="text-foreground/80 ml-2 hidden sm:inline">Flow Tracker</span>
             </h1>
             <p className="text-xs text-muted-foreground font-mono">
               Análise de Fluxo Institucional • Atualizado: {formatLastUpdated(lastUpdated)}
@@ -72,7 +72,7 @@ export const Header = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-3 sm:gap-6">
         
         <Link 
           to="/glossario"
@@ -98,7 +98,7 @@ export const Header = ({
           />
         )}
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
           <Wifi className="w-4 h-4 text-bullish animate-pulse" />
           <span className="font-mono">LIVE</span>
         </div>
