@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { MarketData, GlobalMetrics, Alert, VolumeCorrelation } from '@/types/market';
+import { MarketData, GlobalMetrics, Alert, VolumeCorrelation, NewsArticle } from '@/types/market';
 import { mockMarketData, mockGlobalMetrics, mockAlerts } from '@/lib/mockData';
 
 interface MarketDataResponse {
@@ -8,6 +8,7 @@ interface MarketDataResponse {
   globalMetrics: GlobalMetrics;
   alerts: Alert[];
   correlations: VolumeCorrelation[];
+  news: NewsArticle[];
   lastUpdated: string;
 }
 
@@ -30,6 +31,7 @@ export const useMarketData = () => {
             globalMetrics: mockGlobalMetrics,
             alerts: mockAlerts.map(a => ({ ...a, timestamp: a.timestamp.toISOString() })) as unknown as Alert[],
             correlations: [],
+            news: [], // Mock news is empty for now
             lastUpdated: new Date().toISOString(),
           };
         }
@@ -51,6 +53,7 @@ export const useMarketData = () => {
           globalMetrics: mockGlobalMetrics,
           alerts: mockAlerts,
           correlations: [],
+          news: [], // Mock news is empty for now
           lastUpdated: new Date().toISOString(),
         };
       }

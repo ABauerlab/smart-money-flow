@@ -41,11 +41,20 @@ interface CacheRow {
   fetched_at: string;
 }
 
+interface NewsArticle {
+  title: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  market: string;
+}
+
 // Cache duration in minutes for each source
 const CACHE_DURATION = {
   usa: 15,      // Alpha Vantage: cache 15 min (free plan: 25 calls/day)
   crypto: 5,    // CoinMarketCap: cache 5 min
   brazil: 5,    // Brapi: cache 5 min
+  news: 30,     // NewsAPI: cache 30 min
 };
 
 function calculateZScore(current: number, average: number, stdDev?: number): number {
@@ -399,6 +408,57 @@ async function fetchBrazilMarket(supabase: SupabaseClient<any, any, any>): Promi
   }
 }
 
+// deno-lint-ignore no-explicit-any
+async function fetchMarketNews(): Promise<NewsArticle[]> {
+  const apiKey = Deno.env.get('NEWSAPI_KEY');
+  if (!apiKey) {
+    console.error('NEWSAPI_KEY not configured');
+    return [];
+  }
+
+  const marketQueries = [
+    { market: 'S&P 500', q: 'S&P 500 OR SPY' },
+    { market: 'Cripto Global', q: 'crypto OR bitcoin OR ethereum' },
+    { market: 'Ibovespa', q: 'Ibovespa OR B3' },
+  ];
+  
+  const allNews: NewsArticle[] = [];
+
+  for (const { market, q } of marketQueries) {
+    try {
+      // Using 'everything' endpoint for better filtering, sorting by relevance/published date
+      // Language set to Portuguese (pt)
+      const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&language=pt&sortBy=publishedAt&pageSize=5&apiKey=${apiKey}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.status !== 'ok' || !data.articles) {
+        console.error(`NewsAPI error for ${market}:`, data);
+        continue;
+      }
+
+      const articles = data.articles.map((article: any) => ({
+        title: article.title,
+        source: article.source.name,
+        url: article.url,
+        publishedAt: article.publishedAt,
+        market: market,
+      }));
+      
+      allNews.push(...articles);
+
+    } catch (error) {
+      console.error(`Error fetching news for ${market}:`, error);
+    }
+  }
+  
+  // Sort all news by published date (most recent first)
+  allNews.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+  return allNews.slice(0, 10); // Limit to top 10 recent articles
+}
+
+
 function generateGlobalMetrics(markets: MarketData[]) {
   // 1. Liquidity Ranking (based on Volume Ratio)
   const sortedByLiquidity = [...markets].sort((a, b) => b.volumeRatio - a.volumeRatio);
@@ -586,10 +646,11 @@ serve(async (req) => {
 
     console.log('Fetching market data with caching...');
 
-    const [usMarket, cryptoMarket, brazilMarket] = await Promise.all([
+    const [usMarket, cryptoMarket, brazilMarket, marketNews] = await Promise.all([
       fetchUSMarket(supabase),
       fetchCryptoMarket(supabase),
       fetchBrazilMarket(supabase),
+      fetchMarketNews(),
     ]);
 
     const markets = [usMarket, cryptoMarket, brazilMarket].filter(Boolean) as MarketData[];
@@ -610,12 +671,13 @@ serve(async (req) => {
       globalMetrics,
       alerts,
       correlations,
+      news: marketNews,
       lastUpdated: new Date().toISOString(),
     };
 
     console.log('Market data fetched:', {
       marketsCount: markets.length,
-      markets: markets.map(m => m.id),
+      newsCount: marketNews.length,
     });
 
     return new Response(

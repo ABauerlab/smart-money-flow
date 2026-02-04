@@ -36,4 +36,12 @@ export interface VolumeCorrelation {
   correlation: number;
 }
 
+export interface NewsArticle {
+  title: string;
+  source: string;
+  url: string;
+  publishedAt: string; // ISO string
+  market: string;
+}
+
 export type FlowType = MarketData['flowType'];

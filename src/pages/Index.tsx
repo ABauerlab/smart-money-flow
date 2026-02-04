@@ -7,6 +7,7 @@ import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
 import { ActionSuggestion } from '@/components/dashboard/ActionSuggestion';
 import { MarketComparison } from '@/components/dashboard/MarketComparison';
 import { VolumeCharts } from '@/components/dashboard/VolumeCharts';
+import { NewsPanel } from '@/components/dashboard/NewsPanel';
 import { useMarketData } from '@/hooks/useMarketData';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Loader2 } from 'lucide-react';
@@ -51,11 +52,12 @@ const Index = () => {
     );
   }
 
-  const { markets, globalMetrics, alerts, correlations } = data || { 
+  const { markets, globalMetrics, alerts, correlations, news } = data || { 
     markets: [], 
     globalMetrics: null, 
     alerts: [],
-    correlations: []
+    correlations: [],
+    news: []
   };
 
   return (
@@ -88,13 +90,14 @@ const Index = () => {
           <MarketComparison markets={markets} correlations={correlations} />
         )}
         
-        {/* Bottom Grid: Ranking, Alerts, Actions (1 col on mobile, 2 cols on large screens) */}
+        {/* Bottom Grid: Ranking, Alerts, Actions, News (1 col on mobile, 2 cols on large screens) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <LiquidityRanking markets={markets} />
           
           <div className="space-y-6">
             <AlertsPanel alerts={alerts} />
             {globalMetrics && <ActionSuggestion hotMarket={globalMetrics.hotMarket} />}
+            {news && <NewsPanel news={news} />}
           </div>
         </div>
       </main>
