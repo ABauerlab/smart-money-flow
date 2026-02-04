@@ -18,11 +18,11 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "pwa-192x192.png", "pwa-512x512.png"],
+      includeAssets: ["logo.svg", "pwa-192x192.png", "pwa-512x512.png"], // Changed favicon.ico to logo.svg
       manifest: {
         name: "Smart Nelson Money Flow Tracker",
         short_name: "Smart Nelson",
-        description: "Análise de Fluxo Institucional em Tempo Real",
+        description: "Análise de Fluxo Institucional em Tempo Real: Rastreie o dinheiro grosso (Smart Money) nos mercados Cripto, EUA e Bovespa.",
         theme_color: "#0ea5e9",
         background_color: "#0a0d14",
         display: "standalone",
@@ -30,6 +30,12 @@ export default defineConfig(({ mode }) => ({
         scope: "/",
         start_url: "/",
         icons: [
+          {
+            src: "logo.svg",
+            sizes: "512x512",
+            type: "image/svg+xml",
+            purpose: "any",
+          },
           {
             src: "pwa-192x192.png",
             sizes: "192x192",
