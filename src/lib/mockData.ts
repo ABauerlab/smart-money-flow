@@ -113,9 +113,9 @@ export const formatPrice = (value: number, currency: string): string => {
 
 export const getFlowTypeLabel = (flowType: MarketData['flowType']): string => {
   const labels = {
-    accumulation: 'Acumulação',
-    distribution: 'Distribuição',
-    exhaustion: 'Exaustão',
+    accumulation: 'Acumulação (Compra)',
+    distribution: 'Distribuição (Venda)',
+    exhaustion: 'Exaustão (Falta de Força)',
     neutral: 'Neutro',
   };
   return labels[flowType];
@@ -123,10 +123,10 @@ export const getFlowTypeLabel = (flowType: MarketData['flowType']): string => {
 
 export const getFlowTypeDescription = (flowType: MarketData['flowType']): string => {
   const descriptions = {
-    accumulation: 'Volume alto + Preço lateral/subindo = Institucional comprando',
-    distribution: 'Volume alto + Preço em topo/caindo = Institucional saindo',
-    exhaustion: 'Preço subindo + Volume caindo = Falta de combustível',
-    neutral: 'Sem padrão identificável de fluxo institucional',
+    accumulation: 'Grandes investidores estão comprando ativamente.',
+    distribution: 'Grandes investidores estão vendendo ativamente.',
+    exhaustion: 'O movimento de preço está perdendo força e volume.',
+    neutral: 'Nenhuma atividade institucional clara detectada.',
   };
   return descriptions[flowType];
 };

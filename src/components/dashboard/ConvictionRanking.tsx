@@ -63,7 +63,7 @@ export const ConvictionRanking = ({ markets }: ConvictionRankingProps) => {
           <Flame className="w-5 h-5 text-warning" />
         </div>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Ranking de Convicção Institucional
+          Ranking de Força Institucional (0-10)
         </h2>
       </div>
 
@@ -109,8 +109,8 @@ export const ConvictionRanking = ({ markets }: ConvictionRankingProps) => {
                 </p>
 
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <span>Volume Rel: <span className="font-mono text-foreground">{market.volumeRatio.toFixed(2)}x</span></span>
-                  <span>Z-Score: <span className="font-mono text-foreground">{market.zScore > 0 ? '+' : ''}{market.zScore.toFixed(1)}σ</span></span>
+                  <span>Volume vs Média: <span className="font-mono text-foreground">{market.volumeRatio.toFixed(2)}x</span></span>
+                  <span>Atividade Extrema: <span className="font-mono text-foreground">{market.zScore > 0 ? '+' : ''}{market.zScore.toFixed(1)}σ</span></span>
                 </div>
               </div>
             </div>

@@ -18,11 +18,11 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
   };
 
   const getCorrelationLabel = (corr: number) => {
-    if (corr > 0.7) return 'Forte Positiva';
-    if (corr > 0.3) return 'Moderada Positiva';
-    if (corr > -0.3) return 'Fraca';
-    if (corr > -0.7) return 'Moderada Negativa';
-    return 'Forte Negativa';
+    if (corr > 0.7) return 'Muito Parecidos';
+    if (corr > 0.3) return 'Parecidos';
+    if (corr > -0.3) return 'Sem Relação';
+    if (corr > -0.7) return 'Opostos';
+    return 'Muito Opostos';
   };
 
   const getCorrelationIcon = (corr: number) => {
@@ -59,7 +59,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
       {/* Correlation Matrix */}
       <div className="mb-6">
         <h3 className="text-xs text-muted-foreground mb-3 uppercase tracking-wider">
-          Correlação de Volume
+          Volume: Quão Parecidos Estão?
         </h3>
         <div className="grid gap-2">
           {correlations.map((corr, index) => (
@@ -111,7 +111,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
             </thead>
             <tbody>
               <tr className="border-b border-border/30">
-                <td className="py-2 px-2 text-muted-foreground">Volume Relativo</td>
+                <td className="py-2 px-2 text-muted-foreground">Volume vs Média</td>
                 {markets.map(market => (
                   <td key={market.id} className="py-2 px-2 text-right font-mono">
                     <span className={market.volumeRatio > 1.2 ? 'text-bullish' : market.volumeRatio < 0.8 ? 'text-bearish' : ''}>
@@ -121,7 +121,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
                 ))}
               </tr>
               <tr className="border-b border-border/30">
-                <td className="py-2 px-2 text-muted-foreground">Z-Score</td>
+                <td className="py-2 px-2 text-muted-foreground">Atividade Extrema (Z-Score)</td>
                 {markets.map(market => (
                   <td key={market.id} className="py-2 px-2 text-right font-mono">
                     <span className={market.zScore > 1.5 ? 'text-bullish' : market.zScore < -1.5 ? 'text-bearish' : ''}>
@@ -131,7 +131,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
                 ))}
               </tr>
               <tr className="border-b border-border/30">
-                <td className="py-2 px-2 text-muted-foreground">Convicção</td>
+                <td className="py-2 px-2 text-muted-foreground">Força Institucional</td>
                 {markets.map(market => (
                   <td key={market.id} className="py-2 px-2 text-right font-mono">
                     <span className={market.convictionScore >= 7 ? 'text-bullish' : market.convictionScore <= 4 ? 'text-bearish' : 'text-warning'}>
@@ -160,9 +160,9 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
                       market.flowType === 'exhaustion' ? 'bg-warning/20 text-warning' :
                       'bg-muted text-muted-foreground'
                     }`}>
-                      {market.flowType === 'accumulation' ? 'Acum.' :
-                       market.flowType === 'distribution' ? 'Dist.' :
-                       market.flowType === 'exhaustion' ? 'Exaust.' : 'Neutro'}
+                      {market.flowType === 'accumulation' ? 'Acumulação' :
+                       market.flowType === 'distribution' ? 'Distribuição' :
+                       market.flowType === 'exhaustion' ? 'Exaustão' : 'Neutro'}
                     </span>
                   </td>
                 ))}
@@ -175,7 +175,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
       {/* Flow Summary */}
       <div className="mt-4 pt-4 border-t border-border/50">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Melhor Oportunidade:</span>
+          <span className="text-muted-foreground">Melhor Oportunidade (Maior Força):</span>
           <span className="font-semibold text-primary">
             {[...markets].sort((a, b) => b.convictionScore - a.convictionScore)[0]?.name || 'N/A'}
           </span>

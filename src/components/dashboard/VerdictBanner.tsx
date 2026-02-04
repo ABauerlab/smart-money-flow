@@ -32,9 +32,9 @@ export const VerdictBanner = ({ metrics }: VerdictBannerProps) => {
   const getSentimentLabel = () => {
     switch (metrics.riskSentiment) {
       case 'risk-on':
-        return 'RISK-ON';
+        return 'BUSCA POR RISCO';
       case 'risk-off':
-        return 'RISK-OFF';
+        return 'FUGA DE RISCO';
       default:
         return 'NEUTRO';
     }
@@ -69,17 +69,17 @@ export const VerdictBanner = ({ metrics }: VerdictBannerProps) => {
           
           <div className="flex items-center gap-6 mt-4 pt-4 border-t border-border/50">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">Mercado Quente:</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">Mercado Mais Ativo:</span>
               <span className="text-sm font-semibold text-primary">{metrics.hotMarket}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">Fluxo Dominante:</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">Fluxo Global:</span>
               <span className={`text-sm font-semibold ${
                 metrics.dominantFlow === 'inflow' ? 'text-bullish' : 
                 metrics.dominantFlow === 'outflow' ? 'text-bearish' : 'text-warning'
               }`}>
-                {metrics.dominantFlow === 'inflow' ? '↑ Entrada' : 
-                 metrics.dominantFlow === 'outflow' ? '↓ Saída' : '↔ Equilibrado'}
+                {metrics.dominantFlow === 'inflow' ? '↑ Entrada de Capital' : 
+                 metrics.dominantFlow === 'outflow' ? '↓ Saída de Capital' : '↔ Equilibrado'}
               </span>
             </div>
           </div>

@@ -42,7 +42,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
         <div className="absolute top-3 right-3">
           <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-bold animate-pulse">
             <Activity className="w-3 h-3" />
-            HOT
+            QUENTE
           </span>
         </div>
       )}
@@ -57,7 +57,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <p className="text-xs text-muted-foreground mb-1">Preço</p>
+          <p className="text-xs text-muted-foreground mb-1">Preço Atual</p>
           <p className="text-lg font-semibold font-mono">
             {formatPrice(market.price, market.currency)}
           </p>
@@ -81,7 +81,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
       <div className="space-y-3">
         <div>
           <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-muted-foreground">Volume Relativo</span>
+            <span className="text-muted-foreground">Volume vs Média</span>
             <span className={`font-mono font-semibold ${
               market.volumeRatio > 1.2 ? 'text-bullish' : 
               market.volumeRatio < 0.8 ? 'text-bearish' : 'text-foreground'
@@ -105,7 +105,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
         <div className="flex items-center justify-between pt-3 border-t border-border/50">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Z-Score:</span>
+            <span className="text-xs text-muted-foreground">Atividade Extrema (Z-Score):</span>
             <span className={`text-sm font-mono font-semibold ${
               market.zScore > 1.5 ? 'text-bullish' : 
               market.zScore < -1.5 ? 'text-bearish' : 'text-foreground'
