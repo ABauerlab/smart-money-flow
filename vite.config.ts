@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "pwa-192x192.png", "pwa-512x512.png"],
       manifest: {
-        name: "Smart Money Flow Tracker",
-        short_name: "Smart Money",
+        name: "Smart Nelson Money Flow Tracker",
+        short_name: "Smart Nelson",
         description: "Análise de Fluxo Institucional em Tempo Real",
         theme_color: "#0ea5e9",
         background_color: "#0a0d14",

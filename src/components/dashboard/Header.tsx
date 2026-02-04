@@ -1,8 +1,14 @@
 import { motion } from 'framer-motion';
-import { Activity, RefreshCw, Wifi } from 'lucide-react';
+import { Activity, RefreshCw, Wifi, BookOpenText } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NotificationControls } from './NotificationControls';
+import { Link } from 'react-router-dom';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface HeaderProps {
   lastUpdated?: Date;
@@ -57,7 +63,7 @@ export const Header = ({
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">
-              <span className="gradient-text">Smart Money</span>
+              <span className="gradient-text">Smart Nelson Money</span>
               <span className="text-foreground/80 ml-2">Flow Tracker</span>
             </h1>
             <p className="text-xs text-muted-foreground font-mono">
@@ -68,6 +74,21 @@ export const Header = ({
       </div>
 
       <div className="flex items-center gap-6">
+        
+        <Link 
+          to="/glossario"
+          className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BookOpenText className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Glossário de Termos</p>
+            </TooltipContent>
+          </Tooltip>
+        </Link>
+
         {onToggleSound && onToggleNotifications && (
           <NotificationControls
             soundEnabled={soundEnabled}
