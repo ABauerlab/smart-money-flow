@@ -1,12 +1,35 @@
 import { motion } from 'framer-motion';
 import { Activity, RefreshCw, Wifi } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
-export const Header = () => {
+interface HeaderProps {
+  lastUpdated?: Date;
+}
+
+export const Header = ({ lastUpdated }: HeaderProps) => {
+  const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const currentTime = new Date().toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
   });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['market-data'] });
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
+
+  const formatLastUpdated = (date?: Date) => {
+    if (!date) return 'N/A';
+    return date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   return (
     <motion.header
@@ -25,7 +48,7 @@ export const Header = () => {
               <span className="text-foreground/80 ml-2">Flow Tracker</span>
             </h1>
             <p className="text-xs text-muted-foreground font-mono">
-              Análise de Fluxo Institucional
+              Análise de Fluxo Institucional • Atualizado: {formatLastUpdated(lastUpdated)}
             </p>
           </div>
         </div>
@@ -41,8 +64,12 @@ export const Header = () => {
           <span className="text-sm font-mono text-foreground/80">{currentTime}</span>
         </div>
 
-        <button className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group">
-          <RefreshCw className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+        <button 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
     </motion.header>
