@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Activity, RefreshCw, Wifi, BookOpenText } from 'lucide-react';
+import { RefreshCw, Wifi, BookOpenText } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NotificationControls } from './NotificationControls';
@@ -9,6 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Logo } from '@/components/Logo';
 
 interface HeaderProps {
   lastUpdated?: Date;
@@ -58,9 +59,7 @@ export const Header = ({
     >
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10 glow-primary">
-            <Activity className="w-6 h-6 text-primary" />
-          </div>
+          <Logo />
           <div>
             <h1 className="text-xl font-bold tracking-tight">
               <span className="gradient-text">Smart Nelson Money</span>

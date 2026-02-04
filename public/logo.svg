@@ -1,0 +1,16 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="128" fill="#0A0D14"/>
+  
+  <!-- Stylized Flow Line -->
+  <path d="M100 380 C 150 300, 250 400, 300 250 C 350 100, 412 200, 412 132" stroke="url(#flowGradient)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Tracker Dot -->
+  <circle cx="412" cy="132" r="40" fill="hsl(var(--primary))"/>
+  
+  <defs>
+    <linearGradient id="flowGradient" x1="100" y1="256" x2="412" y2="256" gradientUnits="userSpaceOnUse">
+      <stop stop-color="hsl(187 85% 53%)"/>
+      <stop offset="1" stop-color="hsl(152 69% 45%)"/>
+    </linearGradient>
+  </defs>
+</svg>
