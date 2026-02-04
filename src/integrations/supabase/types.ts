@@ -14,7 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      market_data_cache: {
+        Row: {
+          average_volume: number
+          conviction_score: number
+          created_at: string
+          currency: string
+          current_volume: number
+          fetched_at: string
+          flag: string
+          flow_type: string
+          historical_volumes: Json | null
+          id: string
+          name: string
+          price: number
+          price_change: number
+          ticker: string
+          updated_at: string
+          volume_ratio: number
+          z_score: number
+        }
+        Insert: {
+          average_volume: number
+          conviction_score: number
+          created_at?: string
+          currency: string
+          current_volume: number
+          fetched_at?: string
+          flag: string
+          flow_type: string
+          historical_volumes?: Json | null
+          id: string
+          name: string
+          price: number
+          price_change: number
+          ticker: string
+          updated_at?: string
+          volume_ratio: number
+          z_score: number
+        }
+        Update: {
+          average_volume?: number
+          conviction_score?: number
+          created_at?: string
+          currency?: string
+          current_volume?: number
+          fetched_at?: string
+          flag?: string
+          flow_type?: string
+          historical_volumes?: Json | null
+          id?: string
+          name?: string
+          price?: number
+          price_change?: number
+          ticker?: string
+          updated_at?: string
+          volume_ratio?: number
+          z_score?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

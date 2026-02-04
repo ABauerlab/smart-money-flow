@@ -12,6 +12,7 @@ export interface MarketData {
   flowType: 'accumulation' | 'distribution' | 'exhaustion' | 'neutral';
   convictionScore: number;
   currency: string;
+  historicalVolumes?: number[];
 }
 
 export interface GlobalMetrics {
@@ -28,6 +29,11 @@ export interface Alert {
   message: string;
   market: string;
   timestamp: Date;
+}
+
+export interface VolumeCorrelation {
+  pair: string;
+  correlation: number;
 }
 
 export type FlowType = MarketData['flowType'];

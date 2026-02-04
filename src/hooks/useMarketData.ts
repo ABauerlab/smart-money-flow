@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { MarketData, GlobalMetrics, Alert } from '@/types/market';
+import { MarketData, GlobalMetrics, Alert, VolumeCorrelation } from '@/types/market';
 import { mockMarketData, mockGlobalMetrics, mockAlerts } from '@/lib/mockData';
 
 interface MarketDataResponse {
   markets: MarketData[];
   globalMetrics: GlobalMetrics;
   alerts: Alert[];
+  correlations: VolumeCorrelation[];
   lastUpdated: string;
 }
 
@@ -28,6 +29,7 @@ export const useMarketData = () => {
             markets: mockMarketData,
             globalMetrics: mockGlobalMetrics,
             alerts: mockAlerts.map(a => ({ ...a, timestamp: a.timestamp.toISOString() })) as unknown as Alert[],
+            correlations: [],
             lastUpdated: new Date().toISOString(),
           };
         }
@@ -44,17 +46,17 @@ export const useMarketData = () => {
         };
       } catch (error) {
         console.error('Failed to fetch market data:', error);
-        // Return mock data as fallback
         return {
           markets: mockMarketData,
           globalMetrics: mockGlobalMetrics,
           alerts: mockAlerts,
+          correlations: [],
           lastUpdated: new Date().toISOString(),
         };
       }
     },
-    refetchInterval: 60000, // Refetch every 60 seconds
-    staleTime: 30000, // Consider data stale after 30 seconds
+    refetchInterval: 60000,
+    staleTime: 30000,
     retry: 2,
   });
 };
