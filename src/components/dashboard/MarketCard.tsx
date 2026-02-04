@@ -1,0 +1,124 @@
+import { motion } from 'framer-motion';
+import { TrendingUp, TrendingDown, Activity, BarChart3 } from 'lucide-react';
+import { MarketData } from '@/types/market';
+import { formatVolume, formatPrice, getFlowTypeLabel } from '@/lib/mockData';
+
+interface MarketCardProps {
+  market: MarketData;
+  index: number;
+}
+
+export const MarketCard = ({ market, index }: MarketCardProps) => {
+  const isPositive = market.priceChange >= 0;
+  const isHot = market.zScore > 1.5;
+  
+  const getFlowColor = () => {
+    switch (market.flowType) {
+      case 'accumulation':
+        return 'bg-bullish/20 text-bullish border-bullish/30';
+      case 'distribution':
+        return 'bg-bearish/20 text-bearish border-bearish/30';
+      case 'exhaustion':
+        return 'bg-warning/20 text-warning border-warning/30';
+      default:
+        return 'bg-muted text-muted-foreground border-muted';
+    }
+  };
+
+  const getCardGlow = () => {
+    if (!isHot) return '';
+    return market.flowType === 'accumulation' ? 'glow-bullish' : 
+           market.flowType === 'distribution' ? 'glow-bearish' : '';
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 + index * 0.1 }}
+      className={`glass-card p-5 relative overflow-hidden ${getCardGlow()}`}
+    >
+      {isHot && (
+        <div className="absolute top-3 right-3">
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-bold animate-pulse">
+            <Activity className="w-3 h-3" />
+            HOT
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-2xl">{market.flag}</span>
+        <div>
+          <h3 className="font-semibold text-foreground">{market.name}</h3>
+          <span className="text-xs font-mono text-muted-foreground">{market.ticker}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">Preço</p>
+          <p className="text-lg font-semibold font-mono">
+            {formatPrice(market.price, market.currency)}
+          </p>
+          <div className={`flex items-center gap-1 text-sm ${isPositive ? 'text-bullish' : 'text-bearish'}`}>
+            {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            <span className="font-mono">{isPositive ? '+' : ''}{market.priceChange.toFixed(2)}%</span>
+          </div>
+        </div>
+        
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">Volume 24h</p>
+          <p className="text-lg font-semibold font-mono">
+            {formatVolume(market.currentVolume)}
+          </p>
+          <p className="text-xs text-muted-foreground font-mono">
+            Média: {formatVolume(market.averageVolume)}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-muted-foreground">Volume Relativo</span>
+            <span className={`font-mono font-semibold ${
+              market.volumeRatio > 1.2 ? 'text-bullish' : 
+              market.volumeRatio < 0.8 ? 'text-bearish' : 'text-foreground'
+            }`}>
+              {market.volumeRatio.toFixed(2)}x
+            </span>
+          </div>
+          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(market.volumeRatio * 50, 100)}%` }}
+              transition={{ delay: 0.5 + index * 0.1, duration: 0.8 }}
+              className={`h-full rounded-full ${
+                market.volumeRatio > 1.2 ? 'bg-bullish' : 
+                market.volumeRatio < 0.8 ? 'bg-bearish' : 'bg-primary'
+              }`}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-border/50">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Z-Score:</span>
+            <span className={`text-sm font-mono font-semibold ${
+              market.zScore > 1.5 ? 'text-bullish' : 
+              market.zScore < -1.5 ? 'text-bearish' : 'text-foreground'
+            }`}>
+              {market.zScore > 0 ? '+' : ''}{market.zScore.toFixed(1)}σ
+            </span>
+          </div>
+          
+          <span className={`px-2 py-0.5 rounded-md border text-xs font-semibold ${getFlowColor()}`}>
+            {getFlowTypeLabel(market.flowType)}
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
