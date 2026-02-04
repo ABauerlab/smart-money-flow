@@ -9,31 +9,6 @@ interface VolumeChartsProps {
 }
 
 export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
-  // Determine the maximum length of historical data available
-  const maxHistoryLength = markets.reduce((max, m) => Math.max(max, m.historicalVolumes?.length || 0), 0);
-
-  // Prepare data for combined chart
-  const chartData = Array.from({ length: maxHistoryLength }).map((_, index) => {
-    const dataPoint: Record<string, number | string> = { day: `D-${maxHistoryLength - 1 - index}` };
-    
-    markets.forEach(market => {
-      const historicalVolumes = market.historicalVolumes || [];
-      // We iterate backwards from D-0 (most recent) to D-N
-      const volumeIndex = maxHistoryLength - 1 - index; 
-      
-      if (historicalVolumes[volumeIndex] !== undefined) {
-        // Normalize volumes to percentage of average for comparison
-        const normalizedValue = (historicalVolumes[volumeIndex] / market.averageVolume) * 100;
-        dataPoint[market.ticker] = Math.round(normalizedValue);
-      } else {
-        // Use null or undefined if data point is missing
-        dataPoint[market.ticker] = null;
-      }
-    });
-    
-    return dataPoint;
-  }).reverse(); // Reverse again to have D-0 on the right
-
   // Prepare individual market data
   const getMarketChartData = (market: MarketData) => {
     if (!market.historicalVolumes) return [];
@@ -52,22 +27,6 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
     IBOV: 'hsl(38, 92%, 50%)',     // Warning amber
   };
 
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="glass-card p-3 border border-border/50">
-          <p className="text-xs text-muted-foreground mb-1">{label}</p>
-          {payload.filter(p => p.value !== null).map((entry, index) => (
-            <p key={index} className="text-sm font-mono" style={{ color: entry.color }}>
-              {entry.name}: {entry.value}%
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -83,76 +42,6 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
           Volume Histórico (% da Média)
         </h2>
       </div>
-
-      {/* Combined Comparison Chart */}
-      {chartData.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-xs text-muted-foreground mb-4 uppercase tracking-wider">
-            Comparativo Normalizado
-          </h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart 
-                data={chartData} 
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                stackOffset="none" // Crucial to prevent stacking if data is constant
-              >
-                <defs>
-                  {markets.map(market => (
-                    <linearGradient key={market.ticker} id={`gradient-${market.ticker}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={colors[market.ticker]} stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor={colors[market.ticker]} stopOpacity={0}/>
-                    </linearGradient>
-                  ))}
-                </defs>
-                <XAxis 
-                  dataKey="day" 
-                  stroke="hsl(215, 15%, 55%)" 
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis 
-                  stroke="hsl(215, 15%, 55%)" 
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `${value}%`}
-                  domain={[0, 'auto']}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend 
-                  wrapperStyle={{ 
-                    paddingTop: '10px',
-                    fontSize: '12px',
-                  }}
-                />
-                {/* 100% reference line */}
-                <Area
-                  type="monotone"
-                  dataKey={() => 100}
-                  name="Média"
-                  stroke="hsl(215, 15%, 35%)"
-                  strokeDasharray="5 5"
-                  fill="none"
-                  strokeWidth={1}
-                />
-                {markets.map(market => (
-                  <Area
-                    key={market.ticker}
-                    type="monotone"
-                    dataKey={market.ticker}
-                    name={market.ticker}
-                    stroke={colors[market.ticker]}
-                    fill={`url(#gradient-${market.ticker})`}
-                    strokeWidth={2}
-                  />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
 
       {/* Individual Market Charts */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
