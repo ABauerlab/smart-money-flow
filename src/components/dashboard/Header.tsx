@@ -2,12 +2,25 @@ import { motion } from 'framer-motion';
 import { Activity, RefreshCw, Wifi } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { NotificationControls } from './NotificationControls';
 
 interface HeaderProps {
   lastUpdated?: Date;
+  soundEnabled?: boolean;
+  notificationsEnabled?: boolean;
+  notificationPermission?: NotificationPermission;
+  onToggleSound?: () => void;
+  onToggleNotifications?: () => void;
 }
 
-export const Header = ({ lastUpdated }: HeaderProps) => {
+export const Header = ({ 
+  lastUpdated,
+  soundEnabled = true,
+  notificationsEnabled = true,
+  notificationPermission = 'default',
+  onToggleSound,
+  onToggleNotifications,
+}: HeaderProps) => {
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -55,6 +68,16 @@ export const Header = ({ lastUpdated }: HeaderProps) => {
       </div>
 
       <div className="flex items-center gap-6">
+        {onToggleSound && onToggleNotifications && (
+          <NotificationControls
+            soundEnabled={soundEnabled}
+            notificationsEnabled={notificationsEnabled}
+            permission={notificationPermission}
+            onToggleSound={onToggleSound}
+            onToggleNotifications={onToggleNotifications}
+          />
+        )}
+
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Wifi className="w-4 h-4 text-bullish animate-pulse" />
           <span className="font-mono">LIVE</span>

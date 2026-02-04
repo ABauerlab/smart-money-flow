@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Header } from '@/components/dashboard/Header';
 import { VerdictBanner } from '@/components/dashboard/VerdictBanner';
 import { MarketCard } from '@/components/dashboard/MarketCard';
@@ -7,10 +8,26 @@ import { ActionSuggestion } from '@/components/dashboard/ActionSuggestion';
 import { MarketComparison } from '@/components/dashboard/MarketComparison';
 import { VolumeCharts } from '@/components/dashboard/VolumeCharts';
 import { useMarketData } from '@/hooks/useMarketData';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Loader2 } from 'lucide-react';
 
 const Index = () => {
   const { data, isLoading, error, dataUpdatedAt } = useMarketData();
+  const {
+    soundEnabled,
+    notificationsEnabled,
+    permission,
+    toggleSound,
+    toggleNotifications,
+    processAlerts,
+  } = useNotifications();
+
+  // Process alerts for notifications when data updates
+  useEffect(() => {
+    if (data?.alerts && data.alerts.length > 0) {
+      processAlerts(data.alerts);
+    }
+  }, [data?.alerts, processAlerts]);
 
   if (isLoading) {
     return (
@@ -43,7 +60,14 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header lastUpdated={dataUpdatedAt ? new Date(dataUpdatedAt) : undefined} />
+      <Header 
+        lastUpdated={dataUpdatedAt ? new Date(dataUpdatedAt) : undefined}
+        soundEnabled={soundEnabled}
+        notificationsEnabled={notificationsEnabled}
+        notificationPermission={permission}
+        onToggleSound={toggleSound}
+        onToggleNotifications={toggleNotifications}
+      />
       
       <main className="container py-6 space-y-6">
         {/* Verdict Banner */}
