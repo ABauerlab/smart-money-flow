@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Header } from '@/components/dashboard/Header';
 import { VerdictBanner } from '@/components/dashboard/VerdictBanner';
 import { MarketCard } from '@/components/dashboard/MarketCard';
-import { ConvictionRanking } from '@/components/dashboard/ConvictionRanking';
+import { LiquidityRanking } from '@/components/dashboard/LiquidityRanking'; // Updated import
 import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
 import { ActionSuggestion } from '@/components/dashboard/ActionSuggestion';
 import { MarketComparison } from '@/components/dashboard/MarketComparison';
@@ -90,7 +90,7 @@ const Index = () => {
         
         {/* Bottom Grid: Ranking, Alerts, Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ConvictionRanking markets={markets} />
+          <LiquidityRanking markets={markets} /> {/* Using LiquidityRanking */}
           
           <div className="space-y-6">
             <AlertsPanel alerts={alerts} />

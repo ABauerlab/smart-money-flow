@@ -55,18 +55,37 @@ function calculateZScore(current: number, average: number, stdDev?: number): num
 }
 
 function determineFlowType(priceChange: number, volumeRatio: number): MarketData['flowType'] {
-  if (volumeRatio > 1.2 && priceChange >= 0) return 'accumulation';
-  if (volumeRatio > 1.2 && priceChange < -0.5) return 'distribution';
-  if (volumeRatio < 0.7 && priceChange > 1) return 'exhaustion';
+  // High volume (Smart Money activity)
+  if (volumeRatio > 1.2) {
+    if (priceChange >= 0.5) return 'accumulation'; // Buying pressure
+    if (priceChange < -0.5) return 'distribution'; // Selling pressure
+    return 'neutral'; // High volume, but price is flat (absorption/consolidation)
+  }
+  
+  // Low volume (Lack of Smart Money activity)
+  if (volumeRatio < 0.8) {
+    if (priceChange > 1) return 'exhaustion'; // Price rising on low volume
+    if (priceChange < -1) return 'exhaustion'; // Price falling on low volume
+    return 'neutral';
+  }
+  
   return 'neutral';
 }
 
 function calculateConviction(volumeRatio: number, zScore: number, flowType: string): number {
   let score = 5;
-  score += Math.min(zScore, 3) * 1.2;
-  score += (volumeRatio - 1) * 2;
-  if (flowType === 'accumulation') score += 1;
-  if (flowType === 'distribution') score -= 0.5;
+  
+  // Z-Score contribution (max 3 points)
+  score += Math.min(Math.abs(zScore), 3) * 1; 
+  
+  // Volume Ratio contribution (max 2 points)
+  score += Math.max(0, (volumeRatio - 1) * 2); 
+  
+  // Flow Type adjustment
+  if (flowType === 'accumulation') score += 1.5;
+  if (flowType === 'distribution') score += 0.5; // Distribution still shows high conviction activity
+  if (flowType === 'exhaustion') score -= 2;
+  
   return Math.max(0, Math.min(10, score));
 }
 
@@ -326,6 +345,7 @@ async function fetchBrazilMarket(supabase: SupabaseClient<any, any, any>): Promi
     const currentVolume = ibov.regularMarketVolume || 12_000_000_000;
     const averageVolume = ibov.averageDailyVolume10Day || 15_000_000_000;
 
+    // Convert BRL volume to USD for comparison consistency
     const volumeInUsd = currentVolume / usdBrl;
     const avgVolumeInUsd = averageVolume / usdBrl;
 
@@ -380,36 +400,49 @@ async function fetchBrazilMarket(supabase: SupabaseClient<any, any, any>): Promi
 }
 
 function generateGlobalMetrics(markets: MarketData[]) {
-  const sortedByConviction = [...markets].sort((a, b) => b.convictionScore - a.convictionScore);
-  const hotMarket = sortedByConviction[0];
+  // 1. Liquidity Ranking (based on Volume Ratio)
+  const sortedByLiquidity = [...markets].sort((a, b) => b.volumeRatio - a.volumeRatio);
+  const hotMarket = sortedByLiquidity[0];
+  const coldMarket = sortedByLiquidity[markets.length - 1];
   
   const usMarket = markets.find(m => m.id === 'usa');
   const cryptoMarket = markets.find(m => m.id === 'crypto');
-  const brazilMarket = markets.find(m => m.id === 'brazil');
   
   let riskSentiment: 'risk-on' | 'risk-off' | 'neutral' = 'neutral';
   let dominantFlow: 'inflow' | 'outflow' | 'balanced' = 'balanced';
   
+  // Determine Risk Sentiment based on US and Crypto flow
   if (cryptoMarket && usMarket) {
-    if (cryptoMarket.volumeRatio > 1.2 && cryptoMarket.flowType === 'accumulation') {
+    if (cryptoMarket.volumeRatio > 1.2 && usMarket.volumeRatio > 1.1) {
       riskSentiment = 'risk-on';
       dominantFlow = 'inflow';
-    } else if (usMarket.volumeRatio > 1.2 && cryptoMarket.volumeRatio < 0.9) {
+    } else if (cryptoMarket.volumeRatio < 0.9 && usMarket.volumeRatio < 0.9) {
       riskSentiment = 'risk-off';
       dominantFlow = 'outflow';
     }
   }
 
+  // 3. Allocation Verdict
   let verdict = '';
-  if (hotMarket) {
-    if (riskSentiment === 'risk-on') {
-      verdict = `Dinheiro institucional migrando para ativos de risco. ${hotMarket.name} lidera com volume ${((hotMarket.volumeRatio - 1) * 100).toFixed(0)}% acima da média.`;
-    } else if (riskSentiment === 'risk-off') {
-      verdict = `Movimento de aversão ao risco detectado. Capital fluindo para mercados desenvolvidos. ${brazilMarket?.flowType === 'distribution' ? 'Brasil em modo de saída.' : ''}`;
+  
+  if (hotMarket.volumeRatio > 1.2) {
+    const liquidityShift = coldMarket.volumeRatio < 0.9 ? 
+      `A liquidez saiu do mercado ${coldMarket.name} (${coldMarket.volumeRatio.toFixed(2)}x) e está concentrada no mercado ${hotMarket.name}.` :
+      `O mercado ${hotMarket.name} está a atrair a maior parte da liquidez institucional.`;
+      
+    if (hotMarket.flowType === 'accumulation') {
+      verdict = `${liquidityShift} Oportunidade de compra detetada em ${hotMarket.name} devido à forte acumulação.`;
+    } else if (hotMarket.flowType === 'distribution') {
+      verdict = `${liquidityShift} Alerta de distribuição em ${hotMarket.name}. O dinheiro grosso está a sair em volume elevado.`;
     } else {
-      verdict = `Mercado em consolidação. ${hotMarket.name} mostra maior atividade institucional com Z-Score de ${hotMarket.zScore.toFixed(1)}σ.`;
+      verdict = `${liquidityShift} Oportunidade detetada em ${hotMarket.name}. Volume ${((hotMarket.volumeRatio - 1) * 100).toFixed(0)}% acima da média.`;
     }
+  } else if (dominantFlow === 'outflow') {
+    verdict = 'Fuga de capital institucional detectada globalmente. Mercados em modo de espera ou aversão ao risco.';
+  } else {
+    verdict = `Mercado em consolidação. ${hotMarket.name} mostra maior atividade institucional com Z-Score de ${hotMarket.zScore.toFixed(1)}σ.`;
   }
+
 
   return { riskSentiment, hotMarket: hotMarket?.name || 'N/A', dominantFlow, verdict };
 }
@@ -425,35 +458,63 @@ function generateAlerts(markets: MarketData[]) {
   }> = [];
 
   markets.forEach((market, index) => {
-    if (market.zScore > 2) {
+    const { volumeRatio, priceChange, flowType, name, convictionScore, zScore } = market;
+    
+    // 1. Alerta de Anomalia (Volume desproporcional à tendência de preço)
+    if (volumeRatio > 1.5 && priceChange < -1) {
+      // High volume + sharp drop = Strong Distribution/Panic
       alerts.push({
-        id: `alert-${index}-1`,
+        id: `anomaly-${index}-1`,
         type: 'divergence',
         severity: 'high',
-        message: `Volume ${((market.volumeRatio - 1) * 100).toFixed(0)}% acima da média com ${market.flowType === 'accumulation' ? 'preço estável indica forte absorção institucional' : 'pressão vendedora elevada'}`,
-        market: market.name,
+        message: `ANOMALIA: Volume ${((volumeRatio - 1) * 100).toFixed(0)}% acima da média, mas o preço caiu drasticamente. Forte pressão vendedora institucional.`,
+        market: name,
         timestamp: new Date().toISOString(),
       });
-    }
-
-    if (market.volumeRatio < 0.7) {
+    } else if (volumeRatio < 0.7 && priceChange > 2) {
+      // Low volume + sharp rise = Exhaustion/Fakeout
       alerts.push({
-        id: `alert-${index}-2`,
+        id: `anomaly-${index}-2`,
         type: 'attention',
         severity: 'medium',
-        message: `Volume ${((1 - market.volumeRatio) * 100).toFixed(0)}% abaixo da média indica baixa liquidez e possível fuga de capital`,
-        market: market.name,
+        message: `ANOMALIA: Preço subindo (+${priceChange.toFixed(1)}%) com volume baixo. Risco de exaustão ou armadilha de alta.`,
+        market: name,
         timestamp: new Date().toISOString(),
       });
     }
 
-    if (market.flowType === 'accumulation' && market.convictionScore > 7) {
+    // 2. Bovespa: Detetar "explosões" de volume
+    if (market.id === 'brazil' && volumeRatio > 1.3 && priceChange > 1.5) {
       alerts.push({
-        id: `alert-${index}-3`,
+        id: `brazil-explosion`,
         type: 'opportunity',
+        severity: 'high',
+        message: `EXPLOSÃO DE VOLUME NA B3: Forte fluxo comprador institucional detectado. Volume ${volumeRatio.toFixed(2)}x acima da média.`,
+        market: name,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
+    // 3. Crypto: Queda de volume indica falta de oportunidades para robôs
+    if (market.id === 'crypto' && volumeRatio < 0.8 && priceChange < 0.5) {
+      alerts.push({
+        id: `crypto-low-vol`,
+        type: 'attention',
         severity: 'low',
-        message: `Padrão de acumulação institucional detectado com alta convicção (${market.convictionScore.toFixed(1)}/10)`,
-        market: market.name,
+        message: `Cripto: Volume baixo. Falta de interesse institucional e oportunidades reduzidas para robôs de trade.`,
+        market: name,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // General high conviction opportunity
+    if (flowType === 'accumulation' && convictionScore > 7.5) {
+      alerts.push({
+        id: `opportunity-${index}-3`,
+        type: 'opportunity',
+        severity: 'medium',
+        message: `Padrão de acumulação institucional detectado com alta convicção (${convictionScore.toFixed(1)}/10). Z-Score: ${zScore.toFixed(1)}σ.`,
+        market: name,
         timestamp: new Date().toISOString(),
       });
     }
@@ -476,6 +537,7 @@ function calculateVolumeCorrelation(markets: MarketData[]): { pair: string; corr
           const v1 = m1.historicalVolumes.slice(0, len);
           const v2 = m2.historicalVolumes.slice(0, len);
           
+          // Normalize volumes for correlation calculation
           const max1 = Math.max(...v1);
           const max2 = Math.max(...v2);
           const norm1 = v1.map(v => v / max1);
