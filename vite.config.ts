@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["logo.svg", "pwa-192x192.png", "pwa-512x512.png"], // Changed favicon.ico to logo.svg
       manifest: {
-        name: "Smart Nelson Money Flow Tracker",
+        name: "Smart Nelson Money",
         short_name: "Smart Nelson",
         description: "Análise de Fluxo Institucional em Tempo Real: Rastreie o dinheiro grosso (Smart Money) nos mercados Cripto, EUA e Bovespa.",
         theme_color: "#0ea5e9",

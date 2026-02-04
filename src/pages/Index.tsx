@@ -102,8 +102,8 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border/50 py-4 mt-8">
         <div className="container flex items-center justify-between text-xs text-muted-foreground">
-          <span>Smart Money Flow Tracker v1.0</span>
-          <span className="font-mono">Volume Relativo = Métrica Suprema</span>
+          <span>Smart Nelson Money v1.0</span>
+          <span className="font-mono">Desenvolvido por Agência BauerLab</span>
         </div>
       </footer>
     </div>
