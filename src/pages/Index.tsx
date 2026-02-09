@@ -23,7 +23,6 @@ const Index = () => {
     processAlerts,
   } = useNotifications();
 
-  // Process alerts for notifications when data updates
   useEffect(() => {
     if (data?.alerts && data.alerts.length > 0) {
       processAlerts(data.alerts);
@@ -35,18 +34,7 @@ const Index = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando dados de mercado...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !data) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-bearish text-lg mb-2">Erro ao carregar dados</p>
-          <p className="text-muted-foreground text-sm">{error.message}</p>
+          <p className="text-muted-foreground">Sincronizando com terminais globais...</p>
         </div>
       </div>
     );
@@ -72,27 +60,25 @@ const Index = () => {
       />
       
       <main className="container py-6 space-y-6">
-        {/* Verdict Banner */}
         {globalMetrics && <VerdictBanner metrics={globalMetrics} />}
         
-        {/* Market Cards Grid: 1 col on mobile, 3 cols on medium/large screens */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Grid de Mercados - Responsivo para muitos itens */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {markets.map((market, index) => (
             <MarketCard key={market.id} market={market} index={index} />
           ))}
         </div>
 
-        {/* Volume Charts */}
+        {/* Gráficos com Filtros e Visão Mensal */}
         {markets.length > 0 && <VolumeCharts markets={markets} />}
 
-        {/* Market Comparison */}
-        {markets.length > 1 && correlations && (
-          <MarketComparison markets={markets} correlations={correlations} />
-        )}
-        
-        {/* Bottom Grid: Ranking, Alerts, Actions, News (1 col on mobile, 2 cols on large screens) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <LiquidityRanking markets={markets} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {markets.length > 1 && correlations && (
+              <MarketComparison markets={markets} correlations={correlations} />
+            )}
+            <LiquidityRanking markets={markets} />
+          </div>
           
           <div className="space-y-6">
             <AlertsPanel alerts={alerts} />
@@ -102,11 +88,13 @@ const Index = () => {
         </div>
       </main>
       
-      {/* Footer */}
-      <footer className="border-t border-border/50 py-4 mt-8">
-        <div className="container flex items-center justify-between text-xs text-muted-foreground">
-          <span>Smart Nelson Money v1.0</span>
-          <span className="font-mono">Desenvolvido por Agência BauerLab</span>
+      <footer className="border-t border-border/50 py-6 mt-8">
+        <div className="container flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <span>Smart Nelson Money v1.2</span>
+            <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono">TERMINAL ATIVO</span>
+          </div>
+          <span className="font-mono">© 2024 BauerLab • Dados Institucionais em Tempo Real</span>
         </div>
       </footer>
     </div>

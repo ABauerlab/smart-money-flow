@@ -1,8 +1,15 @@
+export interface MonthlyVolume {
+  month: string;
+  volume: number;
+  average: number;
+}
+
 export interface MarketData {
   id: string;
   name: string;
   ticker: string;
   flag: string;
+  category: 'stocks' | 'crypto' | 'forex' | 'options' | 'indices';
   currentVolume: number;
   averageVolume: number;
   price: number;
@@ -13,6 +20,7 @@ export interface MarketData {
   convictionScore: number;
   currency: string;
   historicalVolumes?: number[];
+  monthlyVolumes?: MonthlyVolume[];
 }
 
 export interface GlobalMetrics {
@@ -40,7 +48,7 @@ export interface NewsArticle {
   title: string;
   source: string;
   url: string;
-  publishedAt: string; // ISO string
+  publishedAt: string;
   market: string;
 }
 

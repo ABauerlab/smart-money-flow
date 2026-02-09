@@ -6,8 +6,9 @@ export const mockMarketData: MarketData[] = [
     name: 'S&P 500',
     ticker: 'SPY',
     flag: '🇺🇸',
-    currentVolume: 89_420_000,
-    averageVolume: 72_150_000,
+    category: 'indices',
+    currentVolume: 89420000,
+    averageVolume: 72150000,
     price: 5892.45,
     priceChange: 0.85,
     volumeRatio: 1.24,
@@ -15,14 +16,36 @@ export const mockMarketData: MarketData[] = [
     flowType: 'accumulation',
     convictionScore: 8.2,
     currency: 'USD',
+    monthlyVolumes: [
+      { month: 'Jan', volume: 75000000, average: 72000000 },
+      { month: 'Fev', volume: 82000000, average: 72000000 },
+      { month: 'Mar', volume: 89420000, average: 72000000 },
+    ]
+  },
+  {
+    id: 'nyse',
+    name: 'NYSE Composite',
+    ticker: 'NYA',
+    flag: '🏛️',
+    category: 'stocks',
+    currentVolume: 3450000000,
+    averageVolume: 3100000000,
+    price: 18450.20,
+    priceChange: 0.45,
+    volumeRatio: 1.11,
+    zScore: 0.9,
+    flowType: 'neutral',
+    convictionScore: 6.5,
+    currency: 'USD',
   },
   {
     id: 'crypto',
     name: 'Cripto Global',
     ticker: 'TOTAL',
     flag: '₿',
-    currentVolume: 142_800_000_000,
-    averageVolume: 98_500_000_000,
+    category: 'crypto',
+    currentVolume: 142800000000,
+    averageVolume: 98500000000,
     price: 3.42,
     priceChange: 4.25,
     volumeRatio: 1.45,
@@ -36,8 +59,9 @@ export const mockMarketData: MarketData[] = [
     name: 'Ibovespa',
     ticker: 'IBOV',
     flag: '🇧🇷',
-    currentVolume: 12_450_000_000,
-    averageVolume: 15_200_000_000,
+    category: 'indices',
+    currentVolume: 12450000000,
+    averageVolume: 15200000000,
     price: 127845,
     priceChange: -1.2,
     volumeRatio: 0.82,
@@ -45,6 +69,70 @@ export const mockMarketData: MarketData[] = [
     flowType: 'distribution',
     convictionScore: 3.4,
     currency: 'BRL',
+  },
+  {
+    id: 'hk',
+    name: 'Hong Kong',
+    ticker: 'HSI',
+    flag: '🇭🇰',
+    category: 'indices',
+    currentVolume: 125000000000,
+    averageVolume: 110000000000,
+    price: 16720.50,
+    priceChange: -0.35,
+    volumeRatio: 1.13,
+    zScore: 1.1,
+    flowType: 'neutral',
+    convictionScore: 5.8,
+    currency: 'HKD',
+  },
+  {
+    id: 'forex',
+    name: 'Forex (EUR/USD)',
+    ticker: 'EURUSD',
+    flag: '🇪🇺',
+    category: 'forex',
+    currentVolume: 4500000,
+    averageVolume: 4200000,
+    price: 1.0845,
+    priceChange: 0.12,
+    volumeRatio: 1.07,
+    zScore: 0.5,
+    flowType: 'neutral',
+    convictionScore: 5.2,
+    currency: 'USD',
+  },
+  {
+    id: 'europe',
+    name: 'Mercado Europeu',
+    ticker: 'VGK',
+    flag: '🇪🇺',
+    category: 'stocks',
+    currentVolume: 5200000,
+    averageVolume: 4800000,
+    price: 68.42,
+    priceChange: 0.65,
+    volumeRatio: 1.08,
+    zScore: 0.7,
+    flowType: 'accumulation',
+    convictionScore: 6.8,
+    currency: 'USD',
+  },
+  {
+    id: 'options',
+    name: 'Mercado de Opções',
+    ticker: 'VIX',
+    flag: '📉',
+    category: 'options',
+    currentVolume: 1250000,
+    averageVolume: 850000,
+    price: 14.25,
+    priceChange: -2.4,
+    volumeRatio: 1.47,
+    zScore: 2.1,
+    flowType: 'distribution',
+    convictionScore: 7.9,
+    currency: 'USD',
   },
 ];
 
@@ -72,43 +160,21 @@ export const mockAlerts: Alert[] = [
     market: 'Ibovespa',
     timestamp: new Date(),
   },
-  {
-    id: '3',
-    type: 'opportunity',
-    severity: 'low',
-    message: 'S&P 500 mostrando padrão de acumulação clássico com volume crescente em suporte',
-    market: 'S&P 500',
-    timestamp: new Date(),
-  },
 ];
 
 export const formatVolume = (value: number): string => {
-  if (value >= 1_000_000_000_000) {
-    return `${(value / 1_000_000_000_000).toFixed(2)}T`;
-  }
-  if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(2)}B`;
-  }
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)}M`;
-  }
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(2)}K`;
-  }
+  if (value >= 1_000_000_000_000) return `${(value / 1_000_000_000_000).toFixed(2)}T`;
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(2)}K`;
   return value.toString();
 };
 
 export const formatPrice = (value: number, currency: string): string => {
-  if (currency === 'BRL') {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(value);
+  const options = { style: 'currency', currency };
+  if (currency === 'BRL') return new Intl.NumberFormat('pt-BR', options).format(value);
+  if (currency === 'HKD') return new Intl.NumberFormat('zh-HK', options).format(value);
+  return new Intl.NumberFormat('en-US', options).format(value);
 };
 
 export const getFlowTypeLabel = (flowType: MarketData['flowType']): string => {
@@ -119,14 +185,4 @@ export const getFlowTypeLabel = (flowType: MarketData['flowType']): string => {
     neutral: 'Neutro',
   };
   return labels[flowType];
-};
-
-export const getFlowTypeDescription = (flowType: MarketData['flowType']): string => {
-  const descriptions = {
-    accumulation: 'Grandes investidores estão comprando ativamente.',
-    distribution: 'Grandes investidores estão vendendo ativamente.',
-    exhaustion: 'O movimento de preço está perdendo força e volume.',
-    neutral: 'Nenhuma atividade institucional clara detectada.',
-  };
-  return descriptions[flowType];
 };
