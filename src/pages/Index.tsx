@@ -94,7 +94,7 @@ const Index = () => {
             <span>Smart Nelson Money v1.2</span>
             <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono">TERMINAL ATIVO</span>
           </div>
-          <span className="font-mono">© 2024 BauerLab • Dados Institucionais em Tempo Real</span>
+          <span className="font-mono">© 2025 BauerLab • Dados Institucionais em Tempo Real</span>
         </div>
       </footer>
     </div>

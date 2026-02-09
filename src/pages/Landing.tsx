@@ -212,7 +212,7 @@ const Landing = () => {
             </Link>
           </div>
           
-          <p className="text-[#555] text-xs uppercase tracking-[0.4em]">© 2024 Smart Nelson Money Flow • BauerLab</p>
+          <p className="text-[#555] text-xs uppercase tracking-[0.4em]">© 2025 Smart Nelson Money Flow • BauerLab</p>
         </div>
       </section>
     </div>
