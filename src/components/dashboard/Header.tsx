@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { RefreshCw, Wifi, BookOpenText } from 'lucide-react';
+import { RefreshCw, Wifi, BookOpenText, Home } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NotificationControls } from './NotificationControls';
@@ -55,7 +55,7 @@ export const Header = ({
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-wrap items-center justify-between px-4 md:px-6 py-4 border-b border-border/50 gap-4"
+      className="flex flex-wrap items-center justify-between px-4 md:px-6 py-4 border-b border-border/50 gap-4 bg-background/80 backdrop-blur-md sticky top-0 z-50"
     >
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3">
@@ -73,7 +73,20 @@ export const Header = ({
       </div>
 
       <div className="flex items-center gap-3 sm:gap-6">
-        
+        <Link 
+          to="/"
+          className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Home className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Voltar ao Início</p>
+            </TooltipContent>
+          </Tooltip>
+        </Link>
+
         <Link 
           to="/glossario"
           className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
