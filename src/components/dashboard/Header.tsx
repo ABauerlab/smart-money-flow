@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { RefreshCw, Wifi, BookOpenText, Home } from 'lucide-react';
+import { RefreshCw, Wifi, BookOpenText, Home, BrainCircuit } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NotificationControls } from './NotificationControls';
