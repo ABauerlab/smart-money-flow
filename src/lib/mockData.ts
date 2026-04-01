@@ -171,7 +171,7 @@ export const formatVolume = (value: number): string => {
 };
 
 export const formatPrice = (value: number, currency: string): string => {
-  const options = { style: 'currency', currency };
+  const options: Intl.NumberFormatOptions = { style: 'currency' as const, currency };
   if (currency === 'BRL') return new Intl.NumberFormat('pt-BR', options).format(value);
   if (currency === 'HKD') return new Intl.NumberFormat('zh-HK', options).format(value);
   return new Intl.NumberFormat('en-US', options).format(value);
