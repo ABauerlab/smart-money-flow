@@ -29,17 +29,14 @@ export const useCryptoAnalysis = () => {
   const historyQuery = useQuery<{ analyses: CryptoAnalysis[] }>({
     queryKey: ['crypto-analyses'],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('crypto-analysis', {
-        body: {},
-        headers: {},
-      });
-      // Use query param approach
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crypto-analysis?action=history`;
       const resp = await fetch(url, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({}),
       });
       if (!resp.ok) throw new Error('Failed to fetch history');
       return resp.json();
