@@ -101,6 +101,20 @@ export const Header = ({
           </Tooltip>
         </Link>
 
+        <Link 
+          to="/analise-ia"
+          className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BrainCircuit className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Análise IA de Criptomoedas</p>
+            </TooltipContent>
+          </Tooltip>
+        </Link>
+
         {onToggleSound && onToggleNotifications && (
           <NotificationControls
             soundEnabled={soundEnabled}
