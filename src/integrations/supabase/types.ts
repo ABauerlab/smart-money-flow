@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      crypto_analyses: {
+        Row: {
+          ai_model_used: string | null
+          created_at: string
+          crypto_symbols: string[] | null
+          id: string
+          period_type: string
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          ai_model_used?: string | null
+          created_at?: string
+          crypto_symbols?: string[] | null
+          id?: string
+          period_type?: string
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          ai_model_used?: string | null
+          created_at?: string
+          crypto_symbols?: string[] | null
+          id?: string
+          period_type?: string
+          summary?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      crypto_analysis_images: {
+        Row: {
+          ai_interpretation: string | null
+          analysis_id: string
+          created_at: string
+          id: string
+          image_name: string | null
+          image_url: string
+        }
+        Insert: {
+          ai_interpretation?: string | null
+          analysis_id: string
+          created_at?: string
+          id?: string
+          image_name?: string | null
+          image_url: string
+        }
+        Update: {
+          ai_interpretation?: string | null
+          analysis_id?: string
+          created_at?: string
+          id?: string
+          image_name?: string | null
+          image_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crypto_analysis_images_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       market_data_cache: {
         Row: {
           average_volume: number
