@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { RefreshCw, Wifi, BookOpenText, Home } from 'lucide-react';
+import { RefreshCw, Wifi, BookOpenText, Home, BrainCircuit } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NotificationControls } from './NotificationControls';
@@ -97,6 +97,20 @@ export const Header = ({
             </TooltipTrigger>
             <TooltipContent>
               <p>Glossário de Termos</p>
+            </TooltipContent>
+          </Tooltip>
+        </Link>
+
+        <Link 
+          to="/analise-ia"
+          className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BrainCircuit className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Análise IA de Criptomoedas</p>
             </TooltipContent>
           </Tooltip>
         </Link>

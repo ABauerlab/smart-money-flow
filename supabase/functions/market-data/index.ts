@@ -109,6 +109,8 @@ serve(async (req) => {
       fetchAlphaVantage('EWH', 'Hong Kong (ETF)', '🇭🇰', 'indices', 'USD', apiKey),
       fetchAlphaVantage('VGK', 'Mercado Europeu', '🇪🇺', 'stocks', 'USD', apiKey),
       fetchAlphaVantage('VIX', 'Mercado de Opções', '📉', 'options', 'USD', apiKey),
+      fetchAlphaVantage('DAX', 'DAX 40', '🇩🇪', 'indices', 'EUR', apiKey),
+      fetchAlphaVantage('EWJ', 'Nikkei 225 (ETF)', '🇯🇵', 'indices', 'USD', apiKey),
     ];
 
     const results = await Promise.all(marketPromises);
@@ -137,7 +139,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500, headers: corsHeaders
     });
   }

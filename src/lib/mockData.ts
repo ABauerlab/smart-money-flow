@@ -134,6 +134,38 @@ export const mockMarketData: MarketData[] = [
     convictionScore: 7.9,
     currency: 'USD',
   },
+  {
+    id: 'dax',
+    name: 'DAX 40',
+    ticker: 'DAX',
+    flag: '🇩🇪',
+    category: 'indices',
+    currentVolume: 78000000,
+    averageVolume: 72000000,
+    price: 18450.30,
+    priceChange: 0.55,
+    volumeRatio: 1.08,
+    zScore: 0.6,
+    flowType: 'accumulation',
+    convictionScore: 6.2,
+    currency: 'EUR',
+  },
+  {
+    id: 'nikkei',
+    name: 'Nikkei 225',
+    ticker: 'EWJ',
+    flag: '🇯🇵',
+    category: 'indices',
+    currentVolume: 95000000,
+    averageVolume: 88000000,
+    price: 67.85,
+    priceChange: 1.15,
+    volumeRatio: 1.08,
+    zScore: 0.7,
+    flowType: 'accumulation',
+    convictionScore: 6.5,
+    currency: 'USD',
+  },
 ];
 
 export const mockGlobalMetrics: GlobalMetrics = {
@@ -171,7 +203,7 @@ export const formatVolume = (value: number): string => {
 };
 
 export const formatPrice = (value: number, currency: string): string => {
-  const options = { style: 'currency', currency };
+  const options: Intl.NumberFormatOptions = { style: 'currency' as const, currency };
   if (currency === 'BRL') return new Intl.NumberFormat('pt-BR', options).format(value);
   if (currency === 'HKD') return new Intl.NumberFormat('zh-HK', options).format(value);
   return new Intl.NumberFormat('en-US', options).format(value);
