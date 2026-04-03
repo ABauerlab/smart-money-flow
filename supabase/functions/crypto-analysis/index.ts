@@ -332,10 +332,13 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
       const summary = aiData.choices?.[0]?.message?.content || 'Análise não disponível.';
 
       // Extract detected cryptos from AI response
-      const cryptoMatch = summary.match(/CRYPTOS_DETECTED:\s*([A-Z0-9,\s]+)/i);
+      const cryptoMatch = summary.match(/CRYPTOS_DETECTED:\s*([^\n]+)/i);
       let detectedCryptos: string[] = [];
       if (cryptoMatch) {
-        detectedCryptos = cryptoMatch[1].split(',').map((s: string) => s.trim().toUpperCase()).filter(Boolean);
+        detectedCryptos = cryptoMatch[1]
+          .split(',')
+          .map((s: string) => s.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
+          .filter((s: string) => s.length > 0 && s.length <= 10);
       }
       // Merge with user-provided symbols
       const allCryptos = [...new Set([...detectedCryptos, ...(cryptoSymbols || []).map((s: string) => s.toUpperCase())])];
