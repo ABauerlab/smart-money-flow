@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { FileText, Clock } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface AnalysisReportProps {
   title: string;
@@ -10,17 +11,8 @@ interface AnalysisReportProps {
 }
 
 export const AnalysisReport = ({ title, summary, createdAt, cryptoSymbols, images }: AnalysisReportProps) => {
-  // Simple markdown-to-html: bold, headers, lists
-  const renderMarkdown = (text: string) => {
-    return text
-      .replace(/### (.*)/g, '<h3 class="text-base font-semibold text-primary mt-4 mb-2">$1</h3>')
-      .replace(/## (.*)/g, '<h2 class="text-lg font-bold text-foreground mt-5 mb-2">$1</h2>')
-      .replace(/# (.*)/g, '<h1 class="text-xl font-bold text-foreground mt-6 mb-3">$1</h1>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/^- (.*)/gm, '<li class="ml-4 text-sm text-foreground/80">• $1</li>')
-      .replace(/\n/g, '<br/>');
-  };
+  // Remove the CRYPTOS_DETECTED line from display
+  const cleanSummary = summary.replace(/CRYPTOS_DETECTED:.*\n?/i, '').trim();
 
   return (
     <motion.div
@@ -55,10 +47,9 @@ export const AnalysisReport = ({ title, summary, createdAt, cryptoSymbols, image
         </div>
       )}
 
-      <div
-        className="prose prose-sm prose-invert max-w-none text-sm text-foreground/80 leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(summary) }}
-      />
+      <div className="prose prose-sm prose-invert max-w-none text-sm text-foreground/80 leading-relaxed">
+        <ReactMarkdown>{cleanSummary}</ReactMarkdown>
+      </div>
     </motion.div>
   );
 };

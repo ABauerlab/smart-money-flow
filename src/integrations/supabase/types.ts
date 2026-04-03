@@ -79,6 +79,121 @@ export type Database = {
           },
         ]
       }
+      crypto_mentions: {
+        Row: {
+          created_at: string
+          id: string
+          report_date: string
+          report_type: string
+          submission_id: string | null
+          symbol: string
+          week_number: number
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_date: string
+          report_type: string
+          submission_id?: string | null
+          symbol: string
+          week_number: number
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_date?: string
+          report_type?: string
+          submission_id?: string | null
+          symbol?: string
+          week_number?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crypto_mentions_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_report_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crypto_periodic_reports: {
+        Row: {
+          ai_analysis: string | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          period_type: string
+          rankings: Json
+          summary: string | null
+          week_number: number | null
+          year: number
+        }
+        Insert: {
+          ai_analysis?: string | null
+          created_at?: string
+          id?: string
+          period_end: string
+          period_start: string
+          period_type: string
+          rankings?: Json
+          summary?: string | null
+          week_number?: number | null
+          year: number
+        }
+        Update: {
+          ai_analysis?: string | null
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          rankings?: Json
+          summary?: string | null
+          week_number?: number | null
+          year?: number
+        }
+        Relationships: []
+      }
+      crypto_report_submissions: {
+        Row: {
+          analysis_id: string | null
+          created_at: string
+          id: string
+          report_date: string
+          report_type: string
+          session_time: string
+        }
+        Insert: {
+          analysis_id?: string | null
+          created_at?: string
+          id?: string
+          report_date?: string
+          report_type: string
+          session_time?: string
+        }
+        Update: {
+          analysis_id?: string | null
+          created_at?: string
+          id?: string
+          report_date?: string
+          report_type?: string
+          session_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crypto_report_submissions_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       market_data_cache: {
         Row: {
           average_volume: number

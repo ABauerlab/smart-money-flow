@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BrainCircuit, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ImageUploader } from '@/components/analysis/ImageUploader';
 import { AnalysisReport } from '@/components/analysis/AnalysisReport';
 import { AnalysisHistory } from '@/components/analysis/AnalysisHistory';
+import { RepetitionDashboard } from '@/components/analysis/RepetitionDashboard';
+import { PeriodicReportsView } from '@/components/analysis/PeriodicReportsView';
 import { useCryptoAnalysis } from '@/hooks/useCryptoAnalysis';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface UploadedImage {
   name: string;
@@ -17,6 +20,12 @@ interface UploadedImage {
   preview: string;
 }
 
+const REPORT_TYPES = [
+  { value: 'alta', label: '📈 Alta', color: 'text-emerald-400' },
+  { value: 'baixa', label: '📉 Baixa', color: 'text-red-400' },
+  { value: 'volume', label: '📊 Volume', color: 'text-blue-400' },
+];
+
 const POPULAR_CRYPTOS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'AVAX', 'DOT', 'MATIC'];
 
 const CryptoAnalysis = () => {
@@ -24,9 +33,16 @@ const CryptoAnalysis = () => {
   const [selectedCryptos, setSelectedCryptos] = useState<string[]>([]);
   const [customCrypto, setCustomCrypto] = useState('');
   const [title, setTitle] = useState('');
+  const [reportType, setReportType] = useState<string>('alta');
+  const [sessionTime, setSessionTime] = useState<string>(new Date().getHours() < 14 ? 'morning' : 'night');
   const [currentReport, setCurrentReport] = useState<any>(null);
 
-  const { isAnalyzing, submitAnalysis, history, isLoadingHistory } = useCryptoAnalysis();
+  const {
+    isAnalyzing, submitAnalysis, history, isLoadingHistory,
+    rankings, isLoadingRankings,
+    periodicReports, isLoadingPeriodicReports,
+    generatePeriodicReport, isGeneratingReport,
+  } = useCryptoAnalysis();
 
   const toggleCrypto = (symbol: string) => {
     setSelectedCryptos(prev =>
@@ -43,7 +59,7 @@ const CryptoAnalysis = () => {
 
   const handleSubmit = async () => {
     if (images.length === 0) return;
-    const result = await submitAnalysis(images, selectedCryptos, title);
+    const result = await submitAnalysis(images, selectedCryptos, title, reportType, sessionTime);
     if (result) {
       setCurrentReport(result);
       setImages([]);
@@ -67,90 +83,150 @@ const CryptoAnalysis = () => {
               <span className="gradient-text">Análise IA</span>
               <span className="text-foreground/80 ml-2 hidden sm:inline">Criptomoedas</span>
             </h1>
-            <p className="text-xs text-muted-foreground">Análise técnica com inteligência artificial</p>
+            <p className="text-xs text-muted-foreground">Rastreamento de repetições e análise técnica</p>
           </div>
         </div>
         <BrainCircuit className="w-6 h-6 text-primary" />
       </motion.header>
 
-      <main className="container py-6 space-y-8 max-w-4xl">
-        {/* Upload Section */}
-        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">📊 Envie Gráficos para Análise</h2>
-          
-          <Input
-            placeholder="Título da análise (opcional)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="bg-card border-border/50"
-          />
+      <main className="container py-6 max-w-5xl">
+        <Tabs defaultValue="upload" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 bg-card/50">
+            <TabsTrigger value="upload">📤 Enviar</TabsTrigger>
+            <TabsTrigger value="rankings">🏆 Repetições</TabsTrigger>
+            <TabsTrigger value="periodic">📊 Periódicos</TabsTrigger>
+            <TabsTrigger value="history">📋 Histórico</TabsTrigger>
+          </TabsList>
 
-          <ImageUploader images={images} onImagesChange={setImages} disabled={isAnalyzing} />
-
-          {/* Crypto selector */}
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Selecione as criptos analisadas:</p>
-            <div className="flex flex-wrap gap-2">
-              {POPULAR_CRYPTOS.map(c => (
-                <button
-                  key={c}
-                  onClick={() => toggleCrypto(c)}
-                  className={`px-3 py-1 rounded-full text-xs font-mono transition-colors
-                    ${selectedCryptos.includes(c)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'}`}
-                >
-                  {c}
-                </button>
-              ))}
+          {/* UPLOAD TAB */}
+          <TabsContent value="upload" className="space-y-4">
+            {/* Report Type + Session */}
+            <div className="flex flex-wrap gap-3">
+              <div className="space-y-1 flex-1">
+                <p className="text-xs text-muted-foreground font-medium">Tipo do Relatório:</p>
+                <div className="flex gap-2">
+                  {REPORT_TYPES.map(rt => (
+                    <button
+                      key={rt.value}
+                      onClick={() => setReportType(rt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border
+                        ${reportType === rt.value
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-card/50 text-muted-foreground border-border/30 hover:border-primary/50'}`}
+                    >
+                      {rt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">Período:</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSessionTime('morning')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1
+                      ${sessionTime === 'morning'
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card/50 text-muted-foreground border-border/30 hover:border-primary/50'}`}
+                  >
+                    <Sun className="w-3 h-3" /> Manhã
+                  </button>
+                  <button
+                    onClick={() => setSessionTime('night')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1
+                      ${sessionTime === 'night'
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card/50 text-muted-foreground border-border/30 hover:border-primary/50'}`}
+                  >
+                    <Moon className="w-3 h-3" /> Noite
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Adicionar outra cripto..."
-                value={customCrypto}
-                onChange={(e) => setCustomCrypto(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addCustomCrypto()}
-                className="bg-card border-border/50 text-sm h-8"
-              />
-              <Button size="sm" variant="outline" onClick={addCustomCrypto} className="h-8">+</Button>
-            </div>
-          </div>
 
-          <Button
-            onClick={handleSubmit}
-            disabled={images.length === 0 || isAnalyzing}
-            className="w-full gap-2"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Analisando com IA...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                Gerar Análise ({images.length} {images.length === 1 ? 'imagem' : 'imagens'})
-              </>
-            )}
-          </Button>
-        </motion.section>
-
-        {/* Current Report */}
-        {currentReport && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <h2 className="text-base font-semibold text-foreground mb-4">🧠 Relatório Atual</h2>
-            <AnalysisReport
-              title={currentReport.title}
-              summary={currentReport.summary}
-              createdAt={currentReport.created_at}
-              cryptoSymbols={currentReport.crypto_symbols || []}
-              images={currentReport.images?.map((i: any) => ({ image_url: i.url, image_name: i.name }))}
+            <Input
+              placeholder="Título (opcional — gerado automaticamente: DD/MM/YYYY - Relatório de Alta)"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="bg-card border-border/50"
             />
-          </motion.section>
-        )}
 
-        {/* History */}
-        <AnalysisHistory analyses={history} isLoading={isLoadingHistory} />
+            <ImageUploader images={images} onImagesChange={setImages} disabled={isAnalyzing} />
+
+            {/* Crypto selector */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Criptos em foco (a IA também detecta automaticamente):</p>
+              <div className="flex flex-wrap gap-2">
+                {POPULAR_CRYPTOS.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => toggleCrypto(c)}
+                    className={`px-3 py-1 rounded-full text-xs font-mono transition-colors
+                      ${selectedCryptos.includes(c)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'}`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Adicionar outra cripto..."
+                  value={customCrypto}
+                  onChange={(e) => setCustomCrypto(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addCustomCrypto()}
+                  className="bg-card border-border/50 text-sm h-8"
+                />
+                <Button size="sm" variant="outline" onClick={addCustomCrypto} className="h-8">+</Button>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleSubmit}
+              disabled={images.length === 0 || isAnalyzing}
+              className="w-full gap-2"
+            >
+              {isAnalyzing ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Analisando com IA...</>
+              ) : (
+                <><Send className="w-4 h-4" /> Enviar {REPORT_TYPES.find(r => r.value === reportType)?.label} ({images.length} {images.length === 1 ? 'imagem' : 'imagens'})</>
+              )}
+            </Button>
+
+            {currentReport && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                <AnalysisReport
+                  title={currentReport.title}
+                  summary={currentReport.summary}
+                  createdAt={currentReport.created_at}
+                  cryptoSymbols={currentReport.crypto_symbols || currentReport.detectedCryptos || []}
+                  images={currentReport.images?.map((i: any) => ({ image_url: i.url, image_name: i.name }))}
+                />
+              </motion.div>
+            )}
+          </TabsContent>
+
+          {/* RANKINGS TAB */}
+          <TabsContent value="rankings">
+            <RepetitionDashboard rankings={rankings} isLoading={isLoadingRankings} />
+          </TabsContent>
+
+          {/* PERIODIC REPORTS TAB */}
+          <TabsContent value="periodic">
+            <PeriodicReportsView
+              reports={periodicReports}
+              isLoading={isLoadingPeriodicReports}
+              onGenerate={generatePeriodicReport}
+              isGenerating={isGeneratingReport}
+            />
+          </TabsContent>
+
+          {/* HISTORY TAB */}
+          <TabsContent value="history">
+            <AnalysisHistory analyses={history} isLoading={isLoadingHistory} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
