@@ -87,7 +87,7 @@ const Landing = () => {
             className="flex flex-col items-center gap-8 pt-6"
           >
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <Link to="/dashboard">
+              <Link to="/auth">
                 <Button size="lg" className="h-16 px-12 bg-primary text-black hover:bg-primary/90 rounded-none font-black uppercase tracking-[0.2em] text-sm group transition-all duration-500 shadow-[0_0_40px_rgba(14,165,233,0.2)]">
                   Garanta sua vaga agora
                   <ArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-2 transition-transform" />
