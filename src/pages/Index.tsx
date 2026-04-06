@@ -8,6 +8,7 @@ import { ActionSuggestion } from '@/components/dashboard/ActionSuggestion';
 import { MarketComparison } from '@/components/dashboard/MarketComparison';
 import { VolumeCharts } from '@/components/dashboard/VolumeCharts';
 import { NewsPanel } from '@/components/dashboard/NewsPanel';
+import { OnboardingTour } from '@/components/OnboardingTour';
 import { useMarketData } from '@/hooks/useMarketData';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Loader2 } from 'lucide-react';
@@ -41,15 +42,12 @@ const Index = () => {
   }
 
   const { markets, globalMetrics, alerts, correlations, news } = data || { 
-    markets: [], 
-    globalMetrics: null, 
-    alerts: [],
-    correlations: [],
-    news: []
+    markets: [], globalMetrics: null, alerts: [], correlations: [], news: []
   };
 
   return (
     <div className="min-h-screen bg-background">
+      <OnboardingTour />
       <Header 
         lastUpdated={dataUpdatedAt ? new Date(dataUpdatedAt) : undefined}
         soundEnabled={soundEnabled}
@@ -62,14 +60,12 @@ const Index = () => {
       <main className="container py-6 space-y-6">
         {globalMetrics && <VerdictBanner metrics={globalMetrics} />}
         
-        {/* Grid de Mercados - Responsivo para muitos itens */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {markets.map((market, index) => (
             <MarketCard key={market.id} market={market} index={index} />
           ))}
         </div>
 
-        {/* Gráficos com Filtros e Visão Mensal */}
         {markets.length > 0 && <VolumeCharts markets={markets} />}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -91,7 +87,7 @@ const Index = () => {
       <footer className="border-t border-border/50 py-6 mt-8">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
-            <span>Smart Nelson Money v2.6</span>
+            <span>Smart Nelson Money v2.7</span>
             <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono">TERMINAL ATIVO</span>
           </div>
           <span className="font-mono">© 2026 BauerLab • Dados Institucionais em Tempo Real</span>

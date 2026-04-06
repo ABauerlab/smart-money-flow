@@ -40,7 +40,7 @@ const Landing = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link to="/dashboard">
+            <Link to="/auth">
               <Button variant="outline" className="border-white/10 bg-white/5 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-black transition-all duration-500 rounded-none h-9">
                 Acesso Imediato
               </Button>
@@ -87,7 +87,7 @@ const Landing = () => {
             className="flex flex-col items-center gap-8 pt-6"
           >
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <Link to="/dashboard">
+              <Link to="/auth">
                 <Button size="lg" className="h-16 px-12 bg-primary text-black hover:bg-primary/90 rounded-none font-black uppercase tracking-[0.2em] text-sm group transition-all duration-500 shadow-[0_0_40px_rgba(14,165,233,0.2)]">
                   Garanta sua vaga agora
                   <ArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-2 transition-transform" />
@@ -243,7 +243,7 @@ const Landing = () => {
           </h2>
           
           <div className="max-w-md mx-auto space-y-8">
-            <Link to="/dashboard">
+            <Link to="/auth">
               <Button size="lg" className="w-full h-20 bg-white text-black hover:bg-primary hover:text-black rounded-none font-black uppercase tracking-[0.3em] text-xl shadow-[0_0_60px_rgba(255,255,255,0.1)] transition-all duration-500 group">
                 Acesso Imediato
                 <ArrowRight className="ml-4 w-6 h-6 group-hover:translate-x-2 transition-transform" />

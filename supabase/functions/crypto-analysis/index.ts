@@ -37,11 +37,28 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Extract user_id from JWT
+    const authHeader = req.headers.get('authorization') || '';
+    let userId: string | null = null;
+    if (authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      try {
+        const { data: { user } } = await createClient(supabaseUrl, supabaseKey).auth.getUser(token);
+        userId = user?.id || null;
+      } catch { /* anon key, no user */ }
+    }
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'Autenticação necessária' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ========== HISTORY ==========
     if (action === 'history') {
       const { data: analyses, error } = await supabase
         .from('crypto_analyses')
         .select('*, crypto_analysis_images(*)')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(20);
       if (error) throw error;
@@ -55,7 +72,7 @@ serve(async (req) => {
       const body = await req.json();
       const { periodType, year, weekNumber } = body;
 
-      let query = supabase.from('crypto_mentions').select('symbol, report_type');
+      let query = supabase.from('crypto_mentions').select('symbol, report_type').eq('user_id', userId);
 
       if (periodType === 'weekly' && weekNumber && year) {
         query = query.eq('week_number', weekNumber).eq('year', year);
@@ -103,6 +120,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from('crypto_periodic_reports')
         .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(30);
       if (error) throw error;
@@ -164,6 +182,7 @@ serve(async (req) => {
       const { data: mentions, error: mError } = await supabase
         .from('crypto_mentions')
         .select('symbol, report_type')
+        .eq('user_id', userId)
         .eq('year', currentYear)
         .in('week_number', weeksToInclude);
 
@@ -214,6 +233,7 @@ serve(async (req) => {
       const { data: report, error: insertErr } = await supabase
         .from('crypto_periodic_reports')
         .insert({
+          user_id: userId,
           period_type: periodType,
           period_start: periodStart!,
           period_end: periodEnd,
@@ -353,6 +373,7 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
       const { data: analysis, error: insertError } = await supabase
         .from('crypto_analyses')
         .insert({
+          user_id: userId,
           title: standardTitle,
           summary,
           period_type: 'daily',
@@ -382,6 +403,7 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
         const { data: submission } = await supabase
           .from('crypto_report_submissions')
           .insert({
+            user_id: userId,
             analysis_id: analysis.id,
             report_type: reportType,
             report_date: reportDate,
@@ -392,6 +414,7 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
 
         if (submission && allCryptos.length > 0) {
           const mentionRows = allCryptos.map(symbol => ({
+            user_id: userId,
             submission_id: submission.id,
             symbol,
             report_type: reportType,
