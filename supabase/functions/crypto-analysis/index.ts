@@ -182,6 +182,7 @@ serve(async (req) => {
       const { data: mentions, error: mError } = await supabase
         .from('crypto_mentions')
         .select('symbol, report_type')
+        .eq('user_id', userId)
         .eq('year', currentYear)
         .in('week_number', weeksToInclude);
 
