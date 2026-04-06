@@ -373,6 +373,7 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
       const { data: analysis, error: insertError } = await supabase
         .from('crypto_analyses')
         .insert({
+          user_id: userId,
           title: standardTitle,
           summary,
           period_type: 'daily',
