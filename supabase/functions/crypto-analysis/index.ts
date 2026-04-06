@@ -58,6 +58,7 @@ serve(async (req) => {
       const { data: analyses, error } = await supabase
         .from('crypto_analyses')
         .select('*, crypto_analysis_images(*)')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(20);
       if (error) throw error;
