@@ -243,7 +243,7 @@ const Landing = () => {
           </h2>
           
           <div className="max-w-md mx-auto space-y-8">
-            <Link to="/dashboard">
+            <Link to="/auth">
               <Button size="lg" className="w-full h-20 bg-white text-black hover:bg-primary hover:text-black rounded-none font-black uppercase tracking-[0.3em] text-xl shadow-[0_0_60px_rgba(255,255,255,0.1)] transition-all duration-500 group">
                 Acesso Imediato
                 <ArrowRight className="ml-4 w-6 h-6 group-hover:translate-x-2 transition-transform" />
