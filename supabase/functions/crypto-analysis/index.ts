@@ -233,6 +233,7 @@ serve(async (req) => {
       const { data: report, error: insertErr } = await supabase
         .from('crypto_periodic_reports')
         .insert({
+          user_id: userId,
           period_type: periodType,
           period_start: periodStart!,
           period_end: periodEnd,
