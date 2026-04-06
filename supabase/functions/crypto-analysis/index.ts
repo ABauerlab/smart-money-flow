@@ -37,6 +37,22 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Extract user_id from JWT
+    const authHeader = req.headers.get('authorization') || '';
+    let userId: string | null = null;
+    if (authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      try {
+        const { data: { user } } = await createClient(supabaseUrl, supabaseKey).auth.getUser(token);
+        userId = user?.id || null;
+      } catch { /* anon key, no user */ }
+    }
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'Autenticação necessária' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ========== HISTORY ==========
     if (action === 'history') {
       const { data: analyses, error } = await supabase
