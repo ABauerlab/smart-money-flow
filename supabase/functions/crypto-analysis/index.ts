@@ -120,6 +120,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from('crypto_periodic_reports')
         .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(30);
       if (error) throw error;
