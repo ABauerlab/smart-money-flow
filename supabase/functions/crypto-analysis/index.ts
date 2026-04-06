@@ -403,6 +403,7 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
         const { data: submission } = await supabase
           .from('crypto_report_submissions')
           .insert({
+            user_id: userId,
             analysis_id: analysis.id,
             report_type: reportType,
             report_date: reportDate,
