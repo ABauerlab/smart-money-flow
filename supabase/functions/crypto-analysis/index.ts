@@ -72,7 +72,7 @@ serve(async (req) => {
       const body = await req.json();
       const { periodType, year, weekNumber } = body;
 
-      let query = supabase.from('crypto_mentions').select('symbol, report_type');
+      let query = supabase.from('crypto_mentions').select('symbol, report_type').eq('user_id', userId);
 
       if (periodType === 'weekly' && weekNumber && year) {
         query = query.eq('week_number', weekNumber).eq('year', year);
