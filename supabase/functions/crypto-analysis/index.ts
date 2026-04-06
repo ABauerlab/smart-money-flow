@@ -414,6 +414,7 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
 
         if (submission && allCryptos.length > 0) {
           const mentionRows = allCryptos.map(symbol => ({
+            user_id: userId,
             submission_id: submission.id,
             symbol,
             report_type: reportType,
