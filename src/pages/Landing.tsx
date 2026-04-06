@@ -40,7 +40,7 @@ const Landing = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link to="/dashboard">
+            <Link to="/auth">
               <Button variant="outline" className="border-white/10 bg-white/5 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-black transition-all duration-500 rounded-none h-9">
                 Acesso Imediato
               </Button>
