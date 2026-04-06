@@ -23,6 +23,7 @@ export type Database = {
           period_type: string
           summary: string | null
           title: string
+          user_id: string | null
         }
         Insert: {
           ai_model_used?: string | null
@@ -32,6 +33,7 @@ export type Database = {
           period_type?: string
           summary?: string | null
           title: string
+          user_id?: string | null
         }
         Update: {
           ai_model_used?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           period_type?: string
           summary?: string | null
           title?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -87,6 +90,7 @@ export type Database = {
           report_type: string
           submission_id: string | null
           symbol: string
+          user_id: string | null
           week_number: number
           year: number
         }
@@ -97,6 +101,7 @@ export type Database = {
           report_type: string
           submission_id?: string | null
           symbol: string
+          user_id?: string | null
           week_number: number
           year: number
         }
@@ -107,6 +112,7 @@ export type Database = {
           report_type?: string
           submission_id?: string | null
           symbol?: string
+          user_id?: string | null
           week_number?: number
           year?: number
         }
@@ -130,6 +136,7 @@ export type Database = {
           period_type: string
           rankings: Json
           summary: string | null
+          user_id: string | null
           week_number: number | null
           year: number
         }
@@ -142,6 +149,7 @@ export type Database = {
           period_type: string
           rankings?: Json
           summary?: string | null
+          user_id?: string | null
           week_number?: number | null
           year: number
         }
@@ -154,6 +162,7 @@ export type Database = {
           period_type?: string
           rankings?: Json
           summary?: string | null
+          user_id?: string | null
           week_number?: number | null
           year?: number
         }
@@ -167,6 +176,7 @@ export type Database = {
           report_date: string
           report_type: string
           session_time: string
+          user_id: string | null
         }
         Insert: {
           analysis_id?: string | null
@@ -175,6 +185,7 @@ export type Database = {
           report_date?: string
           report_type: string
           session_time?: string
+          user_id?: string | null
         }
         Update: {
           analysis_id?: string | null
@@ -183,6 +194,7 @@ export type Database = {
           report_date?: string
           report_type?: string
           session_time?: string
+          user_id?: string | null
         }
         Relationships: [
           {
