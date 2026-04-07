@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { NotificationControls } from './NotificationControls';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAccessCode } from '@/contexts/AccessCodeContext';
 import {
   Tooltip,
   TooltipContent,
@@ -21,7 +21,7 @@ interface HeaderProps {
   onToggleNotifications?: () => void;
 }
 
-const REFRESH_INTERVAL = 60; // seconds
+const REFRESH_INTERVAL = 60;
 
 export const Header = ({ 
   lastUpdated,
@@ -32,7 +32,7 @@ export const Header = ({
   onToggleNotifications,
 }: HeaderProps) => {
   const queryClient = useQueryClient();
-  const { signOut } = useAuth();
+  const { clearAccessCode } = useAccessCode();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
 
@@ -46,7 +46,6 @@ export const Header = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Reset countdown when data updates
   useEffect(() => {
     setCountdown(REFRESH_INTERVAL);
   }, [lastUpdated]);
@@ -124,7 +123,6 @@ export const Header = ({
           <span className="text-sm font-mono text-foreground/80">{currentTime}</span>
         </div>
 
-        {/* Refresh with countdown */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button 
@@ -146,17 +144,16 @@ export const Header = ({
           </TooltipContent>
         </Tooltip>
 
-        {/* Logout */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              onClick={signOut}
+              onClick={clearAccessCode}
               className="p-2 rounded-lg bg-secondary/50 hover:bg-destructive/20 transition-colors group"
             >
               <LogOut className="w-4 h-4 text-muted-foreground group-hover:text-destructive transition-colors" />
             </button>
           </TooltipTrigger>
-          <TooltipContent><p>Sair</p></TooltipContent>
+          <TooltipContent><p>Trocar código de acesso</p></TooltipContent>
         </Tooltip>
       </div>
     </motion.header>
