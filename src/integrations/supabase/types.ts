@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       crypto_analyses: {
         Row: {
+          access_code: string | null
           ai_model_used: string | null
           created_at: string
           crypto_symbols: string[] | null
@@ -26,6 +27,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          access_code?: string | null
           ai_model_used?: string | null
           created_at?: string
           crypto_symbols?: string[] | null
@@ -36,6 +38,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          access_code?: string | null
           ai_model_used?: string | null
           created_at?: string
           crypto_symbols?: string[] | null
@@ -84,6 +87,7 @@ export type Database = {
       }
       crypto_mentions: {
         Row: {
+          access_code: string | null
           created_at: string
           id: string
           report_date: string
@@ -95,6 +99,7 @@ export type Database = {
           year: number
         }
         Insert: {
+          access_code?: string | null
           created_at?: string
           id?: string
           report_date: string
@@ -106,6 +111,7 @@ export type Database = {
           year: number
         }
         Update: {
+          access_code?: string | null
           created_at?: string
           id?: string
           report_date?: string
@@ -128,6 +134,7 @@ export type Database = {
       }
       crypto_periodic_reports: {
         Row: {
+          access_code: string | null
           ai_analysis: string | null
           created_at: string
           id: string
@@ -141,6 +148,7 @@ export type Database = {
           year: number
         }
         Insert: {
+          access_code?: string | null
           ai_analysis?: string | null
           created_at?: string
           id?: string
@@ -154,6 +162,7 @@ export type Database = {
           year: number
         }
         Update: {
+          access_code?: string | null
           ai_analysis?: string | null
           created_at?: string
           id?: string
@@ -170,6 +179,7 @@ export type Database = {
       }
       crypto_report_submissions: {
         Row: {
+          access_code: string | null
           analysis_id: string | null
           created_at: string
           id: string
@@ -179,6 +189,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          access_code?: string | null
           analysis_id?: string | null
           created_at?: string
           id?: string
@@ -188,6 +199,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          access_code?: string | null
           analysis_id?: string | null
           created_at?: string
           id?: string
