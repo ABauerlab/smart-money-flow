@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ImageUploader } from '@/components/analysis/ImageUploader';
 import { AnalysisReport } from '@/components/analysis/AnalysisReport';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AccessCodeGate, clearAccessCode, getAccessCode } from '@/components/AccessCodeGate';
 
 interface UploadedImage {
   name: string;
@@ -66,7 +67,13 @@ const CryptoAnalysis = () => {
     }
   };
 
+  const handleLogout = () => {
+    clearAccessCode();
+    window.location.reload();
+  };
+
   return (
+    <AccessCodeGate>
     <div className="min-h-screen bg-background">
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -86,7 +93,13 @@ const CryptoAnalysis = () => {
             <p className="text-xs text-muted-foreground">Rastreamento de repetições e análise técnica</p>
           </div>
         </div>
-        <BrainCircuit className="w-6 h-6 text-primary" />
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-mono hidden sm:inline">🔑 {getAccessCode()?.substring(0, 3)}***</span>
+          <button onClick={handleLogout} className="p-2 rounded-lg bg-secondary/50 hover:bg-destructive/20 transition-colors" title="Trocar código">
+            <LogOut className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <BrainCircuit className="w-6 h-6 text-primary" />
+        </div>
       </motion.header>
 
       <main className="container py-6 max-w-5xl">
