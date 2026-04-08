@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, FileText, Loader2, ChevronDown } from 'lucide-react';
+import { Calendar, FileText, Loader2, ChevronDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ReactMarkdown from 'react-markdown';
+import { exportPeriodicReportPdf } from '@/lib/exportPeriodicReportPdf';
 
 interface RankingEntry {
   symbol: string;
