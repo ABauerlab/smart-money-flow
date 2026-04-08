@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { useAccessCode } from '@/contexts/AccessCodeContext';
 
 interface AnalysisImage {
   name: string;
@@ -43,60 +42,53 @@ interface PeriodicReport {
 }
 
 const BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crypto-analysis`;
-
-const getHeaders = () => ({
+const headers = {
   'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
   'Content-Type': 'application/json',
-});
+};
 
 export const useCryptoAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { accessCode } = useAccessCode();
 
   const historyQuery = useQuery<{ analyses: CryptoAnalysis[] }>({
-    queryKey: ['crypto-analyses', accessCode],
+    queryKey: ['crypto-analyses'],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=history`, {
-        method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({ accessCode }),
+        method: 'POST', headers, body: JSON.stringify({}),
       });
       if (!resp.ok) throw new Error('Failed to fetch history');
       return resp.json();
     },
-    enabled: !!accessCode,
     staleTime: 60000,
   });
 
   const periodicReportsQuery = useQuery<{ reports: PeriodicReport[] }>({
-    queryKey: ['periodic-reports', accessCode],
+    queryKey: ['periodic-reports'],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=periodic-reports`, {
-        method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({ accessCode }),
+        method: 'POST', headers, body: JSON.stringify({}),
       });
       if (!resp.ok) throw new Error('Failed to fetch periodic reports');
       return resp.json();
     },
-    enabled: !!accessCode,
     staleTime: 60000,
   });
 
   const rankingsQuery = useQuery<{ rankings: RankingEntry[] }>({
-    queryKey: ['crypto-rankings', accessCode],
+    queryKey: ['crypto-rankings'],
     queryFn: async () => {
       const now = new Date();
       const weekNumber = getISOWeek(now);
       const resp = await fetch(`${BASE_URL}?action=rankings`, {
-        method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({ periodType: 'weekly', year: now.getFullYear(), weekNumber, accessCode }),
+        method: 'POST', headers,
+        body: JSON.stringify({ periodType: 'weekly', year: now.getFullYear(), weekNumber }),
       });
       if (!resp.ok) throw new Error('Failed to fetch rankings');
       return resp.json();
     },
-    enabled: !!accessCode,
     staleTime: 30000,
   });
 
@@ -110,10 +102,10 @@ export const useCryptoAnalysis = () => {
     setIsAnalyzing(true);
     try {
       const resp = await fetch(`${BASE_URL}?action=analyze`, {
-        method: 'POST', headers: getHeaders(),
+        method: 'POST', headers,
         body: JSON.stringify({
           images: images.map(img => ({ name: img.name, base64: img.base64, type: img.type })),
-          cryptoSymbols, title, reportType, sessionTime, accessCode,
+          cryptoSymbols, title, reportType, sessionTime,
         }),
       });
 
@@ -144,8 +136,8 @@ export const useCryptoAnalysis = () => {
     setIsGeneratingReport(true);
     try {
       const resp = await fetch(`${BASE_URL}?action=generate-periodic`, {
-        method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({ periodType, accessCode }),
+        method: 'POST', headers,
+        body: JSON.stringify({ periodType }),
       });
       if (!resp.ok) throw new Error('Erro ao gerar relatório');
       const data = await resp.json();
@@ -160,28 +152,11 @@ export const useCryptoAnalysis = () => {
     }
   };
 
-  const deleteAnalyses = async (ids: string[]) => {
-    try {
-      const resp = await fetch(`${BASE_URL}?action=delete`, {
-        method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({ ids, accessCode }),
-      });
-      if (!resp.ok) throw new Error('Erro ao excluir');
-
-      toast({ title: 'Excluído!', description: `${ids.length} relatório(s) excluído(s) com sucesso.` });
-      queryClient.invalidateQueries({ queryKey: ['crypto-analyses'] });
-      queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
-    } catch (error) {
-      toast({ title: 'Erro ao excluir', description: (error as Error).message, variant: 'destructive' });
-    }
-  };
-
   return {
     isAnalyzing,
     isGeneratingReport,
     submitAnalysis,
     generatePeriodicReport,
-    deleteAnalyses,
     history: historyQuery.data?.analyses || [],
     isLoadingHistory: historyQuery.isLoading,
     rankings: rankingsQuery.data?.rankings || [],

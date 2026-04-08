@@ -104,7 +104,6 @@ serve(async (req) => {
     
     const marketPromises = [
       fetchAlphaVantage('SPY', 'S&P 500', '🇺🇸', 'indices', 'USD', apiKey),
-      fetchAlphaVantage('QQQ', 'NASDAQ 100', '🇺🇸', 'indices', 'USD', apiKey),
       fetchAlphaVantage('NYA', 'NYSE Composite', '🏛️', 'stocks', 'USD', apiKey),
       fetchAlphaVantage('EWZ', 'Ibovespa (ETF)', '🇧🇷', 'indices', 'USD', apiKey),
       fetchAlphaVantage('EWH', 'Hong Kong (ETF)', '🇭🇰', 'indices', 'USD', apiKey),

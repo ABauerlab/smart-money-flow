@@ -14,6 +14,7 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-[#000] text-[#D1D1D1] selection:bg-primary/30 overflow-x-hidden font-sans">
+      {/* Fixed Header - Credibilidade & Conformidade */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-black/40 backdrop-blur-2xl">
         <div className="container h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -48,6 +49,7 @@ const Landing = () => {
         </div>
       </header>
 
+      {/* Hero Section: Headline 2026 */}
       <section className="relative min-h-screen flex items-center justify-center pt-20">
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
           <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary/10 blur-[150px] rounded-full" />
@@ -97,6 +99,7 @@ const Landing = () => {
               </div>
             </div>
 
+            {/* Trust Bar */}
             <div className="flex flex-wrap justify-center items-center gap-8 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-bullish" />
@@ -115,6 +118,7 @@ const Landing = () => {
         </motion.div>
       </section>
 
+      {/* Benefícios Diretos & IA Estratégica */}
       <section id="vision" className="py-40 relative border-t border-white/5">
         <div className="container">
           <div className="grid lg:grid-cols-2 gap-32 items-center">
@@ -131,9 +135,24 @@ const Landing = () => {
 
               <div className="grid gap-8">
                 {[
-                  { title: 'Simplifique sua Análise', desc: 'Reduza horas de trabalho manual para segundos com nossos Digital Twins de liquidez.', icon: <Sparkles className="w-6 h-6 text-bullish" />, tag: 'EFICIÊNCIA' },
-                  { title: 'Aumente métricas com IA', desc: 'Soluções inteligentes que aprendem com seu perfil e personalizam cada insight.', icon: <Cpu className="w-6 h-6 text-warning" />, tag: 'ROI' },
-                  { title: 'Conteúdo Autoral & SME', desc: 'Validação humana constante por especialistas certificados para garantir IA Responsável.', icon: <Users className="w-6 h-6 text-primary" />, tag: 'CONFIANÇA' }
+                  { 
+                    title: 'Simplifique sua Análise', 
+                    desc: 'Reduza horas de trabalho manual para segundos com nossos Digital Twins de liquidez.',
+                    icon: <Sparkles className="w-6 h-6 text-bullish" />,
+                    tag: 'EFICIÊNCIA'
+                  },
+                  { 
+                    title: 'Aumente métricas com IA', 
+                    desc: 'Soluções inteligentes que aprendem com seu perfil e personalizam cada insight.',
+                    icon: <Cpu className="w-6 h-6 text-warning" />,
+                    tag: 'ROI'
+                  },
+                  { 
+                    title: 'Conteúdo Autoral & SME', 
+                    desc: 'Validação humana constante por especialistas certificados para garantir IA Responsável.',
+                    icon: <Users className="w-6 h-6 text-primary" />,
+                    tag: 'CONFIANÇA'
+                  }
                 ].map((item, i) => (
                   <motion.div 
                     key={i}
@@ -169,15 +188,25 @@ const Landing = () => {
                   </div>
                   <span className="text-[10px] font-mono text-primary">SME VALIDATED</span>
                 </div>
+
                 <div className="flex-1 flex items-center justify-center">
                   <div className="relative w-48 h-48">
-                    <motion.div className="absolute inset-0 border-2 border-primary/20 rounded-full" animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: "linear" }} />
-                    <motion.div className="absolute inset-4 border border-bullish/30 rounded-full" animate={{ rotate: -360 }} transition={{ duration: 15, repeat: Infinity, ease: "linear" }} />
+                    <motion.div 
+                      className="absolute inset-0 border-2 border-primary/20 rounded-full"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    />
+                    <motion.div 
+                      className="absolute inset-4 border border-bullish/30 rounded-full"
+                      animate={{ rotate: -360 }}
+                      transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                    />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Cpu className="w-12 h-12 text-primary animate-pulse" />
                     </div>
                   </div>
                 </div>
+
                 <div className="p-6 border border-primary/30 bg-primary/5 rounded-none">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-mono text-primary font-bold uppercase">IA Estratégica Insight</span>
@@ -194,8 +223,10 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* CTA Final: Urgência & Benefício */}
       <section id="access" className="py-60 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent opacity-30" />
+        
         <div className="container relative z-10 text-center space-y-16">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}

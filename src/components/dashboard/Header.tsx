@@ -1,10 +1,9 @@
 import { motion } from 'framer-motion';
-import { RefreshCw, Wifi, BookOpenText, Home, BrainCircuit, HelpCircle, LogOut, Clock } from 'lucide-react';
+import { RefreshCw, Wifi, BookOpenText, Home, BrainCircuit } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { NotificationControls } from './NotificationControls';
 import { Link } from 'react-router-dom';
-import { useAccessCode } from '@/contexts/AccessCodeContext';
 import {
   Tooltip,
   TooltipContent,
@@ -21,8 +20,6 @@ interface HeaderProps {
   onToggleNotifications?: () => void;
 }
 
-const REFRESH_INTERVAL = 60;
-
 export const Header = ({ 
   lastUpdated,
   soundEnabled = true,
@@ -32,23 +29,7 @@ export const Header = ({
   onToggleNotifications,
 }: HeaderProps) => {
   const queryClient = useQueryClient();
-  const { clearAccessCode } = useAccessCode();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) return REFRESH_INTERVAL;
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    setCountdown(REFRESH_INTERVAL);
-  }, [lastUpdated]);
 
   const currentTime = new Date().toLocaleTimeString('pt-BR', {
     hour: '2-digit',
@@ -58,24 +39,17 @@ export const Header = ({
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    setCountdown(REFRESH_INTERVAL);
     await queryClient.invalidateQueries({ queryKey: ['market-data'] });
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
   const formatLastUpdated = (date?: Date) => {
     if (!date) return 'N/A';
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
-
-  const navButton = (to: string, icon: React.ReactNode, label: string) => (
-    <Link to={to} className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group">
-      <Tooltip>
-        <TooltipTrigger asChild>{icon}</TooltipTrigger>
-        <TooltipContent><p>{label}</p></TooltipContent>
-      </Tooltip>
-    </Link>
-  );
 
   return (
     <motion.header
@@ -98,11 +72,48 @@ export const Header = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-4">
-        {navButton('/', <Home className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />, 'Início')}
-        {navButton('/glossario', <BookOpenText className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />, 'Glossário')}
-        {navButton('/analise-ia', <BrainCircuit className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />, 'Análise IA')}
-        {navButton('/guia', <HelpCircle className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />, 'Guia do Sistema')}
+      <div className="flex items-center gap-3 sm:gap-6">
+        <Link 
+          to="/"
+          className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Home className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Voltar ao Início</p>
+            </TooltipContent>
+          </Tooltip>
+        </Link>
+
+        <Link 
+          to="/glossario"
+          className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BookOpenText className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Glossário de Termos</p>
+            </TooltipContent>
+          </Tooltip>
+        </Link>
+
+        <Link 
+          to="/analise-ia"
+          className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BrainCircuit className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Análise IA de Criptomoedas</p>
+            </TooltipContent>
+          </Tooltip>
+        </Link>
 
         {onToggleSound && onToggleNotifications && (
           <NotificationControls
@@ -123,38 +134,13 @@ export const Header = ({
           <span className="text-sm font-mono text-foreground/80">{currentTime}</span>
         </div>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button 
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="relative p-2 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 transition-colors group disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 text-primary ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span className="absolute -bottom-1 -right-1 text-[9px] font-mono font-bold bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center">
-                {countdown}
-              </span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <div className="text-center">
-              <p className="font-semibold flex items-center gap-1"><Clock className="w-3 h-3" /> Próxima atualização em {countdown}s</p>
-              <p className="text-xs text-muted-foreground">Para atualização manual, clique aqui</p>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={clearAccessCode}
-              className="p-2 rounded-lg bg-secondary/50 hover:bg-destructive/20 transition-colors group"
-            >
-              <LogOut className="w-4 h-4 text-muted-foreground group-hover:text-destructive transition-colors" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent><p>Trocar código de acesso</p></TooltipContent>
-        </Tooltip>
+        <button 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
     </motion.header>
   );

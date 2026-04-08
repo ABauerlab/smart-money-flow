@@ -42,7 +42,6 @@ const CryptoAnalysis = () => {
     rankings, isLoadingRankings,
     periodicReports, isLoadingPeriodicReports,
     generatePeriodicReport, isGeneratingReport,
-    deleteAnalyses,
   } = useCryptoAnalysis();
 
   const toggleCrypto = (symbol: string) => {
@@ -99,7 +98,9 @@ const CryptoAnalysis = () => {
             <TabsTrigger value="history">📋 Histórico</TabsTrigger>
           </TabsList>
 
+          {/* UPLOAD TAB */}
           <TabsContent value="upload" className="space-y-4">
+            {/* Report Type + Session */}
             <div className="flex flex-wrap gap-3">
               <div className="space-y-1 flex-1">
                 <p className="text-xs text-muted-foreground font-medium">Tipo do Relatório:</p>
@@ -152,6 +153,7 @@ const CryptoAnalysis = () => {
 
             <ImageUploader images={images} onImagesChange={setImages} disabled={isAnalyzing} />
 
+            {/* Crypto selector */}
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Criptos em foco (a IA também detecta automaticamente):</p>
               <div className="flex flex-wrap gap-2">
@@ -205,10 +207,12 @@ const CryptoAnalysis = () => {
             )}
           </TabsContent>
 
+          {/* RANKINGS TAB */}
           <TabsContent value="rankings">
             <RepetitionDashboard rankings={rankings} isLoading={isLoadingRankings} />
           </TabsContent>
 
+          {/* PERIODIC REPORTS TAB */}
           <TabsContent value="periodic">
             <PeriodicReportsView
               reports={periodicReports}
@@ -218,12 +222,9 @@ const CryptoAnalysis = () => {
             />
           </TabsContent>
 
+          {/* HISTORY TAB */}
           <TabsContent value="history">
-            <AnalysisHistory
-              analyses={history}
-              isLoading={isLoadingHistory}
-              onDelete={deleteAnalyses}
-            />
+            <AnalysisHistory analyses={history} isLoading={isLoadingHistory} />
           </TabsContent>
         </Tabs>
       </main>

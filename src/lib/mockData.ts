@@ -23,22 +23,6 @@ export const mockMarketData: MarketData[] = [
     ]
   },
   {
-    id: 'nasdaq',
-    name: 'NASDAQ 100',
-    ticker: 'QQQ',
-    flag: '🇺🇸',
-    category: 'indices',
-    currentVolume: 52000000,
-    averageVolume: 45000000,
-    price: 498.25,
-    priceChange: 1.12,
-    volumeRatio: 1.16,
-    zScore: 1.2,
-    flowType: 'accumulation',
-    convictionScore: 7.4,
-    currency: 'USD',
-  },
-  {
     id: 'nyse',
     name: 'NYSE Composite',
     ticker: 'NYA',
