@@ -37,11 +37,25 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Parse body once for all actions that need it
+    let body: any = {};
+    if (req.method === 'POST') {
+      try { body = await req.json(); } catch { body = {}; }
+    }
+
+    const accessCode = body.accessCode || '';
+    if (!accessCode || accessCode.length < 4) {
+      return new Response(JSON.stringify({ error: 'Código de acesso inválido (mínimo 4 caracteres)' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ========== HISTORY ==========
     if (action === 'history') {
       const { data: analyses, error } = await supabase
         .from('crypto_analyses')
         .select('*, crypto_analysis_images(*)')
+        .eq('access_code', accessCode)
         .order('created_at', { ascending: false })
         .limit(20);
       if (error) throw error;
@@ -52,18 +66,17 @@ serve(async (req) => {
 
     // ========== REPETITION RANKINGS ==========
     if (action === 'rankings') {
-      const body = await req.json();
       const { periodType, year, weekNumber } = body;
 
-      let query = supabase.from('crypto_mentions').select('symbol, report_type');
+      let query = supabase.from('crypto_mentions').select('symbol, report_type').eq('access_code', accessCode);
 
       if (periodType === 'weekly' && weekNumber && year) {
         query = query.eq('week_number', weekNumber).eq('year', year);
       } else if (periodType && year) {
-        // For longer periods, fetch periodic report
         const { data } = await supabase
           .from('crypto_periodic_reports')
           .select('*')
+          .eq('access_code', accessCode)
           .eq('period_type', periodType)
           .eq('year', year)
           .order('created_at', { ascending: false })
@@ -79,7 +92,6 @@ serve(async (req) => {
       const { data: mentions, error } = await query;
       if (error) throw error;
 
-      // Aggregate by symbol
       const counts: Record<string, { total: number; alta: number; baixa: number; volume: number }> = {};
       for (const m of (mentions || [])) {
         if (!counts[m.symbol]) counts[m.symbol] = { total: 0, alta: 0, baixa: 0, volume: 0 };
@@ -103,6 +115,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from('crypto_periodic_reports')
         .select('*')
+        .eq('access_code', accessCode)
         .order('created_at', { ascending: false })
         .limit(30);
       if (error) throw error;
@@ -113,7 +126,6 @@ serve(async (req) => {
 
     // ========== GENERATE PERIODIC REPORT ==========
     if (action === 'generate-periodic') {
-      const body = await req.json();
       const { periodType } = body;
 
       const now = new Date();
@@ -160,10 +172,10 @@ serve(async (req) => {
           throw new Error('Tipo de período inválido');
       }
 
-      // Get mentions for the period
       const { data: mentions, error: mError } = await supabase
         .from('crypto_mentions')
         .select('symbol, report_type')
+        .eq('access_code', accessCode)
         .eq('year', currentYear)
         .in('week_number', weeksToInclude);
 
@@ -182,7 +194,6 @@ serve(async (req) => {
         .map(([symbol, c]) => ({ symbol, ...c }))
         .sort((a, b) => b.total - a.total);
 
-      // Generate AI analysis of the periodic data
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       let aiAnalysis = '';
 
@@ -210,7 +221,6 @@ serve(async (req) => {
         }
       }
 
-      // Save periodic report
       const { data: report, error: insertErr } = await supabase
         .from('crypto_periodic_reports')
         .insert({
@@ -222,6 +232,7 @@ serve(async (req) => {
           rankings: rankings as any,
           summary: `${rankings.length} criptomoedas rastreadas no período`,
           ai_analysis: aiAnalysis,
+          access_code: accessCode,
         })
         .select()
         .single();
@@ -235,7 +246,6 @@ serve(async (req) => {
 
     // ========== ANALYZE (main) ==========
     if (action === 'analyze') {
-      const body = await req.json();
       const { images, cryptoSymbols, title, reportType, sessionTime } = body;
 
       if (!images || images.length === 0) {
@@ -250,7 +260,7 @@ serve(async (req) => {
       // Upload images
       const uploadedImages: { url: string; name: string; base64: string }[] = [];
       for (const img of images) {
-        const fileName = `${crypto.randomUUID()}-${img.name}`;
+        const fileName = `${accessCode}/${crypto.randomUUID()}-${img.name}`;
         const buffer = Uint8Array.from(atob(img.base64), c => c.charCodeAt(0));
         const { error: uploadError } = await supabase.storage
           .from('crypto-images')
@@ -260,10 +270,8 @@ serve(async (req) => {
         uploadedImages.push({ url: urlData.publicUrl, name: img.name, base64: img.base64 });
       }
 
-      // Determine report type label
       const reportTypeLabel = reportType === 'alta' ? 'ALTA' : reportType === 'baixa' ? 'BAIXA' : reportType === 'volume' ? 'VOLUME' : 'GERAL';
 
-      // Build prompt
       const userContent: any[] = [
         {
           type: 'text',
@@ -316,7 +324,7 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
         const errText = await aiResponse.text();
         console.error('AI Gateway error:', aiResponse.status, errText);
         if (aiResponse.status === 429) {
-          return new Response(JSON.stringify({ error: 'Limite de requisições atingido. Tente novamente em alguns minutos.' }), {
+          return new Response(JSON.stringify({ error: 'Limite de requisições atingido.' }), {
             status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
@@ -331,7 +339,6 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
       const aiData = await aiResponse.json();
       const summary = aiData.choices?.[0]?.message?.content || 'Análise não disponível.';
 
-      // Extract detected cryptos from AI response
       const cryptoMatch = summary.match(/CRYPTOS_DETECTED:\s*([^\n]+)/i);
       let detectedCryptos: string[] = [];
       if (cryptoMatch) {
@@ -340,16 +347,13 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
           .map((s: string) => s.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
           .filter((s: string) => s.length > 0 && s.length <= 10);
       }
-      // Merge with user-provided symbols
       const allCryptos = [...new Set([...detectedCryptos, ...(cryptoSymbols || []).map((s: string) => s.toUpperCase())])];
 
-      // Generate standardized title: DATE - REPORT_NAME
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
       const reportNames: Record<string, string> = { alta: 'Relatório de Alta', baixa: 'Relatório de Baixa', volume: 'Relatório de Alta de Volume' };
       const standardTitle = title || `${dateStr} - ${reportNames[reportType] || 'Análise Geral'}`;
 
-      // Save analysis
       const { data: analysis, error: insertError } = await supabase
         .from('crypto_analyses')
         .insert({
@@ -358,13 +362,13 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
           period_type: 'daily',
           crypto_symbols: allCryptos,
           ai_model_used: 'google/gemini-2.5-pro',
+          access_code: accessCode,
         })
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      // Save image records
       for (const img of uploadedImages) {
         await supabase.from('crypto_analysis_images').insert({
           analysis_id: analysis.id,
@@ -373,7 +377,6 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
         });
       }
 
-      // Save report submission and track mentions
       if (reportType) {
         const weekNumber = getISOWeek(now);
         const year = now.getFullYear();
@@ -386,6 +389,7 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
             report_type: reportType,
             report_date: reportDate,
             session_time: sessionTime || (now.getHours() < 14 ? 'morning' : 'night'),
+            access_code: accessCode,
           })
           .select()
           .single();
@@ -398,6 +402,7 @@ Foca em fluxo institucional e Smart Money concepts. Responde sempre em portuguê
             report_date: reportDate,
             week_number: weekNumber,
             year,
+            access_code: accessCode,
           }));
           await supabase.from('crypto_mentions').insert(mentionRows);
         }

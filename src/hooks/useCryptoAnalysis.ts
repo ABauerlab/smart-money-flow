@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { getAccessCode } from '@/components/AccessCodeGate';
 
 interface AnalysisImage {
   name: string;
@@ -53,43 +54,48 @@ export const useCryptoAnalysis = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const accessCode = getAccessCode() || '';
+
   const historyQuery = useQuery<{ analyses: CryptoAnalysis[] }>({
-    queryKey: ['crypto-analyses'],
+    queryKey: ['crypto-analyses', accessCode],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=history`, {
-        method: 'POST', headers, body: JSON.stringify({}),
+        method: 'POST', headers, body: JSON.stringify({ accessCode }),
       });
       if (!resp.ok) throw new Error('Failed to fetch history');
       return resp.json();
     },
     staleTime: 60000,
+    enabled: !!accessCode,
   });
 
   const periodicReportsQuery = useQuery<{ reports: PeriodicReport[] }>({
-    queryKey: ['periodic-reports'],
+    queryKey: ['periodic-reports', accessCode],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=periodic-reports`, {
-        method: 'POST', headers, body: JSON.stringify({}),
+        method: 'POST', headers, body: JSON.stringify({ accessCode }),
       });
       if (!resp.ok) throw new Error('Failed to fetch periodic reports');
       return resp.json();
     },
     staleTime: 60000,
+    enabled: !!accessCode,
   });
 
   const rankingsQuery = useQuery<{ rankings: RankingEntry[] }>({
-    queryKey: ['crypto-rankings'],
+    queryKey: ['crypto-rankings', accessCode],
     queryFn: async () => {
       const now = new Date();
       const weekNumber = getISOWeek(now);
       const resp = await fetch(`${BASE_URL}?action=rankings`, {
         method: 'POST', headers,
-        body: JSON.stringify({ periodType: 'weekly', year: now.getFullYear(), weekNumber }),
+        body: JSON.stringify({ periodType: 'weekly', year: now.getFullYear(), weekNumber, accessCode }),
       });
       if (!resp.ok) throw new Error('Failed to fetch rankings');
       return resp.json();
     },
     staleTime: 30000,
+    enabled: !!accessCode,
   });
 
   const submitAnalysis = async (
@@ -105,7 +111,7 @@ export const useCryptoAnalysis = () => {
         method: 'POST', headers,
         body: JSON.stringify({
           images: images.map(img => ({ name: img.name, base64: img.base64, type: img.type })),
-          cryptoSymbols, title, reportType, sessionTime,
+          cryptoSymbols, title, reportType, sessionTime, accessCode,
         }),
       });
 
@@ -137,7 +143,7 @@ export const useCryptoAnalysis = () => {
     try {
       const resp = await fetch(`${BASE_URL}?action=generate-periodic`, {
         method: 'POST', headers,
-        body: JSON.stringify({ periodType }),
+        body: JSON.stringify({ periodType, accessCode }),
       });
       if (!resp.ok) throw new Error('Erro ao gerar relatório');
       const data = await resp.json();
