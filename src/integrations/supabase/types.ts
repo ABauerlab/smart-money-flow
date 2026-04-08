@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       crypto_analyses: {
         Row: {
+          access_code: string | null
           ai_model_used: string | null
           created_at: string
           crypto_symbols: string[] | null
@@ -23,8 +24,10 @@ export type Database = {
           period_type: string
           summary: string | null
           title: string
+          user_id: string | null
         }
         Insert: {
+          access_code?: string | null
           ai_model_used?: string | null
           created_at?: string
           crypto_symbols?: string[] | null
@@ -32,8 +35,10 @@ export type Database = {
           period_type?: string
           summary?: string | null
           title: string
+          user_id?: string | null
         }
         Update: {
+          access_code?: string | null
           ai_model_used?: string | null
           created_at?: string
           crypto_symbols?: string[] | null
@@ -41,6 +46,7 @@ export type Database = {
           period_type?: string
           summary?: string | null
           title?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -81,32 +87,38 @@ export type Database = {
       }
       crypto_mentions: {
         Row: {
+          access_code: string | null
           created_at: string
           id: string
           report_date: string
           report_type: string
           submission_id: string | null
           symbol: string
+          user_id: string | null
           week_number: number
           year: number
         }
         Insert: {
+          access_code?: string | null
           created_at?: string
           id?: string
           report_date: string
           report_type: string
           submission_id?: string | null
           symbol: string
+          user_id?: string | null
           week_number: number
           year: number
         }
         Update: {
+          access_code?: string | null
           created_at?: string
           id?: string
           report_date?: string
           report_type?: string
           submission_id?: string | null
           symbol?: string
+          user_id?: string | null
           week_number?: number
           year?: number
         }
@@ -122,6 +134,7 @@ export type Database = {
       }
       crypto_periodic_reports: {
         Row: {
+          access_code: string | null
           ai_analysis: string | null
           created_at: string
           id: string
@@ -130,10 +143,12 @@ export type Database = {
           period_type: string
           rankings: Json
           summary: string | null
+          user_id: string | null
           week_number: number | null
           year: number
         }
         Insert: {
+          access_code?: string | null
           ai_analysis?: string | null
           created_at?: string
           id?: string
@@ -142,10 +157,12 @@ export type Database = {
           period_type: string
           rankings?: Json
           summary?: string | null
+          user_id?: string | null
           week_number?: number | null
           year: number
         }
         Update: {
+          access_code?: string | null
           ai_analysis?: string | null
           created_at?: string
           id?: string
@@ -154,6 +171,7 @@ export type Database = {
           period_type?: string
           rankings?: Json
           summary?: string | null
+          user_id?: string | null
           week_number?: number | null
           year?: number
         }
@@ -161,28 +179,34 @@ export type Database = {
       }
       crypto_report_submissions: {
         Row: {
+          access_code: string | null
           analysis_id: string | null
           created_at: string
           id: string
           report_date: string
           report_type: string
           session_time: string
+          user_id: string | null
         }
         Insert: {
+          access_code?: string | null
           analysis_id?: string | null
           created_at?: string
           id?: string
           report_date?: string
           report_type: string
           session_time?: string
+          user_id?: string | null
         }
         Update: {
+          access_code?: string | null
           analysis_id?: string | null
           created_at?: string
           id?: string
           report_date?: string
           report_type?: string
           session_time?: string
+          user_id?: string | null
         }
         Relationships: [
           {
