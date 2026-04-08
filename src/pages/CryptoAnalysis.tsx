@@ -242,6 +242,7 @@ const CryptoAnalysis = () => {
         </Tabs>
       </main>
     </div>
+    </AccessCodeGate>
   );
 };
 
