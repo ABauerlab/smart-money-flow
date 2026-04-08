@@ -108,7 +108,16 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
                     {new Date(r.period_start).toLocaleDateString('pt-BR')} — {new Date(r.period_end).toLocaleDateString('pt-BR')}
                   </span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${expandedId === r.id ? 'rotate-180' : ''}`} />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); exportPeriodicReportPdf(r); }}
+                    className="p-1 rounded hover:bg-primary/20 transition-colors"
+                    title="Baixar PDF"
+                  >
+                    <Download className="w-3.5 h-3.5 text-primary" />
+                  </button>
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${expandedId === r.id ? 'rotate-180' : ''}`} />
+                </div>
               </button>
 
               {expandedId === r.id && (
