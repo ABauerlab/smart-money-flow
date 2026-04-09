@@ -19,12 +19,13 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
 
   const selectedMarket = markets.find(m => m.id === selectedMarketId) || markets[0];
 
-  // Mock monthly data if not present
+  // Mock monthly data if not present — only show months up to current month
   const getMonthlyData = (market: MarketData) => {
     if (market.monthlyVolumes) return market.monthlyVolumes;
     
-    // Generate mock monthly data for demonstration
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
+    const allMonths = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentMonth = new Date().getMonth(); // 0-indexed
+    const months = allMonths.slice(0, currentMonth + 1);
     return months.map(m => ({
       month: m,
       volume: market.averageVolume * (0.8 + Math.random() * 0.6),
