@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
-import { FileText, Clock, Download } from 'lucide-react';
+import { FileText, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { exportAnalysisReportPdf } from '@/lib/exportAnalysisReportPdf';
 
 interface AnalysisReportProps {
   title: string;
@@ -26,18 +25,9 @@ export const AnalysisReport = ({ title, summary, createdAt, cryptoSymbols, image
           <FileText className="w-5 h-5 text-primary" />
           <h3 className="font-semibold text-foreground">{title}</h3>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => exportAnalysisReportPdf({ title, summary, createdAt, cryptoSymbols })}
-            className="p-1.5 rounded-lg hover:bg-primary/20 transition-colors"
-            title="Baixar PDF"
-          >
-            <Download className="w-4 h-4 text-primary" />
-          </button>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            {new Date(createdAt).toLocaleString('pt-BR')}
-          </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Clock className="w-3 h-3" />
+          {new Date(createdAt).toLocaleString('pt-BR')}
         </div>
       </div>
 

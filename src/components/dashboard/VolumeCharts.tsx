@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Calendar, Filter } from 'lucide-react';
+import { BarChart3, Calendar, Filter, Info } from 'lucide-react';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   Legend, CartesianGrid, Cell 
@@ -19,12 +20,13 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
 
   const selectedMarket = markets.find(m => m.id === selectedMarketId) || markets[0];
 
-  // Mock monthly data if not present
+  // Mock monthly data if not present — only show months up to current month
   const getMonthlyData = (market: MarketData) => {
     if (market.monthlyVolumes) return market.monthlyVolumes;
     
-    // Generate mock monthly data for demonstration
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
+    const allMonths = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentMonth = new Date().getMonth(); // 0-indexed
+    const months = allMonths.slice(0, currentMonth + 1);
     return months.map(m => ({
       month: m,
       volume: market.averageVolume * (0.8 + Math.random() * 0.6),
@@ -62,8 +64,9 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
             <BarChart3 className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center">
               Análise de Volume Institucional
+              <InfoTooltip text="Compara o volume de negociação atual com a média histórica. Barras verdes indicam volume acima de 120% da média (atividade institucional alta). Barras vermelhas indicam volume abaixo de 80% (atividade baixa). Dados mensais mostram apenas até o mês atual." />
             </h2>
             <p className="text-xs text-muted-foreground">Compare o fluxo diário e mensal</p>
           </div>

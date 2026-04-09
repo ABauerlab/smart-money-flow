@@ -4,6 +4,7 @@ import { Calendar, FileText, Loader2, ChevronDown, Download } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import ReactMarkdown from 'react-markdown';
 import { exportPeriodicReportPdf } from '@/lib/exportPeriodicReportPdf';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 interface RankingEntry {
   symbol: string;
@@ -41,6 +42,16 @@ const PERIOD_LABELS: Record<string, string> = {
   semiannual: '📑 Semestral',
 };
 
+const PERIOD_DESCRIPTIONS: Record<string, string> = {
+  weekly: 'Consolida os relatórios da semana atual (segunda a domingo)',
+  biweekly: 'Consolida as duas últimas semanas de relatórios',
+  triweekly: 'Consolida as três últimas semanas de relatórios',
+  monthly: 'Consolida as quatro últimas semanas (≈1 mês) de relatórios',
+  bimonthly: 'Consolida as últimas 8 semanas (≈2 meses)',
+  quarterly: 'Consolida as últimas 13 semanas (≈3 meses)',
+  semiannual: 'Consolida as últimas 26 semanas (≈6 meses)',
+};
+
 const PERIOD_ORDER = ['weekly', 'biweekly', 'triweekly', 'monthly', 'bimonthly', 'quarterly', 'semiannual'];
 
 export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerating }: PeriodicReportsViewProps) => {
@@ -55,13 +66,22 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
 
   return (
     <div className="space-y-4">
+      {/* Explainer box */}
+      <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground space-y-1">
+        <p className="font-semibold text-foreground">📖 O que são Relatórios Periódicos?</p>
+        <p>São consolidações automáticas dos seus relatórios diários em períodos maiores. A IA analisa os rankings de repetição acumulados e identifica tendências.</p>
+        <p>O período coberto é calculado a partir da <strong>data atual</strong>. Ex: "Semanal" cobre a semana corrente, "Mensal" cobre as últimas 4 semanas.</p>
+        <p>Os dados vêm das <strong>menções de criptos</strong> nos relatórios que você já enviou — sem envios, os relatórios ficarão vazios.</p>
+      </div>
+
       <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
         <Calendar className="w-4 h-4 text-primary" />
-        Relatórios Periódicos
+        Gerar Relatório Periódico
+        <InfoTooltip text="Clique em um período para consolidar os dados dos relatórios enviados naquele intervalo. O relatório mostra as criptos mais frequentes e uma análise da IA." />
       </h3>
 
-      {/* Generate buttons */}
-      <div className="flex flex-wrap gap-2">
+      {/* Generate buttons with descriptions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {PERIOD_ORDER.map(type => (
           <Button
             key={type}
@@ -69,17 +89,27 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
             variant="outline"
             onClick={() => handleGenerate(type)}
             disabled={isGenerating}
-            className="text-xs h-7"
+            className="text-xs h-auto py-2 px-3 justify-start text-left"
           >
-            {isGenerating && generatingType === type ? (
-              <Loader2 className="w-3 h-3 animate-spin mr-1" />
-            ) : null}
-            {PERIOD_LABELS[type]}
+            <div className="flex flex-col items-start">
+              <div className="flex items-center gap-1">
+                {isGenerating && generatingType === type ? (
+                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                ) : null}
+                <span className="font-semibold">{PERIOD_LABELS[type]}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground font-normal">{PERIOD_DESCRIPTIONS[type]}</span>
+            </div>
           </Button>
         ))}
       </div>
 
       {/* Reports list */}
+      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mt-6">
+        <FileText className="w-4 h-4 text-primary" />
+        Relatórios Gerados
+      </h3>
+
       {isLoading ? (
         <div className="flex justify-center py-6">
           <Loader2 className="w-5 h-5 text-primary animate-spin" />
@@ -87,7 +117,8 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
       ) : reports.length === 0 ? (
         <div className="text-center py-6 text-muted-foreground text-sm">
           <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          Nenhum relatório periódico gerado ainda
+          <p>Nenhum relatório periódico gerado ainda</p>
+          <p className="text-xs mt-1">Clique em um dos períodos acima para gerar</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -122,7 +153,6 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
 
               {expandedId === r.id && (
                 <div className="px-3 pb-3 space-y-3">
-                  {/* Rankings */}
                   {Array.isArray(r.rankings) && r.rankings.length > 0 && (
                     <div className="space-y-1">
                       <p className="text-xs font-semibold text-muted-foreground">Top Criptos:</p>
@@ -138,7 +168,6 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
                     </div>
                   )}
 
-                  {/* AI Analysis */}
                   {r.ai_analysis && (
                     <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed">
                       <ReactMarkdown>{r.ai_analysis}</ReactMarkdown>
