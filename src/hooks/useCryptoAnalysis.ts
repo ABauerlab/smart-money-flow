@@ -50,14 +50,17 @@ const headers = {
 export const useCryptoAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const getAccessCode = () => localStorage.getItem('crypto_access_code') || undefined;
 
   const historyQuery = useQuery<{ analyses: CryptoAnalysis[] }>({
     queryKey: ['crypto-analyses'],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=history`, {
-        method: 'POST', headers, body: JSON.stringify({}),
+        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode() }),
       });
       if (!resp.ok) throw new Error('Failed to fetch history');
       return resp.json();
@@ -69,7 +72,7 @@ export const useCryptoAnalysis = () => {
     queryKey: ['periodic-reports'],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=periodic-reports`, {
-        method: 'POST', headers, body: JSON.stringify({}),
+        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode() }),
       });
       if (!resp.ok) throw new Error('Failed to fetch periodic reports');
       return resp.json();
@@ -84,7 +87,7 @@ export const useCryptoAnalysis = () => {
       const weekNumber = getISOWeek(now);
       const resp = await fetch(`${BASE_URL}?action=rankings`, {
         method: 'POST', headers,
-        body: JSON.stringify({ periodType: 'weekly', year: now.getFullYear(), weekNumber }),
+        body: JSON.stringify({ periodType: 'weekly', year: now.getFullYear(), weekNumber, accessCode: getAccessCode() }),
       });
       if (!resp.ok) throw new Error('Failed to fetch rankings');
       return resp.json();
@@ -106,6 +109,7 @@ export const useCryptoAnalysis = () => {
         body: JSON.stringify({
           images: images.map(img => ({ name: img.name, base64: img.base64, type: img.type })),
           cryptoSymbols, title, reportType, sessionTime,
+          accessCode: getAccessCode(),
         }),
       });
 
@@ -137,7 +141,7 @@ export const useCryptoAnalysis = () => {
     try {
       const resp = await fetch(`${BASE_URL}?action=generate-periodic`, {
         method: 'POST', headers,
-        body: JSON.stringify({ periodType }),
+        body: JSON.stringify({ periodType, accessCode: getAccessCode() }),
       });
       if (!resp.ok) throw new Error('Erro ao gerar relatório');
       const data = await resp.json();
@@ -152,11 +156,31 @@ export const useCryptoAnalysis = () => {
     }
   };
 
+  const deleteAnalyses = async (ids: string[]) => {
+    setIsDeleting(true);
+    try {
+      const resp = await fetch(`${BASE_URL}?action=delete`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ ids, accessCode: getAccessCode() }),
+      });
+      if (!resp.ok) throw new Error('Erro ao apagar relatórios');
+      toast({ title: 'Apagado!', description: `${ids.length} relatório(s) removido(s).` });
+      queryClient.invalidateQueries({ queryKey: ['crypto-analyses'] });
+      queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
+    } catch (error) {
+      toast({ title: 'Erro', description: (error as Error).message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return {
     isAnalyzing,
     isGeneratingReport,
+    isDeleting,
     submitAnalysis,
     generatePeriodicReport,
+    deleteAnalyses,
     history: historyQuery.data?.analyses || [],
     isLoadingHistory: historyQuery.isLoading,
     rankings: rankingsQuery.data?.rankings || [],

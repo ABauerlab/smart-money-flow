@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ImageUploader } from '@/components/analysis/ImageUploader';
 import { AnalysisReport } from '@/components/analysis/AnalysisReport';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 interface UploadedImage {
   name: string;
@@ -28,7 +29,41 @@ const REPORT_TYPES = [
 
 const POPULAR_CRYPTOS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'AVAX', 'DOT', 'MATIC'];
 
+const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
+  const [code, setCode] = useState('');
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-sm space-y-4 text-center"
+      >
+        <BrainCircuit className="w-12 h-12 text-primary mx-auto" />
+        <h1 className="text-xl font-bold gradient-text">Análise IA — CriptoEx</h1>
+        <p className="text-sm text-muted-foreground">
+          Digite seu código de acesso pessoal para isolar seus dados. Mínimo 4 caracteres.
+        </p>
+        <Input
+          placeholder="Código de acesso..."
+          value={code}
+          onChange={e => setCode(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && code.length >= 4 && onAccess(code)}
+          className="text-center"
+        />
+        <Button
+          onClick={() => onAccess(code)}
+          disabled={code.length < 4}
+          className="w-full"
+        >
+          Entrar
+        </Button>
+      </motion.div>
+    </div>
+  );
+};
+
 const CryptoAnalysis = () => {
+  const [accessCode, setAccessCode] = useState(() => localStorage.getItem('crypto_access_code') || '');
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [selectedCryptos, setSelectedCryptos] = useState<string[]>([]);
   const [customCrypto, setCustomCrypto] = useState('');
@@ -42,7 +77,24 @@ const CryptoAnalysis = () => {
     rankings, isLoadingRankings,
     periodicReports, isLoadingPeriodicReports,
     generatePeriodicReport, isGeneratingReport,
+    deleteAnalyses, isDeleting,
   } = useCryptoAnalysis();
+
+  if (!accessCode) {
+    return (
+      <AccessCodeGate
+        onAccess={(code) => {
+          localStorage.setItem('crypto_access_code', code);
+          setAccessCode(code);
+        }}
+      />
+    );
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('crypto_access_code');
+    setAccessCode('');
+  };
 
   const toggleCrypto = (symbol: string) => {
     setSelectedCryptos(prev =>
@@ -81,12 +133,17 @@ const CryptoAnalysis = () => {
           <div>
             <h1 className="text-lg font-bold">
               <span className="gradient-text">Análise IA</span>
-              <span className="text-foreground/80 ml-2 hidden sm:inline">Criptomoedas</span>
+              <span className="text-foreground/80 ml-2 hidden sm:inline">CriptoEx</span>
             </h1>
-            <p className="text-xs text-muted-foreground">Rastreamento de repetições e análise técnica</p>
+            <p className="text-xs text-muted-foreground">Consolidador de relatórios de criptomoedas</p>
           </div>
         </div>
-        <BrainCircuit className="w-6 h-6 text-primary" />
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground hidden sm:inline">Código: {accessCode.slice(0, 2)}***</span>
+          <Button size="sm" variant="ghost" onClick={handleLogout} className="h-7 gap-1 text-xs">
+            <LogOut className="w-3 h-3" /> Trocar
+          </Button>
+        </div>
       </motion.header>
 
       <main className="container py-6 max-w-5xl">
@@ -100,10 +157,20 @@ const CryptoAnalysis = () => {
 
           {/* UPLOAD TAB */}
           <TabsContent value="upload" className="space-y-4">
+            {/* Info box */}
+            <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground space-y-1">
+              <p className="font-semibold text-foreground">📖 Como funciona:</p>
+              <p>Envie imagens dos relatórios do robô CriptoEx. Nomeie os arquivos começando com <strong>RA</strong> (Alta) ou <strong>RB</strong> (Baixa), seguido da data e período (ex: <code>RA-09042026-manhã.png</code>).</p>
+              <p>A IA identifica automaticamente as criptos, conta repetições e gera rankings. Envie diariamente (manhã e noite) para rastreamento semanal e mensal.</p>
+            </div>
+
             {/* Report Type + Session */}
             <div className="flex flex-wrap gap-3">
               <div className="space-y-1 flex-1">
-                <p className="text-xs text-muted-foreground font-medium">Tipo do Relatório:</p>
+                <p className="text-xs text-muted-foreground font-medium flex items-center">
+                  Tipo do Relatório:
+                  <InfoTooltip text="Selecione o tipo de relatório que está enviando. Alta = criptos em tendência de alta. Baixa = criptos em tendência de baixa. Volume = criptos com aumento de volume de negociação." />
+                </p>
                 <div className="flex gap-2">
                   {REPORT_TYPES.map(rt => (
                     <button
@@ -120,7 +187,10 @@ const CryptoAnalysis = () => {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">Período:</p>
+                <p className="text-xs text-muted-foreground font-medium flex items-center">
+                  Período:
+                  <InfoTooltip text="Indica o horário do envio do relatório. Manhã = envio feito antes das 14h. Noite = envio feito após 14h. Isso ajuda a rastrear padrões entre sessões." />
+                </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSessionTime('morning')}
@@ -155,7 +225,10 @@ const CryptoAnalysis = () => {
 
             {/* Crypto selector */}
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Criptos em foco (a IA também detecta automaticamente):</p>
+              <p className="text-sm text-muted-foreground flex items-center">
+                Criptos em foco (a IA também detecta automaticamente):
+                <InfoTooltip text="Selecione criptos que você sabe que estão nos relatórios. A IA também detecta automaticamente as criptos das imagens, então este campo é opcional." />
+              </p>
               <div className="flex flex-wrap gap-2">
                 {POPULAR_CRYPTOS.map(c => (
                   <button
@@ -224,7 +297,12 @@ const CryptoAnalysis = () => {
 
           {/* HISTORY TAB */}
           <TabsContent value="history">
-            <AnalysisHistory analyses={history} isLoading={isLoadingHistory} />
+            <AnalysisHistory
+              analyses={history}
+              isLoading={isLoadingHistory}
+              onDelete={deleteAnalyses}
+              isDeleting={isDeleting}
+            />
           </TabsContent>
         </Tabs>
       </main>
