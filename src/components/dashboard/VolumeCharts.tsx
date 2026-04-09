@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Calendar, Filter } from 'lucide-react';
+import { BarChart3, Calendar, Filter, Info } from 'lucide-react';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   Legend, CartesianGrid, Cell 
@@ -63,8 +64,9 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
             <BarChart3 className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center">
               Análise de Volume Institucional
+              <InfoTooltip text="Compara o volume de negociação atual com a média histórica. Barras verdes indicam volume acima de 120% da média (atividade institucional alta). Barras vermelhas indicam volume abaixo de 80% (atividade baixa). Dados mensais mostram apenas até o mês atual." />
             </h2>
             <p className="text-xs text-muted-foreground">Compare o fluxo diário e mensal</p>
           </div>
