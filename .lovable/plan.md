@@ -1,56 +1,81 @@
 
 
-## Plano de Implementação Completo
+## Plano: Refatorar IA do CriptoEx + Renomear Sistema para "Fluxo Dos Mercados"
 
-### 1. Corrigir Build Error em mockData.ts
-- Tipar `style` como `'currency' as const` no `formatPrice`
+### Contexto
+A IA precisa ser reeducada com um prompt mais claro e direto. A tarefa dela e simples: ler relatórios RA e RB, extrair criptos, contar repetições e ordenar. Alem disso, o sistema inteiro precisa ser renomeado de "Smart Nelson Money" para "Fluxo Dos Mercados".
 
-### 2. Adicionar DAX40 e Nikkei225
+---
 
-**Edge Function `market-data/index.ts`:**
-- Adicionar `fetchAlphaVantage('DAX', 'DAX 40', '🇩🇪', 'indices', 'EUR', apiKey)` 
-- Adicionar `fetchAlphaVantage('EWJ', 'Nikkei 225 (ETF)', '🇯🇵', 'indices', 'USD', apiKey)`
-- Usar cache de 15min para respeitar rate limit (já existente)
-- Corrigir `error.message` → `(error as Error).message`
+### 1. Reescrever o SYSTEM_PROMPT da Edge Function
 
-**Mock Data:**
-- Adicionar entradas para DAX40 e Nikkei225 como fallback
+Substituir o prompt atual por um focado e preciso:
 
-### 3. Módulo "Análise IA" de Criptomoedas
+- A IA recebe relatórios RA (Alta) e RB (Baixa)
+- Cada relatório tem colunas: Cripto, Repetição, Data, Hora, Rank
+- Deve separar RA dos RB rigorosamente (nunca misturar)
+- Gerar Lista de Alta (LA) a partir dos RA e Lista de Baixa (LB) a partir dos RB
+- Ordenar ambas as listas por repetição (descendente)
+- Entregar resultados nos seguintes periodos: Diario, Tres dias, Semanal, Mensal, Bimestral, Trimestral, Anual
+- A resposta deve incluir: contagem total de relatorios do dia, da semana e do mes
+- Considerar apenas dados a partir de 06/04/2026
+- Linguagem neutra, tecnica, sem recomendacao financeira
 
-**Migração SQL:**
-- Tabela `crypto_analyses` (id, title, summary, period_type, crypto_symbols, ai_model_used, created_at)
-- Tabela `crypto_analysis_images` (id, analysis_id FK, image_url, image_name, ai_interpretation, created_at)
-- Storage bucket `crypto-images` (público)
-- RLS: leitura e escrita públicas (sem auth por enquanto)
+### 2. Atualizar Edge Function `crypto-analysis/index.ts`
 
-**Edge Function `crypto-analysis/index.ts`:**
-- Recebe imagens base64 + contexto
-- Usa Lovable AI Gateway (google/gemini-2.5-pro) para análise multimodal
-- Prompt especializado em análise técnica de criptomoedas
-- Salva análise + imagens no banco e storage
-- Retorna relatório estruturado
-- Endpoint para listar histórico de análises
+- Atualizar o `SYSTEM_PROMPT` conforme acima
+- Na action `analyze`: melhorar o user prompt para instruir a IA a entregar LA e LB separados com contagem
+- Na action `rankings`: separar rankings em `alta` e `baixa` ao invés de misturar tudo num unico ranking
+- Na action `generate-periodic`: gerar relatórios com LA e LB separados por período
+- Adicionar suporte a periodos `three_days` e `annual`
 
-**Frontend:**
-- `src/pages/CryptoAnalysis.tsx` — página principal com upload, geração e histórico
-- `src/components/analysis/ImageUploader.tsx` — drag-and-drop de múltiplas imagens
-- `src/components/analysis/AnalysisReport.tsx` — renderização do relatório markdown
-- `src/components/analysis/AnalysisHistory.tsx` — lista de análises anteriores
-- `src/hooks/useCryptoAnalysis.ts` — hook para submeter e buscar análises
-- Rota `/analise-ia` em `App.tsx`
-- Link "Análise IA" no Header do dashboard
+### 3. Atualizar Frontend — RepetitionDashboard
+
+- Dividir a visualização em duas abas/seções: "Lista de Alta (LA)" e "Lista de Baixa (LB)"
+- Mostrar contadores: total hoje, total semana, total mês
+- Cada lista ordena por repetição descendente
+
+### 4. Atualizar PeriodicReportsView
+
+- Adicionar períodos "3 Dias" e "Anual" nos botões de geração
+- Nos relatórios expandidos, mostrar LA e LB separadamente
+
+### 5. Renomear o Sistema para "Fluxo Dos Mercados"
+
+Arquivos afetados (todos as ocorrências de "Smart Nelson Money", "Smart Nelson", "SMART NELSON"):
+
+| Arquivo | O que muda |
+|---|---|
+| `index.html` | title, meta description, og tags, twitter tags, apple-web-app-title |
+| `public/manifest.json` | name, short_name, description |
+| `vite.config.ts` | PWA manifest name/short_name/description |
+| `src/pages/Landing.tsx` | Header, footer, textos |
+| `src/pages/Index.tsx` | Footer version text |
+| `src/pages/Glossary.tsx` | Título |
+| `src/components/dashboard/Header.tsx` | Nome no header |
+| `src/lib/exportPeriodicReportPdf.ts` | Header e footer do PDF |
+| `src/lib/glossaryData.ts` | Referência ao nome |
+
+### 6. Atualizar SEO
+
+- Title: "Fluxo Dos Mercados | Análise de Fluxo Institucional em Tempo Real"
+- Description: atualizar para mencionar "Fluxo Dos Mercados"
+- OG/Twitter: atualizar todos
+
+---
 
 ### Arquivos Modificados
-| Arquivo | Ação |
-|---|---|
-| `src/lib/mockData.ts` | Fix type + add DAX/Nikkei mock |
-| `supabase/functions/market-data/index.ts` | Add DAX/Nikkei + fix error type |
-| `supabase/functions/crypto-analysis/index.ts` | Novo — edge function IA |
-| `src/pages/CryptoAnalysis.tsx` | Novo — página análise |
-| `src/components/analysis/*` | Novos — 3 componentes |
-| `src/hooks/useCryptoAnalysis.ts` | Novo — hook |
-| `src/App.tsx` | Add rota `/analise-ia` |
-| `src/components/dashboard/Header.tsx` | Add link Análise IA |
-| Migração SQL | Tabelas + bucket |
+- `supabase/functions/crypto-analysis/index.ts` — Novo prompt + lógica LA/LB
+- `src/components/analysis/RepetitionDashboard.tsx` — Separar LA/LB + contadores
+- `src/components/analysis/PeriodicReportsView.tsx` — Adicionar 3 dias e anual
+- `src/hooks/useCryptoAnalysis.ts` — Suporte a novos períodos
+- `index.html` — Renomear SEO
+- `public/manifest.json` — Renomear
+- `vite.config.ts` — Renomear PWA
+- `src/pages/Landing.tsx` — Renomear
+- `src/pages/Index.tsx` — Renomear
+- `src/pages/Glossary.tsx` — Renomear
+- `src/components/dashboard/Header.tsx` — Renomear
+- `src/lib/exportPeriodicReportPdf.ts` — Renomear
+- `src/lib/glossaryData.ts` — Renomear
 
