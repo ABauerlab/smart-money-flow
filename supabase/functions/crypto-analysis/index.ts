@@ -61,11 +61,16 @@ CRYPTOS_DETECTED: BTC,ETH,SOL,...
 
 ### Lista de Alta (LA) — se houver dados RA
 | Pos | Cripto | Repetições | Rank |
-(ordenada por repetições, descendente)
+|-----|--------|-----------|------|
+| 1   | BTC    | 5         | #1   |
+(preencha com os dados reais, ordenada por repetições descendente)
 
 ### Lista de Baixa (LB) — se houver dados RB
 | Pos | Cripto | Repetições | Rank |
-(ordenada por repetições, descendente)
+|-----|--------|-----------|------|
+| 1   | ETH    | 3         | #1   |
+(preencha com os dados reais, ordenada por repetições descendente)
+
 
 ### Destaques
 - Criptos com maior crescimento em repetições
