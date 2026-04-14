@@ -119,17 +119,20 @@ async function fetchBrapiQuote(
     const quote = data.results[0];
     const price = quote.regularMarketPrice || 0;
     const prevPrice = quote.regularMarketPreviousClose || price;
-    const currentVolume = quote.regularMarketVolume || 0;
-    const avgVolume = quote.averageDailyVolume10Day || quote.averageDailyVolume3Month || currentVolume;
+    const currentVolume = quote.regularMarketVolume || quote.financialVolume || 0;
+    const avgVolume = quote.averageDailyVolume10Day || quote.averageDailyVolume3Month || currentVolume || 1;
 
-    // Build volumes array from available average
-    const volumes = Array(10).fill(avgVolume);
-    volumes[0] = currentVolume;
+    // For indices like ^BVSP, volume might be 0 - use financialVolume or marketCap change as proxy
+    const effectiveVolume = currentVolume > 0 ? currentVolume : (quote.marketCap ? quote.marketCap / 1000 : avgVolume);
+    const effectiveAvg = avgVolume > 0 ? avgVolume : effectiveVolume;
+
+    const volumes = Array(10).fill(effectiveAvg);
+    volumes[0] = effectiveVolume;
 
     return buildMarket(
       symbol.toLowerCase().replace('^', ''),
       name, symbol, flag, category, 'BRL',
-      price, prevPrice, currentVolume, volumes
+      price, prevPrice, effectiveVolume, volumes
     );
   } catch (e) {
     console.error(`Brapi error for ${symbol}:`, e);
