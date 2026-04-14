@@ -1,0 +1,1 @@
+DELETE FROM market_data_cache WHERE fetched_at < now() - interval '5 minutes';
