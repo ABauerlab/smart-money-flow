@@ -203,6 +203,17 @@ export const formatVolume = (value: number): string => {
 };
 
 export const formatPrice = (value: number, currency: string): string => {
+  // For very large prices (like Ibovespa ~198k), use compact format
+  if (value >= 10000) {
+    const options: Intl.NumberFormatOptions = { 
+      style: 'currency' as const, 
+      currency, 
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    };
+    if (currency === 'BRL') return new Intl.NumberFormat('pt-BR', options).format(value);
+    return new Intl.NumberFormat('en-US', options).format(value);
+  }
   const options: Intl.NumberFormatOptions = { style: 'currency' as const, currency };
   if (currency === 'BRL') return new Intl.NumberFormat('pt-BR', options).format(value);
   if (currency === 'HKD') return new Intl.NumberFormat('zh-HK', options).format(value);

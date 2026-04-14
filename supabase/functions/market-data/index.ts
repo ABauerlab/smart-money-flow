@@ -24,7 +24,7 @@ interface MarketData {
   historicalVolumes?: number[];
 }
 
-const CACHE_TTL_MINUTES = 15;
+const CACHE_TTL_MINUTES = 60; // 1 hour cache to respect AV 25 calls/day limit
 
 function calculateZScore(current: number, average: number): number {
   const stdDev = average * 0.15;
@@ -107,9 +107,14 @@ async function fetchBrapiQuote(
   symbol: string, name: string, flag: string, category: string, apiKey: string
 ): Promise<MarketData | null> {
   try {
-    const url = `https://brapi.dev/api/quote/${symbol}?token=${apiKey}`;
+    const url = `https://brapi.dev/api/quote/${symbol}?token=${apiKey}&range=1mo&interval=1d`;
     const res = await fetch(url);
     const data = await res.json();
+
+    if (data.error) {
+      console.warn(`Brapi error for ${symbol}:`, data.message);
+      return null;
+    }
 
     if (!data.results || data.results.length === 0) {
       console.warn(`Brapi: no data for ${symbol}`);
@@ -117,22 +122,52 @@ async function fetchBrapiQuote(
     }
 
     const quote = data.results[0];
+    console.log(`Brapi ${symbol}: price=${quote.regularMarketPrice}, vol=${quote.regularMarketVolume}, avgVol10d=${quote.averageDailyVolume10Day}, avgVol3m=${quote.averageDailyVolume3Month}, marketCap=${quote.marketCap}`);
+
     const price = quote.regularMarketPrice || 0;
     const prevPrice = quote.regularMarketPreviousClose || price;
-    const currentVolume = quote.regularMarketVolume || quote.financialVolume || 0;
-    const avgVolume = quote.averageDailyVolume10Day || quote.averageDailyVolume3Month || currentVolume || 1;
+    const currentVolume = quote.regularMarketVolume || 0;
+    const avgVolume = quote.averageDailyVolume10Day || quote.averageDailyVolume3Month || 0;
 
-    // For indices like ^BVSP, volume might be 0 - use financialVolume or marketCap change as proxy
-    const effectiveVolume = currentVolume > 0 ? currentVolume : (quote.marketCap ? quote.marketCap / 1000 : avgVolume);
-    const effectiveAvg = avgVolume > 0 ? avgVolume : effectiveVolume;
+    // Extract historical volumes from historicalDataPrice if available
+    let historicalVolumes: number[] = [];
+    if (quote.historicalDataPrice && Array.isArray(quote.historicalDataPrice)) {
+      historicalVolumes = quote.historicalDataPrice
+        .reverse()
+        .slice(0, 21)
+        .map((d: any) => d.volume || 0)
+        .filter((v: number) => v > 0);
+    }
 
-    const volumes = Array(10).fill(effectiveAvg);
-    volumes[0] = effectiveVolume;
+    // For indices like ^BVSP that don't report volume
+    let effectiveVolume = currentVolume;
+    let effectiveAvg = avgVolume;
+    let effectiveHistory = historicalVolumes;
+
+    if (effectiveVolume === 0 && effectiveAvg === 0) {
+      // Use marketCap as a proxy for activity level on indices
+      if (quote.marketCap && quote.marketCap > 0) {
+        effectiveVolume = Math.round(quote.marketCap / 100);
+        effectiveAvg = effectiveVolume;
+        effectiveHistory = Array(10).fill(effectiveAvg);
+        effectiveHistory[0] = effectiveVolume;
+      } else {
+        // Last resort: use a reasonable B3 average volume estimate
+        effectiveVolume = 15_000_000_000; // ~R$15B daily B3 volume
+        effectiveAvg = effectiveVolume;
+        effectiveHistory = Array(10).fill(effectiveAvg);
+      }
+    }
+
+    if (effectiveHistory.length === 0) {
+      effectiveHistory = Array(10).fill(effectiveAvg > 0 ? effectiveAvg : effectiveVolume);
+      effectiveHistory[0] = effectiveVolume;
+    }
 
     return buildMarket(
-      symbol.toLowerCase().replace('^', ''),
+      symbol.toLowerCase().replace('^', '').replace('.', ''),
       name, symbol, flag, category, 'BRL',
-      price, prevPrice, effectiveVolume, volumes
+      price, prevPrice, effectiveVolume, effectiveHistory
     );
   } catch (e) {
     console.error(`Brapi error for ${symbol}:`, e);
@@ -301,14 +336,15 @@ serve(async (req) => {
       await saveToCache(supabase, markets);
     }
 
-    // If we got some markets but not all, merge with cache
+    // Always merge with stale cache to fill gaps (AV rate limits are aggressive)
     let finalMarkets = markets;
-    if (markets.length < 4) {
-      const oldCached = await getCachedMarketsForce(supabase);
-      if (oldCached) {
-        const freshIds = new Set(markets.map(m => m.id));
-        const merged = [...markets, ...oldCached.filter(m => !freshIds.has(m.id))];
-        finalMarkets = merged;
+    const oldCached = await getCachedMarketsForce(supabase);
+    if (oldCached && oldCached.length > 0) {
+      const freshIds = new Set(markets.map(m => m.id));
+      const staleFillers = oldCached.filter(m => !freshIds.has(m.id));
+      if (staleFillers.length > 0) {
+        console.log(`Merging ${staleFillers.length} cached markets with ${markets.length} fresh`);
+        finalMarkets = [...markets, ...staleFillers];
       }
     }
 
