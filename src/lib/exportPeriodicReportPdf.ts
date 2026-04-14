@@ -43,7 +43,7 @@ export function exportPeriodicReportPdf(report: PeriodicReport) {
   doc.setTextColor(14, 165, 233);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('Smart Nelson Money', margin, 18);
+  doc.text('Fluxo Dos Mercados', margin, 18);
   doc.setFontSize(10);
   doc.setTextColor(180, 180, 180);
   doc.text('Relatório Periódico de Criptomoedas', margin, 26);
@@ -142,7 +142,7 @@ export function exportPeriodicReportPdf(report: PeriodicReport) {
     doc.rect(0, ph - 12, pageWidth, 12, 'F');
     doc.setTextColor(100, 100, 100);
     doc.setFontSize(7);
-    doc.text(`Smart Nelson Money • Gerado em ${new Date().toLocaleString('pt-BR')}`, margin, ph - 5);
+    doc.text(`Fluxo Dos Mercados • Gerado em ${new Date().toLocaleString('pt-BR')}`, margin, ph - 5);
     doc.text(`Página ${i}/${totalPages}`, pageWidth - margin, ph - 5, { align: 'right' });
   }
 

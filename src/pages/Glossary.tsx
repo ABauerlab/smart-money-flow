@@ -11,7 +11,7 @@ const Glossary = () => {
         <div className="container flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BookOpenText className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold gradient-text">Glossário Smart Nelson Money</h1>
+            <h1 className="text-2xl font-bold gradient-text">Glossário Fluxo Dos Mercados</h1>
           </div>
           <Link 
             to="/" 

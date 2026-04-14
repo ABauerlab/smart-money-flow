@@ -22,7 +22,7 @@ const Landing = () => {
               <Target className="w-6 h-6 text-primary" />
             </div>
             <div className="flex flex-col">
-              <span className="font-black tracking-tighter text-white leading-none">SMART NELSON</span>
+              <span className="font-black tracking-tighter text-white leading-none">FLUXO DOS MERCADOS</span>
               <span className="text-[10px] text-primary font-mono tracking-[0.2em]">IA ESTRATÉGICA v2.6</span>
             </div>
           </div>
@@ -256,7 +256,7 @@ const Landing = () => {
           
           <div className="pt-20 flex flex-col items-center gap-4">
             <div className="w-px h-20 bg-gradient-to-b from-primary to-transparent" />
-            <p className="text-[#444] text-[10px] uppercase tracking-[0.6em]">© 2026 Smart Nelson Money Flow • IA Responsável & LGPD Compliant</p>
+            <p className="text-[#444] text-[10px] uppercase tracking-[0.6em]">© 2026 Fluxo Dos Mercados • IA Responsável & LGPD Compliant</p>
           </div>
         </div>
       </section>
