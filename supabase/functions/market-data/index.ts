@@ -336,14 +336,15 @@ serve(async (req) => {
       await saveToCache(supabase, markets);
     }
 
-    // If we got some markets but not all, merge with cache
+    // Always merge with stale cache to fill gaps (AV rate limits are aggressive)
     let finalMarkets = markets;
-    if (markets.length < 4) {
-      const oldCached = await getCachedMarketsForce(supabase);
-      if (oldCached) {
-        const freshIds = new Set(markets.map(m => m.id));
-        const merged = [...markets, ...oldCached.filter(m => !freshIds.has(m.id))];
-        finalMarkets = merged;
+    const oldCached = await getCachedMarketsForce(supabase);
+    if (oldCached && oldCached.length > 0) {
+      const freshIds = new Set(markets.map(m => m.id));
+      const staleFillers = oldCached.filter(m => !freshIds.has(m.id));
+      if (staleFillers.length > 0) {
+        console.log(`Merging ${staleFillers.length} cached markets with ${markets.length} fresh`);
+        finalMarkets = [...markets, ...staleFillers];
       }
     }
 
