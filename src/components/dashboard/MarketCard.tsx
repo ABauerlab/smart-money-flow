@@ -58,7 +58,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
       <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-4">
         <div className="min-w-0">
           <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Preço Atual</p>
-          <p className="text-sm sm:text-lg font-semibold font-mono truncate">
+          <p className={`font-semibold font-mono truncate ${market.price >= 10000 ? 'text-xs sm:text-sm' : 'text-sm sm:text-lg'}`}>
             {formatPrice(market.price, market.currency)}
           </p>
           <div className={`flex items-center gap-1 text-xs sm:text-sm ${isPositive ? 'text-bullish' : 'text-bearish'}`}>
