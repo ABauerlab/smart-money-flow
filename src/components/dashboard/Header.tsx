@@ -62,7 +62,7 @@ export const Header = ({
           <Logo />
           <div>
             <h1 className="text-lg md:text-xl font-bold tracking-tight">
-              <span className="gradient-text">Smart Nelson Money</span>
+              <span className="gradient-text">Fluxo Dos Mercados</span>
               <span className="text-foreground/80 ml-2 hidden sm:inline">Flow Tracker</span>
             </h1>
             <p className="text-xs text-muted-foreground font-mono">

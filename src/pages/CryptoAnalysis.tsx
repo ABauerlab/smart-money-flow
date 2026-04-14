@@ -74,7 +74,7 @@ const CryptoAnalysis = () => {
 
   const {
     isAnalyzing, submitAnalysis, history, isLoadingHistory,
-    rankings, isLoadingRankings,
+    rankings, altaRankings, baixaRankings, isLoadingRankings,
     periodicReports, isLoadingPeriodicReports,
     generatePeriodicReport, isGeneratingReport,
     deleteAnalyses, isDeleting,
@@ -282,7 +282,7 @@ const CryptoAnalysis = () => {
 
           {/* RANKINGS TAB */}
           <TabsContent value="rankings">
-            <RepetitionDashboard rankings={rankings} isLoading={isLoadingRankings} />
+            <RepetitionDashboard rankings={rankings} altaRankings={altaRankings} baixaRankings={baixaRankings} isLoading={isLoadingRankings} />
           </TabsContent>
 
           {/* PERIODIC REPORTS TAB */}

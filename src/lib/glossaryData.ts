@@ -33,6 +33,6 @@ export const glossaryData: GlossaryEntry[] = [
   },
   {
     term: 'Dinheiro Grosso (Smart Money)',
-    definition: 'Termo usado para descrever o capital investido por grandes instituições, fundos de hedge e bancos. O Smart Nelson Money Flow Tracker rastreia a atividade desses participantes.',
+    definition: 'Termo usado para descrever o capital investido por grandes instituições, fundos de hedge e bancos. O Fluxo Dos Mercados rastreia a atividade desses participantes.',
   },
 ];
