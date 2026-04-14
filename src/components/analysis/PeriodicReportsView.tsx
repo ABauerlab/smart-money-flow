@@ -33,6 +33,7 @@ interface PeriodicReportsViewProps {
 }
 
 const PERIOD_LABELS: Record<string, string> = {
+  three_days: '📊 3 Dias',
   weekly: '📅 Semanal',
   biweekly: '📊 Quinzenal',
   triweekly: '📈 Trisemanal',
@@ -40,9 +41,11 @@ const PERIOD_LABELS: Record<string, string> = {
   bimonthly: '📆 Bimestral',
   quarterly: '📋 Trimestral',
   semiannual: '📑 Semestral',
+  annual: '📅 Anual',
 };
 
 const PERIOD_DESCRIPTIONS: Record<string, string> = {
+  three_days: 'Consolida os relatórios dos últimos 3 dias',
   weekly: 'Consolida os relatórios da semana atual (segunda a domingo)',
   biweekly: 'Consolida as duas últimas semanas de relatórios',
   triweekly: 'Consolida as três últimas semanas de relatórios',
@@ -50,9 +53,10 @@ const PERIOD_DESCRIPTIONS: Record<string, string> = {
   bimonthly: 'Consolida as últimas 8 semanas (≈2 meses)',
   quarterly: 'Consolida as últimas 13 semanas (≈3 meses)',
   semiannual: 'Consolida as últimas 26 semanas (≈6 meses)',
+  annual: 'Consolida as últimas 52 semanas (≈1 ano)',
 };
 
-const PERIOD_ORDER = ['weekly', 'biweekly', 'triweekly', 'monthly', 'bimonthly', 'quarterly', 'semiannual'];
+const PERIOD_ORDER = ['three_days', 'weekly', 'biweekly', 'triweekly', 'monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual'];
 
 export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerating }: PeriodicReportsViewProps) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -69,19 +73,18 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
       {/* Explainer box */}
       <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground space-y-1">
         <p className="font-semibold text-foreground">📖 O que são Relatórios Periódicos?</p>
-        <p>São consolidações automáticas dos seus relatórios diários em períodos maiores. A IA analisa os rankings de repetição acumulados e identifica tendências.</p>
-        <p>O período coberto é calculado a partir da <strong>data atual</strong>. Ex: "Semanal" cobre a semana corrente, "Mensal" cobre as últimas 4 semanas.</p>
-        <p>Os dados vêm das <strong>menções de criptos</strong> nos relatórios que você já enviou — sem envios, os relatórios ficarão vazios.</p>
+        <p>São consolidações dos seus relatórios diários em períodos maiores. A IA analisa os dados acumulados e gera as <strong>Listas de Alta (LA)</strong> e <strong>Listas de Baixa (LB)</strong> separadas.</p>
+        <p>O período é calculado a partir da <strong>data atual</strong>. Ex: "3 Dias" cobre os últimos 3 dias, "Semanal" cobre a semana corrente.</p>
+        <p>Os dados vêm dos relatórios RA e RB que você já enviou — sem envios, os relatórios ficarão vazios.</p>
       </div>
 
       <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
         <Calendar className="w-4 h-4 text-primary" />
         Gerar Relatório Periódico
-        <InfoTooltip text="Clique em um período para consolidar os dados dos relatórios enviados naquele intervalo. O relatório mostra as criptos mais frequentes e uma análise da IA." />
+        <InfoTooltip text="Escolha um período para consolidar as Listas de Alta (LA) e Baixa (LB). A IA analisa as repetições acumuladas e identifica tendências." />
       </h3>
 
-      {/* Generate buttons with descriptions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {PERIOD_ORDER.map(type => (
           <Button
             key={type}
@@ -154,17 +157,45 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
               {expandedId === r.id && (
                 <div className="px-3 pb-3 space-y-3">
                   {Array.isArray(r.rankings) && r.rankings.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-muted-foreground">Top Criptos:</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                        {r.rankings.slice(0, 12).map((rank: RankingEntry, i: number) => (
-                          <div key={rank.symbol} className="flex items-center gap-1 text-xs p-1 bg-secondary/20 rounded">
-                            <span className={i < 3 ? 'text-yellow-500 font-bold' : 'text-muted-foreground'}>#{i + 1}</span>
-                            <span className="font-mono font-semibold">{rank.symbol}</span>
-                            <span className="text-muted-foreground ml-auto">{rank.total}x</span>
+                    <div className="space-y-3">
+                      {/* LA */}
+                      {r.rankings.some(rank => rank.alta > 0) && (
+                        <div>
+                          <p className="text-xs font-semibold text-emerald-400 mb-1">📈 Lista de Alta (LA):</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                            {r.rankings
+                              .filter(rank => rank.alta > 0)
+                              .sort((a, b) => b.alta - a.alta)
+                              .slice(0, 12)
+                              .map((rank: RankingEntry, i: number) => (
+                                <div key={`alta-${rank.symbol}`} className="flex items-center gap-1 text-xs p-1 bg-emerald-500/10 rounded border border-emerald-500/20">
+                                  <span className={i < 3 ? 'text-yellow-500 font-bold' : 'text-muted-foreground'}>#{i + 1}</span>
+                                  <span className="font-mono font-semibold">{rank.symbol}</span>
+                                  <span className="text-emerald-400 ml-auto">{rank.alta}x</span>
+                                </div>
+                              ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )}
+                      {/* LB */}
+                      {r.rankings.some(rank => rank.baixa > 0) && (
+                        <div>
+                          <p className="text-xs font-semibold text-red-400 mb-1">📉 Lista de Baixa (LB):</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                            {r.rankings
+                              .filter(rank => rank.baixa > 0)
+                              .sort((a, b) => b.baixa - a.baixa)
+                              .slice(0, 12)
+                              .map((rank: RankingEntry, i: number) => (
+                                <div key={`baixa-${rank.symbol}`} className="flex items-center gap-1 text-xs p-1 bg-red-500/10 rounded border border-red-500/20">
+                                  <span className={i < 3 ? 'text-yellow-500 font-bold' : 'text-muted-foreground'}>#{i + 1}</span>
+                                  <span className="font-mono font-semibold">{rank.symbol}</span>
+                                  <span className="text-red-400 ml-auto">{rank.baixa}x</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 

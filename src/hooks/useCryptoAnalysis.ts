@@ -28,6 +28,11 @@ interface RankingEntry {
   volume: number;
 }
 
+interface SeparateRanking {
+  symbol: string;
+  count: number;
+}
+
 interface PeriodicReport {
   id: string;
   period_type: string;
@@ -80,7 +85,7 @@ export const useCryptoAnalysis = () => {
     staleTime: 60000,
   });
 
-  const rankingsQuery = useQuery<{ rankings: RankingEntry[] }>({
+  const rankingsQuery = useQuery<{ rankings: RankingEntry[]; altaRankings: SeparateRanking[]; baixaRankings: SeparateRanking[] }>({
     queryKey: ['crypto-rankings'],
     queryFn: async () => {
       const now = new Date();
@@ -184,6 +189,8 @@ export const useCryptoAnalysis = () => {
     history: historyQuery.data?.analyses || [],
     isLoadingHistory: historyQuery.isLoading,
     rankings: rankingsQuery.data?.rankings || [],
+    altaRankings: rankingsQuery.data?.altaRankings || [],
+    baixaRankings: rankingsQuery.data?.baixaRankings || [],
     isLoadingRankings: rankingsQuery.isLoading,
     periodicReports: periodicReportsQuery.data?.reports || [],
     isLoadingPeriodicReports: periodicReportsQuery.isLoading,
