@@ -24,7 +24,7 @@ interface MarketData {
   historicalVolumes?: number[];
 }
 
-const CACHE_TTL_MINUTES = 15;
+const CACHE_TTL_MINUTES = 60; // 1 hour cache to respect AV 25 calls/day limit
 
 function calculateZScore(current: number, average: number): number {
   const stdDev = average * 0.15;
