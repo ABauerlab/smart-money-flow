@@ -451,8 +451,9 @@ serve(async (req) => {
         });
       }
 
+      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+      if (!OPENAI_API_KEY && !LOVABLE_API_KEY) throw new Error('Nenhum provedor de IA configurado');
 
       const uploadedImages: { url: string; name: string; base64: string }[] = [];
       for (const img of images) {
@@ -485,7 +486,7 @@ Instruções:
 No INÍCIO da resposta, inclua:
 CRYPTOS_DETECTED: BTC,ETH,SOL,...
 
-Formato Markdown.`,
+Formato Markdown. Não use emojis.`,
         },
       ];
 
@@ -496,36 +497,28 @@ Formato Markdown.`,
         });
       }
 
-      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: userContent },
-          ],
-        }),
-      });
+      const aiResult = await callAI([
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userContent },
+      ], { wantsVision: true });
 
-      if (!aiResponse.ok) {
-        const errText = await aiResponse.text();
-        console.error('AI Gateway error:', aiResponse.status, errText);
-        if (aiResponse.status === 429) {
+      if (!aiResult.ok) {
+        console.error('AI error:', aiResult.status, aiResult.error);
+        if (aiResult.status === 429) {
           return new Response(JSON.stringify({ error: 'Limite de requisições atingido.' }), {
             status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        if (aiResponse.status === 402) {
+        if (aiResult.status === 402) {
           return new Response(JSON.stringify({ error: 'Créditos de IA esgotados.' }), {
             status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        throw new Error(`AI error: ${aiResponse.status}`);
+        throw new Error(`AI error: ${aiResult.status}`);
       }
 
-      const aiData = await aiResponse.json();
-      const summary = aiData.choices?.[0]?.message?.content || 'Análise não disponível.';
+      const summary = aiResult.content || 'Análise não disponível.';
+      const aiModelUsed = aiResult.model;
 
       const cryptoMatch = summary.match(/CRYPTOS_DETECTED:\s*([^\n]+)/i);
       let detectedCryptos: string[] = [];
