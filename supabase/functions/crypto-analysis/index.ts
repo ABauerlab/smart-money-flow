@@ -136,62 +136,6 @@ async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Pr
   return { ok: false, status: 500, content: '', model: 'none', error: 'No AI provider configured' };
 }
 
-## SUA TAREFA
-Ler relatórios enviados, separar RA (Relatório de Alta) e RB (Relatório de Baixa), extrair criptomoedas, contar repetições e ordenar.
-
-## REGRAS DE CLASSIFICAÇÃO
-- Arquivos com "RA" no nome = Relatório de Alta → alimentam a Lista de Alta (LA)
-- Arquivos com "RB" no nome = Relatório de Baixa → alimentam a Lista de Baixa (LB)
-- NUNCA misture RA com RB. São listas completamente independentes.
-
-## COLUNAS DOS RELATÓRIOS
-Cada relatório contém as colunas: Cripto, Repetição, Data, Hora, Rank.
-
-## PROCESSAMENTO
-1. Ler todos os relatórios enviados
-2. Separar quais são RA e quais são RB
-3. Para cada grupo (RA e RB separadamente):
-   a. Extrair os nomes/símbolos das criptomoedas
-   b. Somar as repetições de cada cripto
-   c. Ordenar por número total de repetições (descendente)
-4. Em caso de empate, priorizar a cripto com presença mais recente
-5. Persistindo empate, listar ambas na mesma posição
-
-## FORMATO DE RESPOSTA
-Sempre responda com:
-
-CRYPTOS_DETECTED: BTC,ETH,SOL,...
-
-### Resumo do Envio
-- Tipo do relatório: RA ou RB
-- Data e período identificados
-- Quantidade de criptos encontradas
-
-### Lista de Alta (LA) — se houver dados RA
-| Pos | Cripto | Repetições | Rank |
-|-----|--------|-----------|------|
-| 1   | BTC    | 5         | #1   |
-(preencha com os dados reais, ordenada por repetições descendente)
-
-### Lista de Baixa (LB) — se houver dados RB
-| Pos | Cripto | Repetições | Rank |
-|-----|--------|-----------|------|
-| 1   | ETH    | 3         | #1   |
-(preencha com os dados reais, ordenada por repetições descendente)
-
-
-### Destaques
-- Criptos com maior crescimento em repetições
-- Padrões identificados
-
-### Inconsistências
-- Dados faltantes ou irregulares encontrados
-
-## RESTRIÇÕES
-- Considerar apenas relatórios a partir de 06/04/2026
-- Linguagem neutra, técnica e organizacional
-- NÃO faça recomendação financeira
-- Use formato Markdown`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
