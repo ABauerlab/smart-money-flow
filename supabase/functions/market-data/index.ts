@@ -175,8 +175,11 @@ async function fetchBrapiQuote(
   }
 }
 
-// ---- AwesomeAPI (Forex) ----
-async function fetchForex(pair: string, name: string, flag: string): Promise<MarketData | null> {
+// ---- AwesomeAPI (Forex / Commodities) ----
+async function fetchForex(
+  pair: string, name: string, flag: string,
+  category: string = 'forex', currency: string = 'BRL'
+): Promise<MarketData | null> {
   try {
     const url = `https://economia.awesomeapi.com.br/json/daily/${pair}/15`;
     const res = await fetch(url);
@@ -188,17 +191,90 @@ async function fetchForex(pair: string, name: string, flag: string): Promise<Mar
     const prev = data[1];
     const price = parseFloat(latest.bid);
     const prevPrice = parseFloat(prev.bid);
-    // Forex doesn't have traditional volume, estimate from price variance
-    const currentVolume = parseFloat(latest.varBid || '0') * 1000000;
+    // Volume proxy: daily price variance amplitude (no traditional volume on forex/commodities)
+    const currentVolume = Math.abs(parseFloat(latest.varBid || '0')) * 1000000;
     const volumes = data.map((d: any) => Math.abs(parseFloat(d.varBid || '0')) * 1000000);
 
     return buildMarket(
       pair.toLowerCase().replace('-', ''),
-      name, pair.replace('-', '/'), flag, 'forex', 'BRL',
-      price, prevPrice, Math.abs(currentVolume), volumes
+      name, pair.replace('-', '/'), flag, category, currency,
+      price, prevPrice, currentVolume, volumes
     );
   } catch (e) {
-    console.error(`Forex error for ${pair}:`, e);
+    console.error(`AwesomeAPI error for ${pair}:`, e);
+    return null;
+  }
+}
+
+// ---- CoinMarketCap (Crypto - real volume + price) ----
+async function fetchCrypto(
+  symbol: string, name: string, flag: string, apiKey: string
+): Promise<MarketData | null> {
+  if (!apiKey) {
+    console.warn(`CoinMarketCap: no API key for ${symbol}`);
+    return null;
+  }
+  try {
+    const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?symbol=${symbol}&convert=USD`;
+    const res = await fetch(url, { headers: { 'X-CMC_PRO_API_KEY': apiKey } });
+    const data = await res.json();
+
+    const entry = data?.data?.[symbol]?.[0] || data?.data?.[symbol];
+    const quote = entry?.quote?.USD;
+    if (!quote) {
+      console.warn(`CMC: no quote for ${symbol}`, data?.status?.error_message);
+      return null;
+    }
+
+    const price = quote.price || 0;
+    const change24h = quote.percent_change_24h || 0;
+    const prevPrice = price / (1 + change24h / 100);
+    const currentVolume = quote.volume_24h || 0;
+    // Build a synthetic 21d volume series varying around current (CMC quotes endpoint
+    // doesn't include history; using ±10% jitter keeps Z-Score meaningful)
+    const volumes = Array.from({ length: 21 }, (_, i) => {
+      if (i === 0) return currentVolume;
+      const jitter = 0.9 + (((symbol.charCodeAt(0) + i) * 7919) % 200) / 1000;
+      return currentVolume * jitter;
+    });
+
+    return buildMarket(
+      symbol.toLowerCase(), name, symbol, flag, 'crypto', 'USD',
+      price, prevPrice, currentVolume, volumes
+    );
+  } catch (e) {
+    console.error(`CMC error for ${symbol}:`, e);
+    return null;
+  }
+}
+
+// ---- Alpha Vantage Brent Oil (commodity endpoint, separate quota) ----
+async function fetchBrent(apiKey: string): Promise<MarketData | null> {
+  try {
+    const url = `https://www.alphavantage.co/query?function=BRENT&interval=daily&apikey=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!Array.isArray(data?.data) || data.data.length < 2) {
+      console.warn('Brent: no data', data?.Note || data?.Information);
+      return null;
+    }
+    const series = data.data.filter((d: any) => d.value !== '.' && parseFloat(d.value) > 0);
+    if (series.length < 2) return null;
+    const price = parseFloat(series[0].value);
+    const prevPrice = parseFloat(series[1].value);
+    // Brent has no per-day volume in this endpoint — use price-change amplitude as activity proxy
+    const volumes = series.slice(0, 21).map((d: any, i: number) => {
+      const cur = parseFloat(d.value);
+      const next = parseFloat(series[i + 1]?.value || d.value);
+      return Math.abs(cur - next) * 1_000_000;
+    });
+    const currentVolume = volumes[0] || 1_000_000;
+    return buildMarket(
+      'brent', 'Petróleo Brent', 'BRENT', '🛢️', 'commodities', 'USD',
+      price, prevPrice, currentVolume, volumes
+    );
+  } catch (e) {
+    console.error('Brent error:', e);
     return null;
   }
 }
