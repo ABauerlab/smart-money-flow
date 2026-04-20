@@ -542,7 +542,7 @@ Formato Markdown. Não use emojis.`,
           summary,
           period_type: 'daily',
           crypto_symbols: allCryptos,
-          ai_model_used: 'google/gemini-2.5-pro',
+          ai_model_used: aiModelUsed,
           access_code: accessCode || null,
         })
         .select()
