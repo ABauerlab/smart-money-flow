@@ -438,6 +438,7 @@ serve(async (req) => {
 
     const alphaKey = Deno.env.get('ALPHA_VANTAGE_API_KEY') || 'demo';
     const brapiKey = Deno.env.get('BRAPI_API_KEY') || '';
+    const cmcKey = Deno.env.get('COINMARKETCAP_API_KEY') || '';
     const newsKey = Deno.env.get('NEWS_API_KEY') || '';
 
     // Try cache first
@@ -453,7 +454,7 @@ serve(async (req) => {
 
     // Fetch fresh data
     console.log('Cache miss/stale, fetching fresh market data...');
-    const markets = await fetchAllMarkets(alphaKey, brapiKey);
+    const markets = await fetchAllMarkets(alphaKey, brapiKey, cmcKey);
 
     if (markets.length > 0) {
       await saveToCache(supabase, markets);
