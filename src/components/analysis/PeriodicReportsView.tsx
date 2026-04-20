@@ -33,30 +33,30 @@ interface PeriodicReportsViewProps {
 }
 
 const PERIOD_LABELS: Record<string, string> = {
-  three_days: '📊 3 Dias',
-  weekly: '📅 Semanal',
-  biweekly: '📊 Quinzenal',
-  triweekly: '📈 Trisemanal',
-  monthly: '🗓️ Mensal',
-  bimonthly: '📆 Bimestral',
-  quarterly: '📋 Trimestral',
-  semiannual: '📑 Semestral',
-  annual: '📅 Anual',
+  three_days: '3 Dias',
+  weekly: '7 Dias',
+  biweekly: '15 Dias',
+  triweekly: '21 Dias',
+  monthly: '30 Dias',
+  bimonthly: '60 Dias',
+  quarterly: '90 Dias',
+  semiannual: '180 Dias',
+  annual: '365 Dias',
 };
 
 const PERIOD_DESCRIPTIONS: Record<string, string> = {
-  three_days: 'Consolida os relatórios dos últimos 3 dias',
-  weekly: 'Consolida os relatórios da semana atual (segunda a domingo)',
-  biweekly: 'Consolida as duas últimas semanas de relatórios',
-  triweekly: 'Consolida as três últimas semanas de relatórios',
-  monthly: 'Consolida as quatro últimas semanas (≈1 mês) de relatórios',
-  bimonthly: 'Consolida as últimas 8 semanas (≈2 meses)',
-  quarterly: 'Consolida as últimas 13 semanas (≈3 meses)',
-  semiannual: 'Consolida as últimas 26 semanas (≈6 meses)',
-  annual: 'Consolida as últimas 52 semanas (≈1 ano)',
+  three_days: 'Consolida menções dos últimos 3 dias',
+  weekly: 'Consolida menções dos últimos 7 dias',
+  biweekly: 'Consolida menções dos últimos 15 dias',
+  triweekly: 'Consolida menções dos últimos 21 dias',
+  monthly: 'Consolida menções dos últimos 30 dias',
+  bimonthly: 'Consolida menções dos últimos 60 dias',
+  quarterly: 'Consolida menções dos últimos 90 dias',
+  semiannual: 'Consolida menções dos últimos 180 dias',
+  annual: 'Consolida menções dos últimos 365 dias',
 };
 
-const PERIOD_ORDER = ['three_days', 'weekly', 'biweekly', 'triweekly', 'monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual'];
+const PERIOD_ORDER = ['three_days', 'weekly', 'biweekly', 'monthly', 'triweekly', 'bimonthly', 'quarterly', 'semiannual', 'annual'];
 
 export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerating }: PeriodicReportsViewProps) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
