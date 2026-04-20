@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
-import { FileText, Clock, Download, TrendingUp, TrendingDown, AlertTriangle, Star } from 'lucide-react';
+import { FileText, Clock, Download, AlertTriangle, Star } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { RankingTable } from './RankingTable';
 
 interface AnalysisReportProps {
   title: string;
