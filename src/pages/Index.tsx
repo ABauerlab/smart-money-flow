@@ -94,7 +94,7 @@ const Index = () => {
             <span>Fluxo Dos Mercados v2.6</span>
             <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono">TERMINAL ATIVO</span>
           </div>
-          <span className="font-mono">© 2026 BauerLab • Dados Institucionais em Tempo Real</span>
+          <span className="font-mono">© 2026 <a href="https://bauerlab.com.br" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline transition-colors">BauerLab</a> • Dados Institucionais em Tempo Real</span>
         </div>
       </footer>
     </div>

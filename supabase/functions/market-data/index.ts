@@ -203,6 +203,43 @@ async function fetchForex(pair: string, name: string, flag: string): Promise<Mar
   }
 }
 
+// ---- NewsAPI ----
+async function fetchNews(markets: MarketData[], apiKey: string): Promise<any[]> {
+  if (!apiKey) return [];
+  try {
+    // Build query from market names
+    const queries = ['Ibovespa', 'S&P 500', 'Nasdaq', 'Petrobras', 'Dólar', 'Euro'];
+    const q = encodeURIComponent(queries.join(' OR '));
+    const url = `https://newsapi.org/v2/everything?q=${q}&language=pt&sortBy=publishedAt&pageSize=15&apiKey=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.status !== 'ok' || !Array.isArray(data.articles)) {
+      console.warn('NewsAPI returned no articles:', data.message);
+      return [];
+    }
+    return data.articles.slice(0, 12).map((a: any) => {
+      const text = `${a.title} ${a.description || ''}`.toLowerCase();
+      let market = 'Mercado Global';
+      if (text.includes('ibovespa') || text.includes('bovespa') || text.includes('b3')) market = 'Ibovespa';
+      else if (text.includes('petrobras') || text.includes('petr4')) market = 'Petrobras';
+      else if (text.includes('s&p') || text.includes('sp500')) market = 'S&P 500';
+      else if (text.includes('nasdaq')) market = 'Nasdaq';
+      else if (text.includes('dólar') || text.includes('dolar') || text.includes('usd')) market = 'Dólar/Real';
+      else if (text.includes('euro')) market = 'Euro/Real';
+      return {
+        title: a.title,
+        source: a.source?.name || 'Desconhecido',
+        url: a.url,
+        publishedAt: a.publishedAt,
+        market,
+      };
+    });
+  } catch (e) {
+    console.error('NewsAPI error:', e);
+    return [];
+  }
+}
+
 // ---- Cache Layer ----
 async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
   try {
@@ -220,12 +257,15 @@ async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
 
     if (ageMinutes > CACHE_TTL_MINUTES) return null;
 
-    return data.map((row: any) => ({
+    return data.map((row: any) => {
+      const isForex = row.id === 'usdbrl' || row.id === 'eurbrl';
+      const isStock = row.ticker === 'PETR4';
+      return {
       id: row.id,
       name: row.name,
       ticker: row.ticker,
       flag: row.flag,
-      category: row.flow_type === 'forex' ? 'forex' : 'indices',
+      category: isForex ? 'forex' : isStock ? 'stocks' : 'indices',
       currentVolume: Number(row.current_volume),
       averageVolume: Number(row.average_volume),
       price: Number(row.price),
@@ -236,7 +276,8 @@ async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
       convictionScore: Number(row.conviction_score),
       currency: row.currency,
       historicalVolumes: row.historical_volumes || [],
-    }));
+      };
+    });
   } catch (e) {
     console.error('Cache read error:', e);
     return null;
@@ -317,12 +358,14 @@ serve(async (req) => {
 
     const alphaKey = Deno.env.get('ALPHA_VANTAGE_API_KEY') || 'demo';
     const brapiKey = Deno.env.get('BRAPI_API_KEY') || '';
+    const newsKey = Deno.env.get('NEWS_API_KEY') || '';
 
     // Try cache first
     const cached = await getCachedMarkets(supabase);
     if (cached && cached.length > 0) {
       console.log(`Serving ${cached.length} markets from cache`);
-      const response = buildResponse(cached);
+      const news = await fetchNews(cached, newsKey);
+      const response = buildResponse(cached, news);
       return new Response(JSON.stringify(response), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -348,7 +391,8 @@ serve(async (req) => {
       }
     }
 
-    const response = buildResponse(finalMarkets);
+    const news = await fetchNews(finalMarkets, newsKey);
+    const response = buildResponse(finalMarkets, news);
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -371,12 +415,15 @@ async function getCachedMarketsForce(supabase: any): Promise<MarketData[] | null
 
     if (!data || data.length === 0) return null;
 
-    return data.map((row: any) => ({
+    return data.map((row: any) => {
+      const isForex = row.id === 'usdbrl' || row.id === 'eurbrl';
+      const isStock = row.ticker === 'PETR4';
+      return {
       id: row.id,
       name: row.name,
       ticker: row.ticker,
       flag: row.flag,
-      category: 'indices',
+      category: isForex ? 'forex' : isStock ? 'stocks' : 'indices',
       currentVolume: Number(row.current_volume),
       averageVolume: Number(row.average_volume),
       price: Number(row.price),
@@ -387,11 +434,12 @@ async function getCachedMarketsForce(supabase: any): Promise<MarketData[] | null
       convictionScore: Number(row.conviction_score),
       currency: row.currency,
       historicalVolumes: row.historical_volumes || [],
-    }));
+      };
+    });
   } catch { return null; }
 }
 
-function buildResponse(markets: MarketData[]) {
+function buildResponse(markets: MarketData[], news: any[] = []) {
   // Generate alerts based on market conditions
   const alerts = markets
     .filter(m => Math.abs(m.zScore) > 1.5)
@@ -432,7 +480,7 @@ function buildResponse(markets: MarketData[]) {
     },
     alerts,
     correlations: [],
-    news: [],
+    news,
     lastUpdated: new Date().toISOString(),
   };
 }

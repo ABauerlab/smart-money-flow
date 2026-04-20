@@ -98,11 +98,11 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
         </div>
       </div>
 
-      <div className="h-[350px] w-full">
+      <div className="h-[420px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           {viewType === 'daily' ? (
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.2} />
+            <BarChart data={chartData} margin={{ top: 20, right: 16, left: 0, bottom: 8 }} barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.25} />
               <XAxis 
                 dataKey="day" 
                 stroke="hsl(var(--muted-foreground))" 
@@ -116,29 +116,35 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v) => `${v}%`}
+                domain={[0, (dataMax: number) => Math.max(160, Math.ceil(dataMax / 20) * 20)]}
               />
               <Tooltip 
-                cursor={{ fill: 'hsl(var(--secondary))', opacity: 0.2 }}
+                cursor={{ fill: 'hsl(var(--secondary))', opacity: 0.15 }}
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
                   boxShadow: 'var(--shadow-card)',
+                  padding: '12px',
                 }}
-                formatter={(v: number) => [`${v.toFixed(1)}%`, 'Volume Relativo']}
+                formatter={(v: number) => {
+                  const status = v > 120 ? 'Alta atividade' : v < 80 ? 'Baixa atividade' : 'Normal';
+                  return [`${v.toFixed(1)}% — ${status}`, 'Volume vs Média'];
+                }}
               />
-              <Bar dataKey="ratio" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="ratio" radius={[6, 6, 0, 0]} maxBarSize={60}>
                 {chartData.map((entry: any, index: number) => (
                   <Cell 
                     key={`cell-${index}`} 
                     fill={entry.ratio > 120 ? 'hsl(var(--bullish))' : entry.ratio < 80 ? 'hsl(var(--bearish))' : 'hsl(var(--primary))'} 
+                    fillOpacity={0.9}
                   />
                 ))}
               </Bar>
             </BarChart>
           ) : (
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.2} />
+            <BarChart data={chartData} margin={{ top: 20, right: 16, left: 0, bottom: 8 }} barCategoryGap="15%">
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.25} />
               <XAxis 
                 dataKey="month" 
                 stroke="hsl(var(--muted-foreground))" 
@@ -151,18 +157,21 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
+                tickFormatter={(v) => v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(0)}M` : `${v}`}
               />
               <Tooltip 
-                cursor={{ fill: 'hsl(var(--secondary))', opacity: 0.2 }}
+                cursor={{ fill: 'hsl(var(--secondary))', opacity: 0.15 }}
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
+                  padding: '12px',
                 }}
+                formatter={(v: number) => v >= 1e9 ? `${(v/1e9).toFixed(2)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v.toFixed(0)}
               />
               <Legend verticalAlign="top" align="right" height={36} iconType="circle" />
-              <Bar name="Volume Real" dataKey="volume" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              <Bar name="Média Histórica" dataKey="average" fill="hsl(var(--muted))" radius={[4, 4, 0, 0]} />
+              <Bar name="Volume Real" dataKey="volume" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} maxBarSize={50} />
+              <Bar name="Média Histórica" dataKey="average" fill="hsl(var(--muted))" radius={[6, 6, 0, 0]} maxBarSize={50} fillOpacity={0.6} />
             </BarChart>
           )}
         </ResponsiveContainer>

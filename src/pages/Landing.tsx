@@ -89,13 +89,13 @@ const Landing = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <Link to="/dashboard">
                 <Button size="lg" className="h-16 px-12 bg-primary text-black hover:bg-primary/90 rounded-none font-black uppercase tracking-[0.2em] text-sm group transition-all duration-500 shadow-[0_0_40px_rgba(14,165,233,0.2)]">
-                  Garanta sua vaga agora
+                  Acessar o Sistema
                   <ArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-2 transition-transform" />
                 </Button>
               </Link>
               <div className="text-left">
-                <p className="text-[10px] uppercase tracking-widest text-white font-bold">Comece agora sem riscos</p>
-                <p className="text-[10px] uppercase tracking-widest text-[#555]">Acesso exclusivo e imediato</p>
+                <p className="text-[10px] uppercase tracking-widest text-white font-bold">Dashboard em tempo real</p>
+                <p className="text-[10px] uppercase tracking-widest text-[#555]">Análise institucional de fluxo</p>
               </div>
             </div>
 
@@ -256,7 +256,7 @@ const Landing = () => {
           
           <div className="pt-20 flex flex-col items-center gap-4">
             <div className="w-px h-20 bg-gradient-to-b from-primary to-transparent" />
-            <p className="text-[#444] text-[10px] uppercase tracking-[0.6em]">© 2026 Fluxo Dos Mercados • IA Responsável & LGPD Compliant</p>
+            <p className="text-[#444] text-[10px] uppercase tracking-[0.6em]">© 2026 <a href="https://bauerlab.com.br" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">BauerLab</a> • Fluxo Dos Mercados • LGPD Compliant</p>
           </div>
         </div>
       </section>
