@@ -165,7 +165,7 @@ function exportReportPdf(title: string, summary: string, createdAt: string, cryp
   if (altaSection?.rows && altaSection.rows.length > 0) {
     doc.setTextColor(16, 185, 129);
     doc.setFontSize(11);
-    doc.text('📈 Lista de Alta (LA)', margin, y);
+    doc.text('Lista de Alta (LA)', margin, y);
     y += 6;
 
     autoTable(doc, {
@@ -184,7 +184,7 @@ function exportReportPdf(title: string, summary: string, createdAt: string, cryp
     if (y > doc.internal.pageSize.getHeight() - 60) { doc.addPage(); y = margin; }
     doc.setTextColor(239, 68, 68);
     doc.setFontSize(11);
-    doc.text('📉 Lista de Baixa (LB)', margin, y);
+    doc.text('Lista de Baixa (LB)', margin, y);
     y += 6;
 
     autoTable(doc, {
@@ -239,57 +239,7 @@ function exportReportPdf(title: string, summary: string, createdAt: string, cryp
   doc.save(`analise_${new Date(createdAt).toISOString().slice(0, 10)}.pdf`);
 }
 
-// Visual table component for crypto rankings
-const CryptoRankTable = ({ rows, type }: { rows: { pos: number; cripto: string; repeticoes: number; rank?: string }[]; type: 'alta' | 'baixa' }) => {
-  const isAlta = type === 'alta';
-  const maxRep = Math.max(...rows.map(r => r.repeticoes), 1);
-
-  return (
-    <div className="rounded-lg border border-border/40 overflow-hidden">
-      {/* Table header */}
-      <div className={`flex items-center gap-2 px-3 py-2 text-xs font-bold ${isAlta ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
-        {isAlta ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-        {isAlta ? 'Lista de Alta (LA)' : 'Lista de Baixa (LB)'}
-        <span className="ml-auto text-muted-foreground font-normal">{rows.length} criptos</span>
-      </div>
-      {/* Column headers */}
-      <div className="grid grid-cols-[40px_80px_1fr_60px] gap-1 px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/30 bg-secondary/20">
-        <span>Pos</span>
-        <span>Cripto</span>
-        <span>Barra</span>
-        <span className="text-right">Rep.</span>
-      </div>
-      {/* Rows */}
-      <div className="divide-y divide-border/20">
-        {rows.map((r, i) => (
-          <motion.div
-            key={r.cripto}
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.03 }}
-            className="grid grid-cols-[40px_80px_1fr_60px] gap-1 px-3 py-2 items-center hover:bg-secondary/10 transition-colors"
-          >
-            <span className={`text-xs font-bold ${i < 3 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
-              {i < 3 ? ['🥇', '🥈', '🥉'][i] : `#${r.pos}`}
-            </span>
-            <span className="font-mono text-sm font-bold text-foreground">{r.cripto}</span>
-            <div className="h-3 bg-secondary/20 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${(r.repeticoes / maxRep) * 100}%` }}
-                transition={{ duration: 0.6, delay: i * 0.03 }}
-                className={`h-full rounded-full ${isAlta ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-red-500 to-red-400'}`}
-              />
-            </div>
-            <span className={`text-sm font-bold text-right ${isAlta ? 'text-emerald-400' : 'text-red-400'}`}>
-              {r.repeticoes}x
-            </span>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
-};
+// CryptoRankTable replaced by shared RankingTable component
 
 export const AnalysisReport = ({ title, summary, createdAt, cryptoSymbols, images }: AnalysisReportProps) => {
   const cleanSummary = summary.replace(/CRYPTOS_DETECTED:.*\n?/i, '').trim();
