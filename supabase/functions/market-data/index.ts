@@ -203,6 +203,43 @@ async function fetchForex(pair: string, name: string, flag: string): Promise<Mar
   }
 }
 
+// ---- NewsAPI ----
+async function fetchNews(markets: MarketData[], apiKey: string): Promise<any[]> {
+  if (!apiKey) return [];
+  try {
+    // Build query from market names
+    const queries = ['Ibovespa', 'S&P 500', 'Nasdaq', 'Petrobras', 'Dólar', 'Euro'];
+    const q = encodeURIComponent(queries.join(' OR '));
+    const url = `https://newsapi.org/v2/everything?q=${q}&language=pt&sortBy=publishedAt&pageSize=15&apiKey=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.status !== 'ok' || !Array.isArray(data.articles)) {
+      console.warn('NewsAPI returned no articles:', data.message);
+      return [];
+    }
+    return data.articles.slice(0, 12).map((a: any) => {
+      const text = `${a.title} ${a.description || ''}`.toLowerCase();
+      let market = 'Mercado Global';
+      if (text.includes('ibovespa') || text.includes('bovespa') || text.includes('b3')) market = 'Ibovespa';
+      else if (text.includes('petrobras') || text.includes('petr4')) market = 'Petrobras';
+      else if (text.includes('s&p') || text.includes('sp500')) market = 'S&P 500';
+      else if (text.includes('nasdaq')) market = 'Nasdaq';
+      else if (text.includes('dólar') || text.includes('dolar') || text.includes('usd')) market = 'Dólar/Real';
+      else if (text.includes('euro')) market = 'Euro/Real';
+      return {
+        title: a.title,
+        source: a.source?.name || 'Desconhecido',
+        url: a.url,
+        publishedAt: a.publishedAt,
+        market,
+      };
+    });
+  } catch (e) {
+    console.error('NewsAPI error:', e);
+    return [];
+  }
+}
+
 // ---- Cache Layer ----
 async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
   try {
