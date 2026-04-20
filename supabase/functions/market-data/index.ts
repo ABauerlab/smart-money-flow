@@ -434,11 +434,12 @@ async function getCachedMarketsForce(supabase: any): Promise<MarketData[] | null
       convictionScore: Number(row.conviction_score),
       currency: row.currency,
       historicalVolumes: row.historical_volumes || [],
-    }));
+      };
+    });
   } catch { return null; }
 }
 
-function buildResponse(markets: MarketData[]) {
+function buildResponse(markets: MarketData[], news: any[] = []) {
   // Generate alerts based on market conditions
   const alerts = markets
     .filter(m => Math.abs(m.zScore) > 1.5)
