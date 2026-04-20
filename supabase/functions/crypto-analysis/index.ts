@@ -325,68 +325,33 @@ serve(async (req) => {
       const currentWeek = getISOWeek(now);
       const currentYear = now.getFullYear();
 
-      let weeksToInclude: number[] = [];
-      let periodStart: string;
-      let periodEnd: string;
+      // Day-based windows for ALL periods (more accurate than ISO week buckets)
+      const periodToDays: Record<string, number> = {
+        three_days: 3,
+        weekly: 7,
+        biweekly: 15,
+        triweekly: 21,
+        monthly: 30,
+        bimonthly: 60,
+        quarterly: 90,
+        semiannual: 180,
+        annual: 365,
+      };
+      const days = periodToDays[periodType];
+      if (!days) throw new Error('Tipo de período inválido');
 
-      const wb = getWeekBounds(currentYear, currentWeek);
-      periodEnd = wb.end;
-
-      switch (periodType) {
-        case 'weekly':
-          weeksToInclude = [currentWeek];
-          periodStart = wb.start;
-          break;
-        case 'three_days': {
-          // Last 3 days - use date range instead of weeks
-          const threeDaysAgo = new Date(now);
-          threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
-          periodStart = threeDaysAgo.toISOString().split('T')[0];
-          periodEnd = now.toISOString().split('T')[0];
-          break;
-        }
-        case 'biweekly':
-          weeksToInclude = [currentWeek - 1, currentWeek];
-          periodStart = getWeekBounds(currentYear, currentWeek - 1).start;
-          break;
-        case 'triweekly':
-          weeksToInclude = [currentWeek - 2, currentWeek - 1, currentWeek];
-          periodStart = getWeekBounds(currentYear, currentWeek - 2).start;
-          break;
-        case 'monthly':
-          weeksToInclude = [currentWeek - 3, currentWeek - 2, currentWeek - 1, currentWeek];
-          periodStart = getWeekBounds(currentYear, currentWeek - 3).start;
-          break;
-        case 'bimonthly':
-          weeksToInclude = Array.from({ length: 8 }, (_, i) => currentWeek - 7 + i);
-          periodStart = getWeekBounds(currentYear, currentWeek - 7).start;
-          break;
-        case 'quarterly':
-          weeksToInclude = Array.from({ length: 13 }, (_, i) => currentWeek - 12 + i);
-          periodStart = getWeekBounds(currentYear, currentWeek - 12).start;
-          break;
-        case 'semiannual':
-          weeksToInclude = Array.from({ length: 26 }, (_, i) => currentWeek - 25 + i);
-          periodStart = getWeekBounds(currentYear, currentWeek - 25).start;
-          break;
-        case 'annual':
-          weeksToInclude = Array.from({ length: 52 }, (_, i) => currentWeek - 51 + i);
-          periodStart = getWeekBounds(currentYear, currentWeek - 51).start;
-          break;
-        default:
-          throw new Error('Tipo de período inválido');
-      }
+      const endDate = new Date(now);
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - (days - 1));
+      const periodStart = startDate.toISOString().split('T')[0];
+      const periodEnd = endDate.toISOString().split('T')[0];
 
       let mentionsQuery = supabase
         .from('crypto_mentions')
-        .select('symbol, report_type')
-        .eq('year', currentYear);
+        .select('symbol, report_type, report_date')
+        .gte('report_date', periodStart)
+        .lte('report_date', periodEnd);
 
-      if (periodType === 'three_days') {
-        mentionsQuery = mentionsQuery.gte('report_date', periodStart!).lte('report_date', periodEnd);
-      } else {
-        mentionsQuery = mentionsQuery.in('week_number', weeksToInclude);
-      }
       if (accessCode) mentionsQuery = mentionsQuery.eq('access_code', accessCode);
 
       const { data: mentions, error: mError } = await mentionsQuery;
