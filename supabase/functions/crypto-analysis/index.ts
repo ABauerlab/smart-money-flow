@@ -32,6 +32,114 @@ const SYSTEM_PROMPT = `Você é o consolidador oficial de relatórios do robô C
 Ler relatórios enviados, separar RA (Relatório de Alta) e RB (Relatório de Baixa), extrair criptomoedas, contar repetições e ordenar.
 
 ## REGRAS DE CLASSIFICAÇÃO
+- Arquivos com "RA" no nome = Relatório de Alta -> alimentam a Lista de Alta (LA)
+- Arquivos com "RB" no nome = Relatório de Baixa -> alimentam a Lista de Baixa (LB)
+- NUNCA misture RA com RB. São listas completamente independentes.
+
+## COLUNAS DOS RELATÓRIOS
+Cada relatório contém as colunas: Cripto, Repetição, Data, Hora, Rank.
+
+## PROCESSAMENTO
+1. Ler todos os relatórios enviados
+2. Separar quais são RA e quais são RB
+3. Para cada grupo (RA e RB separadamente):
+   a. Extrair os nomes/símbolos das criptomoedas
+   b. Somar as repetições de cada cripto
+   c. Ordenar por número total de repetições (descendente)
+4. Em caso de empate, priorizar a cripto com presença mais recente
+5. Persistindo empate, listar ambas na mesma posição
+
+## FORMATO DE RESPOSTA
+Use linguagem técnica, neutra, profissional. NÃO utilize emojis em nenhuma parte da resposta.
+
+Sempre responda com:
+
+CRYPTOS_DETECTED: BTC,ETH,SOL,...
+
+### Resumo do Envio
+- Tipo do relatório: RA ou RB
+- Data e período identificados
+- Quantidade de criptos encontradas
+
+### Lista de Alta (LA) — se houver dados RA
+| Pos | Cripto | Repetições | Rank |
+|-----|--------|-----------|------|
+| 1   | BTC    | 5         | #1   |
+(preencha com os dados reais, ordenada por repetições descendente)
+
+### Lista de Baixa (LB) — se houver dados RB
+| Pos | Cripto | Repetições | Rank |
+|-----|--------|-----------|------|
+| 1   | ETH    | 3         | #1   |
+(preencha com os dados reais, ordenada por repetições descendente)
+
+### Destaques
+- Criptos com maior crescimento em repetições
+- Padrões identificados
+
+### Inconsistências
+- Dados faltantes ou irregulares encontrados
+
+## RESTRIÇÕES
+- Considerar apenas relatórios a partir de 06/04/2026
+- Linguagem neutra, técnica e organizacional
+- NÃO faça recomendação financeira
+- NÃO use emojis
+- Use formato Markdown`;
+
+// ====== AI call abstraction: prefer OpenAI direct, fallback to Lovable AI Gateway ======
+async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
+  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
+  // Primary: OpenAI GPT-5 direct
+  if (OPENAI_API_KEY) {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gpt-5', messages }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        return { ok: true, status: 200, content, model: 'openai/gpt-5' };
+      }
+      const errText = await resp.text();
+      console.error('OpenAI error:', resp.status, errText);
+      if (resp.status === 429 || resp.status === 402) {
+        return { ok: false, status: resp.status, content: '', model: 'openai/gpt-5', error: errText };
+      }
+      // Other failures -> try fallback below
+    } catch (e) {
+      console.error('OpenAI fetch threw:', e);
+    }
+  }
+
+  // Fallback: Lovable AI Gateway
+  if (LOVABLE_API_KEY) {
+    const model = opts.wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const content = data.choices?.[0]?.message?.content || '';
+      return { ok: true, status: 200, content, model };
+    }
+    const errText = await resp.text();
+    return { ok: false, status: resp.status, content: '', model, error: errText };
+  }
+
+  return { ok: false, status: 500, content: '', model: 'none', error: 'No AI provider configured' };
+}
+
+## SUA TAREFA
+Ler relatórios enviados, separar RA (Relatório de Alta) e RB (Relatório de Baixa), extrair criptomoedas, contar repetições e ordenar.
+
+## REGRAS DE CLASSIFICAÇÃO
 - Arquivos com "RA" no nome = Relatório de Alta → alimentam a Lista de Alta (LA)
 - Arquivos com "RB" no nome = Relatório de Baixa → alimentam a Lista de Baixa (LB)
 - NUNCA misture RA com RB. São listas completamente independentes.
