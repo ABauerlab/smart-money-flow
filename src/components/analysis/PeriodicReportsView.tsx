@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Calendar, FileText, Loader2, ChevronDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { exportPeriodicReportPdf } from '@/lib/exportPeriodicReportPdf';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { RankingTable } from './RankingTable';
 
 interface RankingEntry {
   symbol: string;
