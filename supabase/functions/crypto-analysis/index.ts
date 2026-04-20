@@ -390,13 +390,13 @@ serve(async (req) => {
         .map(([symbol, c]) => ({ symbol, ...c }))
         .sort((a, b) => b.total - a.total);
 
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       let aiAnalysis = '';
+      let aiModelUsed = 'none';
 
-      if (LOVABLE_API_KEY && rankings.length > 0) {
+      if (rankings.length > 0) {
         const periodLabels: Record<string, string> = {
-          weekly: 'semanal', three_days: '3 dias', biweekly: 'quinzenal', triweekly: 'trisemanal',
-          monthly: 'mensal', bimonthly: 'bimestral', quarterly: 'trimestral', semiannual: 'semestral', annual: 'anual',
+          three_days: '3 dias', weekly: '7 dias', biweekly: '15 dias', triweekly: '21 dias',
+          monthly: '30 dias', bimonthly: '60 dias', quarterly: '90 dias', semiannual: '180 dias', annual: '365 dias',
         };
 
         const laText = altaRankings.length > 0
@@ -407,21 +407,13 @@ serve(async (req) => {
           ? `### Lista de Baixa (LB)\n${baixaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
           : '### Lista de Baixa (LB)\nNenhum dado de baixa no período.';
 
-        const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: SYSTEM_PROMPT },
-              { role: 'user', content: `Relatório consolidado ${periodLabels[periodType] || periodType} (${periodStart} a ${periodEnd}).\n\n${laText}\n\n${lbText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de menções no período: ${mentions?.length || 0}\n\nAnalise os padrões, identifique destaques e inconsistências. Separe claramente LA e LB na resposta.` },
-            ],
-          }),
-        });
-
-        if (aiResp.ok) {
-          const aiData = await aiResp.json();
-          aiAnalysis = aiData.choices?.[0]?.message?.content || '';
+        const aiResult = await callAI([
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: `Relatório consolidado de ${periodLabels[periodType] || periodType} (${periodStart} a ${periodEnd}).\n\n${laText}\n\n${lbText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de menções no período: ${mentions?.length || 0}\n\nAnalise os padrões, identifique destaques e inconsistências. Separe claramente LA e LB na resposta. Não use emojis.` },
+        ]);
+        if (aiResult.ok) {
+          aiAnalysis = aiResult.content;
+          aiModelUsed = aiResult.model;
         }
       }
 
