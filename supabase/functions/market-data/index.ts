@@ -257,12 +257,15 @@ async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
 
     if (ageMinutes > CACHE_TTL_MINUTES) return null;
 
-    return data.map((row: any) => ({
+    return data.map((row: any) => {
+      const isForex = row.id === 'usdbrl' || row.id === 'eurbrl';
+      const isStock = row.ticker === 'PETR4';
+      return {
       id: row.id,
       name: row.name,
       ticker: row.ticker,
       flag: row.flag,
-      category: row.flow_type === 'forex' ? 'forex' : 'indices',
+      category: isForex ? 'forex' : isStock ? 'stocks' : 'indices',
       currentVolume: Number(row.current_volume),
       averageVolume: Number(row.average_volume),
       price: Number(row.price),
