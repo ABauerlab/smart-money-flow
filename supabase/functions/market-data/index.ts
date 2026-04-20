@@ -389,37 +389,41 @@ async function saveToCache(supabase: any, markets: MarketData[]) {
 }
 
 // ---- Fetch with staggered delays to respect rate limits ----
-async function fetchAllMarkets(alphaKey: string, brapiKey: string): Promise<MarketData[]> {
+async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: string): Promise<MarketData[]> {
   const results: MarketData[] = [];
 
-  // Batch 1: Brapi (Brazilian market - no rate limit issues) + Forex (AwesomeAPI - no key needed)
+  // Batch 1: independent APIs (Brapi, AwesomeAPI, CoinMarketCap) — no shared rate limit
   const batch1 = await Promise.all([
     fetchBrapiQuote('^BVSP', 'Ibovespa', '🇧🇷', 'indices', brapiKey),
     fetchBrapiQuote('PETR4', 'Petrobras PN', '🛢️', 'stocks', brapiKey),
     fetchForex('USD-BRL', 'Dólar/Real', '💵'),
     fetchForex('EUR-BRL', 'Euro/Real', '💶'),
+    fetchForex('XAU-USD', 'Ouro Spot', '🥇', 'commodities', 'USD'),
+    fetchCrypto('BTC', 'Bitcoin', '₿', cmcKey),
+    fetchCrypto('ETH', 'Ethereum', 'Ξ', cmcKey),
   ]);
   results.push(...batch1.filter(Boolean) as MarketData[]);
 
-  // Batch 2: Alpha Vantage (stagger to stay under 5/min)
+  // Batch 2: Alpha Vantage (5 calls/min limit — stagger)
   const av1 = await fetchAlphaVantage('SPY', 'S&P 500', '🇺🇸', 'indices', 'USD', alphaKey);
   if (av1) results.push(av1);
-
-  // Small delay between AV calls
   await new Promise(r => setTimeout(r, 1500));
 
   const av2 = await fetchAlphaVantage('QQQ', 'Nasdaq 100', '📈', 'indices', 'USD', alphaKey);
   if (av2) results.push(av2);
-
   await new Promise(r => setTimeout(r, 1500));
 
   const av3 = await fetchAlphaVantage('EWJ', 'Nikkei 225 (ETF)', '🇯🇵', 'indices', 'USD', alphaKey);
   if (av3) results.push(av3);
-
   await new Promise(r => setTimeout(r, 1500));
 
   const av4 = await fetchAlphaVantage('VGK', 'Mercado Europeu', '🇪🇺', 'indices', 'USD', alphaKey);
   if (av4) results.push(av4);
+  await new Promise(r => setTimeout(r, 1500));
+
+  // Brent uses commodity endpoint (separate quota from TIME_SERIES)
+  const brent = await fetchBrent(alphaKey);
+  if (brent) results.push(brent);
 
   return results;
 }
