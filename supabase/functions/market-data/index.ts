@@ -276,7 +276,8 @@ async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
       convictionScore: Number(row.conviction_score),
       currency: row.currency,
       historicalVolumes: row.historical_volumes || [],
-    }));
+      };
+    });
   } catch (e) {
     console.error('Cache read error:', e);
     return null;
