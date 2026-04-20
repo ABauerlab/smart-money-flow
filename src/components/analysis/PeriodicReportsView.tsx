@@ -72,10 +72,9 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
     <div className="space-y-4">
       {/* Explainer box */}
       <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground space-y-1">
-        <p className="font-semibold text-foreground">📖 O que são Relatórios Periódicos?</p>
-        <p>São consolidações dos seus relatórios diários em períodos maiores. A IA analisa os dados acumulados e gera as <strong>Listas de Alta (LA)</strong> e <strong>Listas de Baixa (LB)</strong> separadas.</p>
-        <p>O período é calculado a partir da <strong>data atual</strong>. Ex: "3 Dias" cobre os últimos 3 dias, "Semanal" cobre a semana corrente.</p>
-        <p>Os dados vêm dos relatórios RA e RB que você já enviou — sem envios, os relatórios ficarão vazios.</p>
+        <p className="font-semibold text-foreground">Relatórios Periódicos</p>
+        <p>Consolidações dos relatórios diários (RA/RB) em janelas de tempo. A IA analisa o acúmulo de menções e gera as <strong>Listas de Alta (LA)</strong> e <strong>Listas de Baixa (LB)</strong> separadas, com base nas datas de envio.</p>
+        <p>Cada período é calculado em <strong>dias corridos</strong> a partir de hoje. Os dados vêm dos envios RA/RB já feitos — sem envios, os relatórios ficam vazios.</p>
       </div>
 
       <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
