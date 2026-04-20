@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Calendar, FileText, Loader2, ChevronDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { exportPeriodicReportPdf } from '@/lib/exportPeriodicReportPdf';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { RankingTable } from './RankingTable';
 
 interface RankingEntry {
   symbol: string;
@@ -33,30 +35,30 @@ interface PeriodicReportsViewProps {
 }
 
 const PERIOD_LABELS: Record<string, string> = {
-  three_days: '📊 3 Dias',
-  weekly: '📅 Semanal',
-  biweekly: '📊 Quinzenal',
-  triweekly: '📈 Trisemanal',
-  monthly: '🗓️ Mensal',
-  bimonthly: '📆 Bimestral',
-  quarterly: '📋 Trimestral',
-  semiannual: '📑 Semestral',
-  annual: '📅 Anual',
+  three_days: '3 Dias',
+  weekly: '7 Dias',
+  biweekly: '15 Dias',
+  triweekly: '21 Dias',
+  monthly: '30 Dias',
+  bimonthly: '60 Dias',
+  quarterly: '90 Dias',
+  semiannual: '180 Dias',
+  annual: '365 Dias',
 };
 
 const PERIOD_DESCRIPTIONS: Record<string, string> = {
-  three_days: 'Consolida os relatórios dos últimos 3 dias',
-  weekly: 'Consolida os relatórios da semana atual (segunda a domingo)',
-  biweekly: 'Consolida as duas últimas semanas de relatórios',
-  triweekly: 'Consolida as três últimas semanas de relatórios',
-  monthly: 'Consolida as quatro últimas semanas (≈1 mês) de relatórios',
-  bimonthly: 'Consolida as últimas 8 semanas (≈2 meses)',
-  quarterly: 'Consolida as últimas 13 semanas (≈3 meses)',
-  semiannual: 'Consolida as últimas 26 semanas (≈6 meses)',
-  annual: 'Consolida as últimas 52 semanas (≈1 ano)',
+  three_days: 'Consolida menções dos últimos 3 dias',
+  weekly: 'Consolida menções dos últimos 7 dias',
+  biweekly: 'Consolida menções dos últimos 15 dias',
+  triweekly: 'Consolida menções dos últimos 21 dias',
+  monthly: 'Consolida menções dos últimos 30 dias',
+  bimonthly: 'Consolida menções dos últimos 60 dias',
+  quarterly: 'Consolida menções dos últimos 90 dias',
+  semiannual: 'Consolida menções dos últimos 180 dias',
+  annual: 'Consolida menções dos últimos 365 dias',
 };
 
-const PERIOD_ORDER = ['three_days', 'weekly', 'biweekly', 'triweekly', 'monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual'];
+const PERIOD_ORDER = ['three_days', 'weekly', 'biweekly', 'monthly', 'triweekly', 'bimonthly', 'quarterly', 'semiannual', 'annual'];
 
 export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerating }: PeriodicReportsViewProps) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -72,10 +74,9 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
     <div className="space-y-4">
       {/* Explainer box */}
       <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground space-y-1">
-        <p className="font-semibold text-foreground">📖 O que são Relatórios Periódicos?</p>
-        <p>São consolidações dos seus relatórios diários em períodos maiores. A IA analisa os dados acumulados e gera as <strong>Listas de Alta (LA)</strong> e <strong>Listas de Baixa (LB)</strong> separadas.</p>
-        <p>O período é calculado a partir da <strong>data atual</strong>. Ex: "3 Dias" cobre os últimos 3 dias, "Semanal" cobre a semana corrente.</p>
-        <p>Os dados vêm dos relatórios RA e RB que você já enviou — sem envios, os relatórios ficarão vazios.</p>
+        <p className="font-semibold text-foreground">Relatórios Periódicos</p>
+        <p>Consolidações dos relatórios diários (RA/RB) em janelas de tempo. A IA analisa o acúmulo de menções e gera as <strong>Listas de Alta (LA)</strong> e <strong>Listas de Baixa (LB)</strong> separadas, com base nas datas de envio.</p>
+        <p>Cada período é calculado em <strong>dias corridos</strong> a partir de hoje. Os dados vêm dos envios RA/RB já feitos — sem envios, os relatórios ficam vazios.</p>
       </div>
 
       <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -157,51 +158,31 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
               {expandedId === r.id && (
                 <div className="px-3 pb-3 space-y-3">
                   {Array.isArray(r.rankings) && r.rankings.length > 0 && (
-                    <div className="space-y-3">
-                      {/* LA */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       {r.rankings.some(rank => rank.alta > 0) && (
-                        <div>
-                          <p className="text-xs font-semibold text-emerald-400 mb-1">📈 Lista de Alta (LA):</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                            {r.rankings
-                              .filter(rank => rank.alta > 0)
-                              .sort((a, b) => b.alta - a.alta)
-                              .slice(0, 12)
-                              .map((rank: RankingEntry, i: number) => (
-                                <div key={`alta-${rank.symbol}`} className="flex items-center gap-1 text-xs p-1 bg-emerald-500/10 rounded border border-emerald-500/20">
-                                  <span className={i < 3 ? 'text-yellow-500 font-bold' : 'text-muted-foreground'}>#{i + 1}</span>
-                                  <span className="font-mono font-semibold">{rank.symbol}</span>
-                                  <span className="text-emerald-400 ml-auto">{rank.alta}x</span>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
+                        <RankingTable
+                          type="alta"
+                          rows={r.rankings
+                            .filter(rank => rank.alta > 0)
+                            .map(rank => ({ symbol: rank.symbol, count: rank.alta }))
+                            .sort((a, b) => b.count - a.count)}
+                        />
                       )}
-                      {/* LB */}
                       {r.rankings.some(rank => rank.baixa > 0) && (
-                        <div>
-                          <p className="text-xs font-semibold text-red-400 mb-1">📉 Lista de Baixa (LB):</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                            {r.rankings
-                              .filter(rank => rank.baixa > 0)
-                              .sort((a, b) => b.baixa - a.baixa)
-                              .slice(0, 12)
-                              .map((rank: RankingEntry, i: number) => (
-                                <div key={`baixa-${rank.symbol}`} className="flex items-center gap-1 text-xs p-1 bg-red-500/10 rounded border border-red-500/20">
-                                  <span className={i < 3 ? 'text-yellow-500 font-bold' : 'text-muted-foreground'}>#{i + 1}</span>
-                                  <span className="font-mono font-semibold">{rank.symbol}</span>
-                                  <span className="text-red-400 ml-auto">{rank.baixa}x</span>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
+                        <RankingTable
+                          type="baixa"
+                          rows={r.rankings
+                            .filter(rank => rank.baixa > 0)
+                            .map(rank => ({ symbol: rank.symbol, count: rank.baixa }))
+                            .sort((a, b) => b.count - a.count)}
+                        />
                       )}
                     </div>
                   )}
 
                   {r.ai_analysis && (
-                    <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed">
-                      <ReactMarkdown>{r.ai_analysis}</ReactMarkdown>
+                    <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:bg-primary/15 [&_th]:text-primary [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-1 [&_td]:text-[11px] [&_td]:border-t [&_td]:border-border/30">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{r.ai_analysis}</ReactMarkdown>
                     </div>
                   )}
                 </div>

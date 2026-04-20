@@ -21,13 +21,15 @@ interface PeriodicReport {
 }
 
 const PERIOD_LABELS: Record<string, string> = {
-  weekly: 'Semanal',
-  biweekly: 'Quinzenal',
-  triweekly: 'Trisemanal',
-  monthly: 'Mensal',
-  bimonthly: 'Bimestral',
-  quarterly: 'Trimestral',
-  semiannual: 'Semestral',
+  three_days: '3 Dias',
+  weekly: '7 Dias',
+  biweekly: '15 Dias',
+  triweekly: '21 Dias',
+  monthly: '30 Dias',
+  bimonthly: '60 Dias',
+  quarterly: '90 Dias',
+  semiannual: '180 Dias',
+  annual: '365 Dias',
 };
 
 export function exportPeriodicReportPdf(report: PeriodicReport) {

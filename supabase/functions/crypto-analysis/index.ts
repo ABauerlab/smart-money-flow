@@ -32,8 +32,8 @@ const SYSTEM_PROMPT = `Você é o consolidador oficial de relatórios do robô C
 Ler relatórios enviados, separar RA (Relatório de Alta) e RB (Relatório de Baixa), extrair criptomoedas, contar repetições e ordenar.
 
 ## REGRAS DE CLASSIFICAÇÃO
-- Arquivos com "RA" no nome = Relatório de Alta → alimentam a Lista de Alta (LA)
-- Arquivos com "RB" no nome = Relatório de Baixa → alimentam a Lista de Baixa (LB)
+- Arquivos com "RA" no nome = Relatório de Alta -> alimentam a Lista de Alta (LA)
+- Arquivos com "RB" no nome = Relatório de Baixa -> alimentam a Lista de Baixa (LB)
 - NUNCA misture RA com RB. São listas completamente independentes.
 
 ## COLUNAS DOS RELATÓRIOS
@@ -50,6 +50,8 @@ Cada relatório contém as colunas: Cripto, Repetição, Data, Hora, Rank.
 5. Persistindo empate, listar ambas na mesma posição
 
 ## FORMATO DE RESPOSTA
+Use linguagem técnica, neutra, profissional. NÃO utilize emojis em nenhuma parte da resposta.
+
 Sempre responda com:
 
 CRYPTOS_DETECTED: BTC,ETH,SOL,...
@@ -71,7 +73,6 @@ CRYPTOS_DETECTED: BTC,ETH,SOL,...
 | 1   | ETH    | 3         | #1   |
 (preencha com os dados reais, ordenada por repetições descendente)
 
-
 ### Destaques
 - Criptos com maior crescimento em repetições
 - Padrões identificados
@@ -83,7 +84,58 @@ CRYPTOS_DETECTED: BTC,ETH,SOL,...
 - Considerar apenas relatórios a partir de 06/04/2026
 - Linguagem neutra, técnica e organizacional
 - NÃO faça recomendação financeira
+- NÃO use emojis
 - Use formato Markdown`;
+
+// ====== AI call abstraction: prefer OpenAI direct, fallback to Lovable AI Gateway ======
+async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
+  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
+  // Primary: OpenAI GPT-5 direct
+  if (OPENAI_API_KEY) {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gpt-5', messages }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        return { ok: true, status: 200, content, model: 'openai/gpt-5' };
+      }
+      const errText = await resp.text();
+      console.error('OpenAI error:', resp.status, errText);
+      if (resp.status === 429 || resp.status === 402) {
+        return { ok: false, status: resp.status, content: '', model: 'openai/gpt-5', error: errText };
+      }
+      // Other failures -> try fallback below
+    } catch (e) {
+      console.error('OpenAI fetch threw:', e);
+    }
+  }
+
+  // Fallback: Lovable AI Gateway
+  if (LOVABLE_API_KEY) {
+    const model = opts.wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const content = data.choices?.[0]?.message?.content || '';
+      return { ok: true, status: 200, content, model };
+    }
+    const errText = await resp.text();
+    return { ok: false, status: resp.status, content: '', model, error: errText };
+  }
+
+  return { ok: false, status: 500, content: '', model: 'none', error: 'No AI provider configured' };
+}
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -217,68 +269,33 @@ serve(async (req) => {
       const currentWeek = getISOWeek(now);
       const currentYear = now.getFullYear();
 
-      let weeksToInclude: number[] = [];
-      let periodStart: string;
-      let periodEnd: string;
+      // Day-based windows for ALL periods (more accurate than ISO week buckets)
+      const periodToDays: Record<string, number> = {
+        three_days: 3,
+        weekly: 7,
+        biweekly: 15,
+        triweekly: 21,
+        monthly: 30,
+        bimonthly: 60,
+        quarterly: 90,
+        semiannual: 180,
+        annual: 365,
+      };
+      const days = periodToDays[periodType];
+      if (!days) throw new Error('Tipo de período inválido');
 
-      const wb = getWeekBounds(currentYear, currentWeek);
-      periodEnd = wb.end;
-
-      switch (periodType) {
-        case 'weekly':
-          weeksToInclude = [currentWeek];
-          periodStart = wb.start;
-          break;
-        case 'three_days': {
-          // Last 3 days - use date range instead of weeks
-          const threeDaysAgo = new Date(now);
-          threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
-          periodStart = threeDaysAgo.toISOString().split('T')[0];
-          periodEnd = now.toISOString().split('T')[0];
-          break;
-        }
-        case 'biweekly':
-          weeksToInclude = [currentWeek - 1, currentWeek];
-          periodStart = getWeekBounds(currentYear, currentWeek - 1).start;
-          break;
-        case 'triweekly':
-          weeksToInclude = [currentWeek - 2, currentWeek - 1, currentWeek];
-          periodStart = getWeekBounds(currentYear, currentWeek - 2).start;
-          break;
-        case 'monthly':
-          weeksToInclude = [currentWeek - 3, currentWeek - 2, currentWeek - 1, currentWeek];
-          periodStart = getWeekBounds(currentYear, currentWeek - 3).start;
-          break;
-        case 'bimonthly':
-          weeksToInclude = Array.from({ length: 8 }, (_, i) => currentWeek - 7 + i);
-          periodStart = getWeekBounds(currentYear, currentWeek - 7).start;
-          break;
-        case 'quarterly':
-          weeksToInclude = Array.from({ length: 13 }, (_, i) => currentWeek - 12 + i);
-          periodStart = getWeekBounds(currentYear, currentWeek - 12).start;
-          break;
-        case 'semiannual':
-          weeksToInclude = Array.from({ length: 26 }, (_, i) => currentWeek - 25 + i);
-          periodStart = getWeekBounds(currentYear, currentWeek - 25).start;
-          break;
-        case 'annual':
-          weeksToInclude = Array.from({ length: 52 }, (_, i) => currentWeek - 51 + i);
-          periodStart = getWeekBounds(currentYear, currentWeek - 51).start;
-          break;
-        default:
-          throw new Error('Tipo de período inválido');
-      }
+      const endDate = new Date(now);
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - (days - 1));
+      const periodStart = startDate.toISOString().split('T')[0];
+      const periodEnd = endDate.toISOString().split('T')[0];
 
       let mentionsQuery = supabase
         .from('crypto_mentions')
-        .select('symbol, report_type')
-        .eq('year', currentYear);
+        .select('symbol, report_type, report_date')
+        .gte('report_date', periodStart)
+        .lte('report_date', periodEnd);
 
-      if (periodType === 'three_days') {
-        mentionsQuery = mentionsQuery.gte('report_date', periodStart!).lte('report_date', periodEnd);
-      } else {
-        mentionsQuery = mentionsQuery.in('week_number', weeksToInclude);
-      }
       if (accessCode) mentionsQuery = mentionsQuery.eq('access_code', accessCode);
 
       const { data: mentions, error: mError } = await mentionsQuery;
@@ -317,13 +334,13 @@ serve(async (req) => {
         .map(([symbol, c]) => ({ symbol, ...c }))
         .sort((a, b) => b.total - a.total);
 
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       let aiAnalysis = '';
+      let aiModelUsed = 'none';
 
-      if (LOVABLE_API_KEY && rankings.length > 0) {
+      if (rankings.length > 0) {
         const periodLabels: Record<string, string> = {
-          weekly: 'semanal', three_days: '3 dias', biweekly: 'quinzenal', triweekly: 'trisemanal',
-          monthly: 'mensal', bimonthly: 'bimestral', quarterly: 'trimestral', semiannual: 'semestral', annual: 'anual',
+          three_days: '3 dias', weekly: '7 dias', biweekly: '15 dias', triweekly: '21 dias',
+          monthly: '30 dias', bimonthly: '60 dias', quarterly: '90 dias', semiannual: '180 dias', annual: '365 dias',
         };
 
         const laText = altaRankings.length > 0
@@ -334,21 +351,13 @@ serve(async (req) => {
           ? `### Lista de Baixa (LB)\n${baixaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
           : '### Lista de Baixa (LB)\nNenhum dado de baixa no período.';
 
-        const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: SYSTEM_PROMPT },
-              { role: 'user', content: `Relatório consolidado ${periodLabels[periodType] || periodType} (${periodStart} a ${periodEnd}).\n\n${laText}\n\n${lbText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de menções no período: ${mentions?.length || 0}\n\nAnalise os padrões, identifique destaques e inconsistências. Separe claramente LA e LB na resposta.` },
-            ],
-          }),
-        });
-
-        if (aiResp.ok) {
-          const aiData = await aiResp.json();
-          aiAnalysis = aiData.choices?.[0]?.message?.content || '';
+        const aiResult = await callAI([
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: `Relatório consolidado de ${periodLabels[periodType] || periodType} (${periodStart} a ${periodEnd}).\n\n${laText}\n\n${lbText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de menções no período: ${mentions?.length || 0}\n\nAnalise os padrões, identifique destaques e inconsistências. Separe claramente LA e LB na resposta. Não use emojis.` },
+        ]);
+        if (aiResult.ok) {
+          aiAnalysis = aiResult.content;
+          aiModelUsed = aiResult.model;
         }
       }
 
@@ -386,8 +395,9 @@ serve(async (req) => {
         });
       }
 
+      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+      if (!OPENAI_API_KEY && !LOVABLE_API_KEY) throw new Error('Nenhum provedor de IA configurado');
 
       const uploadedImages: { url: string; name: string; base64: string }[] = [];
       for (const img of images) {
@@ -420,7 +430,7 @@ Instruções:
 No INÍCIO da resposta, inclua:
 CRYPTOS_DETECTED: BTC,ETH,SOL,...
 
-Formato Markdown.`,
+Formato Markdown. Não use emojis.`,
         },
       ];
 
@@ -431,36 +441,28 @@ Formato Markdown.`,
         });
       }
 
-      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: userContent },
-          ],
-        }),
-      });
+      const aiResult = await callAI([
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userContent },
+      ], { wantsVision: true });
 
-      if (!aiResponse.ok) {
-        const errText = await aiResponse.text();
-        console.error('AI Gateway error:', aiResponse.status, errText);
-        if (aiResponse.status === 429) {
+      if (!aiResult.ok) {
+        console.error('AI error:', aiResult.status, aiResult.error);
+        if (aiResult.status === 429) {
           return new Response(JSON.stringify({ error: 'Limite de requisições atingido.' }), {
             status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        if (aiResponse.status === 402) {
+        if (aiResult.status === 402) {
           return new Response(JSON.stringify({ error: 'Créditos de IA esgotados.' }), {
             status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        throw new Error(`AI error: ${aiResponse.status}`);
+        throw new Error(`AI error: ${aiResult.status}`);
       }
 
-      const aiData = await aiResponse.json();
-      const summary = aiData.choices?.[0]?.message?.content || 'Análise não disponível.';
+      const summary = aiResult.content || 'Análise não disponível.';
+      const aiModelUsed = aiResult.model;
 
       const cryptoMatch = summary.match(/CRYPTOS_DETECTED:\s*([^\n]+)/i);
       let detectedCryptos: string[] = [];
@@ -484,7 +486,7 @@ Formato Markdown.`,
           summary,
           period_type: 'daily',
           crypto_symbols: allCryptos,
-          ai_model_used: 'google/gemini-2.5-pro',
+          ai_model_used: aiModelUsed,
           access_code: accessCode || null,
         })
         .select()
