@@ -328,10 +328,16 @@ export const AnalysisReport = ({ title, summary, createdAt, cryptoSymbols, image
           {/* Tables side by side on larger screens */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {altaSection?.rows && altaSection.rows.length > 0 && (
-              <CryptoRankTable rows={altaSection.rows} type="alta" />
+              <RankingTable
+                type="alta"
+                rows={altaSection.rows.map(r => ({ symbol: r.cripto, count: r.repeticoes }))}
+              />
             )}
             {baixaSection?.rows && baixaSection.rows.length > 0 && (
-              <CryptoRankTable rows={baixaSection.rows} type="baixa" />
+              <RankingTable
+                type="baixa"
+                rows={baixaSection.rows.map(r => ({ symbol: r.cripto, count: r.repeticoes }))}
+              />
             )}
           </div>
 
