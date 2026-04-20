@@ -480,7 +480,7 @@ function buildResponse(markets: MarketData[], news: any[] = []) {
     },
     alerts,
     correlations: [],
-    news: [],
+    news,
     lastUpdated: new Date().toISOString(),
   };
 }
