@@ -358,12 +358,14 @@ serve(async (req) => {
 
     const alphaKey = Deno.env.get('ALPHA_VANTAGE_API_KEY') || 'demo';
     const brapiKey = Deno.env.get('BRAPI_API_KEY') || '';
+    const newsKey = Deno.env.get('NEWS_API_KEY') || '';
 
     // Try cache first
     const cached = await getCachedMarkets(supabase);
     if (cached && cached.length > 0) {
       console.log(`Serving ${cached.length} markets from cache`);
-      const response = buildResponse(cached);
+      const news = await fetchNews(cached, newsKey);
+      const response = buildResponse(cached, news);
       return new Response(JSON.stringify(response), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -389,7 +391,8 @@ serve(async (req) => {
       }
     }
 
-    const response = buildResponse(finalMarkets);
+    const news = await fetchNews(finalMarkets, newsKey);
+    const response = buildResponse(finalMarkets, news);
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
