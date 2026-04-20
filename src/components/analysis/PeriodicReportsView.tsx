@@ -158,51 +158,31 @@ export const PeriodicReportsView = ({ reports, isLoading, onGenerate, isGenerati
               {expandedId === r.id && (
                 <div className="px-3 pb-3 space-y-3">
                   {Array.isArray(r.rankings) && r.rankings.length > 0 && (
-                    <div className="space-y-3">
-                      {/* LA */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       {r.rankings.some(rank => rank.alta > 0) && (
-                        <div>
-                          <p className="text-xs font-semibold text-emerald-400 mb-1">📈 Lista de Alta (LA):</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                            {r.rankings
-                              .filter(rank => rank.alta > 0)
-                              .sort((a, b) => b.alta - a.alta)
-                              .slice(0, 12)
-                              .map((rank: RankingEntry, i: number) => (
-                                <div key={`alta-${rank.symbol}`} className="flex items-center gap-1 text-xs p-1 bg-emerald-500/10 rounded border border-emerald-500/20">
-                                  <span className={i < 3 ? 'text-yellow-500 font-bold' : 'text-muted-foreground'}>#{i + 1}</span>
-                                  <span className="font-mono font-semibold">{rank.symbol}</span>
-                                  <span className="text-emerald-400 ml-auto">{rank.alta}x</span>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
+                        <RankingTable
+                          type="alta"
+                          rows={r.rankings
+                            .filter(rank => rank.alta > 0)
+                            .map(rank => ({ symbol: rank.symbol, count: rank.alta }))
+                            .sort((a, b) => b.count - a.count)}
+                        />
                       )}
-                      {/* LB */}
                       {r.rankings.some(rank => rank.baixa > 0) && (
-                        <div>
-                          <p className="text-xs font-semibold text-red-400 mb-1">📉 Lista de Baixa (LB):</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                            {r.rankings
-                              .filter(rank => rank.baixa > 0)
-                              .sort((a, b) => b.baixa - a.baixa)
-                              .slice(0, 12)
-                              .map((rank: RankingEntry, i: number) => (
-                                <div key={`baixa-${rank.symbol}`} className="flex items-center gap-1 text-xs p-1 bg-red-500/10 rounded border border-red-500/20">
-                                  <span className={i < 3 ? 'text-yellow-500 font-bold' : 'text-muted-foreground'}>#{i + 1}</span>
-                                  <span className="font-mono font-semibold">{rank.symbol}</span>
-                                  <span className="text-red-400 ml-auto">{rank.baixa}x</span>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
+                        <RankingTable
+                          type="baixa"
+                          rows={r.rankings
+                            .filter(rank => rank.baixa > 0)
+                            .map(rank => ({ symbol: rank.symbol, count: rank.baixa }))
+                            .sort((a, b) => b.count - a.count)}
+                        />
                       )}
                     </div>
                   )}
 
                   {r.ai_analysis && (
-                    <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed">
-                      <ReactMarkdown>{r.ai_analysis}</ReactMarkdown>
+                    <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:bg-primary/15 [&_th]:text-primary [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-1 [&_td]:text-[11px] [&_td]:border-t [&_td]:border-border/30">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{r.ai_analysis}</ReactMarkdown>
                     </div>
                   )}
                 </div>
