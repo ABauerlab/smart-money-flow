@@ -1,265 +1,267 @@
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
-  Target, Zap, Shield, ArrowRight, LayoutDashboard, 
-  Lock, Activity, Crosshair, CheckCircle2, Users, 
-  Cpu, Globe, Sparkles, ShieldCheck 
+  Activity, ArrowRight, BarChart3, Brain, 
+  CheckCircle2, Cpu, Globe, LineChart, 
+  Newspaper, ShieldCheck, Target, TrendingUp, Zap 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
 const Landing = () => {
-  const { scrollYProgress } = useScroll();
-  const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
-  const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
-
   return (
     <div className="min-h-screen bg-[#000] text-[#D1D1D1] selection:bg-primary/30 overflow-x-hidden font-sans">
-      {/* Fixed Header - Credibilidade & Conformidade */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-black/40 backdrop-blur-2xl">
-        <div className="container h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20 glow-primary">
-              <Target className="w-6 h-6 text-primary" />
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-black/60 backdrop-blur-xl">
+        <div className="container h-14 sm:h-16 flex items-center justify-between gap-3">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20 flex-shrink-0">
+              <Target className="w-4 h-4 sm:w-6 sm:h-6 text-primary" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-black tracking-tighter text-white leading-none">FLUXO DOS MERCADOS</span>
-              <span className="text-[10px] text-primary font-mono tracking-[0.2em]">IA ESTRATÉGICA v2.6</span>
+            <div className="flex flex-col min-w-0">
+              <span className="font-black tracking-tighter text-white leading-none text-sm sm:text-base truncate">
+                FLUXO DOS MERCADOS
+              </span>
+              <span className="text-[8px] sm:text-[10px] text-primary font-mono tracking-[0.2em]">
+                v2.6
+              </span>
             </div>
-          </div>
-          
-          <div className="hidden lg:flex items-center gap-6 px-4 py-1 rounded-full bg-white/5 border border-white/10">
-            <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-[#888]">
-              <ShieldCheck className="w-3 h-3 text-bullish" />
-              <span>Conformidade LGPD</span>
-            </div>
-            <div className="w-px h-3 bg-white/10" />
-            <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-[#888]">
-              <Cpu className="w-3 h-3 text-primary" />
-              <span>IA Responsável</span>
-            </div>
-          </div>
+          </Link>
 
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard">
-              <Button variant="outline" className="border-white/10 bg-white/5 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-black transition-all duration-500 rounded-none h-9">
-                Acesso Imediato
-              </Button>
-            </Link>
-          </div>
+          <Link to="/dashboard">
+            <Button 
+              className="bg-primary text-black hover:bg-primary/90 text-[10px] sm:text-xs uppercase tracking-widest rounded-none h-9 px-3 sm:px-5 font-bold"
+            >
+              <span className="hidden sm:inline">Acessar Dashboard</span>
+              <span className="sm:hidden">Dashboard</span>
+              <ArrowRight className="ml-1 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4" />
+            </Button>
+          </Link>
         </div>
       </header>
 
-      {/* Hero Section: Headline 2026 */}
-      <section className="relative min-h-screen flex items-center justify-center pt-20">
+      {/* Hero */}
+      <section className="relative min-h-[90vh] flex items-center justify-center pt-24 pb-16 sm:pt-32 sm:pb-24">
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
-          <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary/10 blur-[150px] rounded-full" />
-          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-bullish/5 blur-[120px] rounded-full" />
+          <div className="absolute top-1/4 left-1/4 w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-primary/10 blur-[100px] sm:blur-[150px] rounded-full" />
+          <div className="absolute bottom-1/4 right-1/4 w-[200px] sm:w-[400px] h-[200px] sm:h-[400px] bg-bullish/5 blur-[80px] sm:blur-[120px] rounded-full" />
         </div>
 
-        <motion.div 
-          style={{ opacity, scale }}
-          className="container relative z-10 text-center space-y-10"
-        >
+        <div className="container relative z-10 text-center space-y-8 sm:space-y-10 px-4">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-[10px] uppercase tracking-[0.3em] text-primary mb-8">
-              <Sparkles className="w-3 h-3" />
-              Resultados Comprovados & Validados em 2026
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] sm:tracking-[0.3em] text-primary mb-6 sm:mb-8">
+              <Activity className="w-3 h-3" />
+              Análise de Fluxo Institucional em Tempo Real
             </div>
-            <h1 className="text-5xl md:text-[90px] font-black tracking-tighter text-white leading-[0.9] uppercase">
-              O futuro do mercado <br />
-              é humano: conheça <br />
-              nossa <span className="text-transparent bg-clip-text bg-gradient-to-b from-primary to-primary/40">IA Estratégica.</span>
+            
+            <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-[88px] font-black tracking-tighter text-white leading-[0.95] uppercase">
+              Veja o dinheiro <br className="hidden sm:block" />
+              institucional <br className="hidden sm:block" />
+              <span className="text-transparent bg-clip-text bg-gradient-to-b from-primary to-primary/40">
+                antes do mercado.
+              </span>
             </h1>
-            <p className="mt-10 text-xl md:text-2xl text-[#888] max-w-4xl mx-auto font-light leading-relaxed">
-              Sua jornada de <span className="text-white font-medium">alta performance</span> começa com um clique. 
-              Simplifique processos complexos e aumente seu ROI com soluções inteligentes personalizadas para você.
+            
+            <p className="mt-6 sm:mt-10 text-base sm:text-xl md:text-2xl text-[#888] max-w-3xl mx-auto font-light leading-relaxed">
+              Rastreamos volume, preço e fluxo dos principais ativos do <span className="text-white font-medium">Brasil, EUA, Europa, Ásia e Forex</span> em tempo real. Identifique acumulação, distribuição e exaustão antes que o movimento aconteça.
             </p>
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="flex flex-col items-center gap-8 pt-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+            className="flex flex-col items-center gap-6 pt-2"
           >
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <Link to="/dashboard">
-                <Button size="lg" className="h-16 px-12 bg-primary text-black hover:bg-primary/90 rounded-none font-black uppercase tracking-[0.2em] text-sm group transition-all duration-500 shadow-[0_0_40px_rgba(14,165,233,0.2)]">
-                  Acessar o Sistema
-                  <ArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-2 transition-transform" />
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <Link to="/dashboard" className="w-full sm:w-auto">
+                <Button 
+                  size="lg" 
+                  className="w-full sm:w-auto h-14 sm:h-16 px-8 sm:px-12 bg-primary text-black hover:bg-primary/90 rounded-none font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-xs sm:text-sm group transition-all duration-300 shadow-[0_0_40px_rgba(14,165,233,0.2)]"
+                >
+                  Abrir o Dashboard
+                  <ArrowRight className="ml-3 w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
-              <div className="text-left">
-                <p className="text-[10px] uppercase tracking-widest text-white font-bold">Dashboard em tempo real</p>
-                <p className="text-[10px] uppercase tracking-widest text-[#555]">Análise institucional de fluxo</p>
-              </div>
+              <Link to="/analise-ia" className="w-full sm:w-auto">
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className="w-full sm:w-auto h-14 sm:h-16 px-6 sm:px-8 border-white/20 bg-white/5 text-white hover:bg-white/10 rounded-none font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em] text-xs sm:text-sm"
+                >
+                  <Brain className="mr-2 w-4 h-4" />
+                  Análise IA
+                </Button>
+              </Link>
             </div>
 
-            {/* Trust Bar */}
-            <div className="flex flex-wrap justify-center items-center gap-8 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+            <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-8 opacity-70">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-bullish" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Verificado por SME</span>
+                <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-bullish" />
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">Dados em tempo real</span>
               </div>
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-primary" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Segurança Garantida</span>
+                <ShieldCheck className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">LGPD Compliant</span>
               </div>
               <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-warning" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Global Compliance</span>
+                <Globe className="w-3 h-3 sm:w-4 sm:h-4 text-warning" />
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">Mercados Globais</span>
               </div>
             </div>
           </motion.div>
-        </motion.div>
+        </div>
       </section>
 
-      {/* Benefícios Diretos & IA Estratégica */}
-      <section id="vision" className="py-40 relative border-t border-white/5">
-        <div className="container">
-          <div className="grid lg:grid-cols-2 gap-32 items-center">
-            <div className="space-y-16">
-              <div className="space-y-6">
-                <h2 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter">
-                  Mais que dados, <br />
-                  <span className="text-primary">Resultados Reais.</span>
-                </h2>
-                <p className="text-lg text-[#888] leading-relaxed max-w-xl">
-                  Descubra o método que gerou ROI recorde em 2026 através de uma <strong>Experiência Híbrida</strong>: a precisão da IA com a intuição de especialistas no assunto (SME).
+      {/* O que o sistema oferece */}
+      <section className="py-16 sm:py-24 lg:py-32 relative border-t border-white/5">
+        <div className="container px-4">
+          <div className="text-center mb-12 sm:mb-16 max-w-3xl mx-auto">
+            <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">O que você tem acesso</span>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4">
+              Todas as ferramentas <br />
+              <span className="text-primary">para ler o mercado.</span>
+            </h2>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {[
+              {
+                icon: <BarChart3 className="w-6 h-6 text-primary" />,
+                title: 'Volume Institucional',
+                desc: 'Compare volume atual vs média histórica. Identifique entradas e saídas de capital institucional com Z-Score e ratio de volume.',
+              },
+              {
+                icon: <TrendingUp className="w-6 h-6 text-bullish" />,
+                title: 'Fluxo dos Mercados',
+                desc: 'Classificação automática em acumulação, distribuição, exaustão ou neutro para cada ativo monitorado.',
+              },
+              {
+                icon: <LineChart className="w-6 h-6 text-warning" />,
+                title: 'Mercados Globais',
+                desc: 'Ibovespa, S&P 500, Nasdaq, Nikkei, Mercado Europeu, Petrobras, USD/BRL e EUR/BRL — tudo em uma tela.',
+              },
+              {
+                icon: <Brain className="w-6 h-6 text-primary" />,
+                title: 'Análise IA de Cripto',
+                desc: 'Envie prints de relatórios de alta e baixa. A IA extrai criptomoedas, conta repetições e gera relatórios periódicos.',
+              },
+              {
+                icon: <Newspaper className="w-6 h-6 text-bullish" />,
+                title: 'Notícias em Tempo Real',
+                desc: 'Feed de notícias dos mercados rastreados, em português, atualizado continuamente via NewsAPI.',
+              },
+              {
+                icon: <Zap className="w-6 h-6 text-warning" />,
+                title: 'Alertas Inteligentes',
+                desc: 'Notificações automáticas quando volume, preço ou fluxo divergem do padrão histórico.',
+              },
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05, duration: 0.4 }}
+                className="p-6 border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-primary/30 transition-all duration-300 group"
+              >
+                <div className="p-2.5 rounded-lg bg-white/5 border border-white/10 inline-block mb-4 group-hover:border-primary/40 transition-colors">
+                  {item.icon}
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white mb-2 uppercase tracking-tight">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-[#888] leading-relaxed">
+                  {item.desc}
                 </p>
-              </div>
-
-              <div className="grid gap-8">
-                {[
-                  { 
-                    title: 'Simplifique sua Análise', 
-                    desc: 'Reduza horas de trabalho manual para segundos com nossos Digital Twins de liquidez.',
-                    icon: <Sparkles className="w-6 h-6 text-bullish" />,
-                    tag: 'EFICIÊNCIA'
-                  },
-                  { 
-                    title: 'Aumente métricas com IA', 
-                    desc: 'Soluções inteligentes que aprendem com seu perfil e personalizam cada insight.',
-                    icon: <Cpu className="w-6 h-6 text-warning" />,
-                    tag: 'ROI'
-                  },
-                  { 
-                    title: 'Conteúdo Autoral & SME', 
-                    desc: 'Validação humana constante por especialistas certificados para garantir IA Responsável.',
-                    icon: <Users className="w-6 h-6 text-primary" />,
-                    tag: 'CONFIANÇA'
-                  }
-                ].map((item, i) => (
-                  <motion.div 
-                    key={i}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    initial={{ opacity: 0, x: -30 }}
-                    transition={{ delay: i * 0.1, duration: 0.8 }}
-                    className="glass-card p-8 border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-500 group relative overflow-hidden"
-                  >
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
-                      <span className="text-4xl font-black font-mono">{item.tag}</span>
-                    </div>
-                    <div className="flex gap-6 relative z-10">
-                      <div className="mt-1 p-3 rounded-lg bg-white/5 border border-white/10 group-hover:border-primary/50 transition-colors">
-                        {item.icon}
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">{item.title}</h3>
-                        <p className="text-sm text-[#888] leading-relaxed">{item.desc}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/10 blur-[120px] rounded-full animate-pulse" />
-              <div className="relative aspect-square border border-white/10 bg-black/60 backdrop-blur-xl p-10 flex flex-col justify-between overflow-hidden group">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-bullish" />
-                    <span className="text-xs font-mono text-white">DIGITAL TWIN ACTIVE</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-primary">SME VALIDATED</span>
-                </div>
-
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="relative w-48 h-48">
-                    <motion.div 
-                      className="absolute inset-0 border-2 border-primary/20 rounded-full"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                    />
-                    <motion.div 
-                      className="absolute inset-4 border border-bullish/30 rounded-full"
-                      animate={{ rotate: -360 }}
-                      transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Cpu className="w-12 h-12 text-primary animate-pulse" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 border border-primary/30 bg-primary/5 rounded-none">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-mono text-primary font-bold uppercase">IA Estratégica Insight</span>
-                    <span className="text-[8px] text-primary/60">REAL-TIME</span>
-                  </div>
-                  <p className="text-xs font-mono text-white leading-tight">
-                    PROCESSO OTIMIZADO: +42% DE EFICIÊNCIA DETECTADA. <br />
-                    <span className="text-bullish">RESULTADO VALIDADO POR SME.</span>
-                  </p>
-                </div>
-              </div>
-            </div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Final: Urgência & Benefício */}
-      <section id="access" className="py-60 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent opacity-30" />
+      {/* Como funciona */}
+      <section className="py-16 sm:py-24 relative border-t border-white/5 bg-white/[0.01]">
+        <div className="container px-4">
+          <div className="text-center mb-12 max-w-2xl mx-auto">
+            <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">Como funciona</span>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4">
+              Três passos. <br />
+              <span className="text-primary">Zero fricção.</span>
+            </h2>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {[
+              { num: '01', title: 'Acesse o Dashboard', desc: 'Sem cadastro, sem cartão. Abra o painel e veja todos os mercados ao vivo.' },
+              { num: '02', title: 'Leia o Fluxo', desc: 'Identifique mercados quentes, divergências de volume e oportunidades em segundos.' },
+              { num: '03', title: 'Use a IA de Cripto', desc: 'Envie prints, acumule dados e gere relatórios periódicos automáticos.' },
+            ].map((step, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.4 }}
+                className="relative p-6 border border-white/10 bg-black/40"
+              >
+                <span className="text-5xl font-black text-primary/20 font-mono">{step.num}</span>
+                <h3 className="text-lg font-bold text-white mt-3 mb-2 uppercase">{step.title}</h3>
+                <p className="text-sm text-[#888] leading-relaxed">{step.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Final */}
+      <section className="py-20 sm:py-32 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/10 to-transparent opacity-40" />
         
-        <div className="container relative z-10 text-center space-y-16">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8 }}
-            className="inline-flex items-center gap-3 px-6 py-3 rounded-none bg-white/5 border border-white/10 backdrop-blur-xl"
-          >
-            <Lock className="w-5 h-5 text-primary" />
-            <span className="text-xs font-mono uppercase tracking-[0.4em] text-white">Desbloqueie seu benefício exclusivo</span>
-          </motion.div>
-          
-          <h2 className="text-6xl md:text-[100px] font-black text-white tracking-tighter uppercase leading-none">
-            Responda ao seu <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-bullish">Desafio hoje.</span>
+        <div className="container relative z-10 text-center space-y-8 px-4">
+          <h2 className="text-4xl sm:text-6xl md:text-7xl font-black text-white tracking-tighter uppercase leading-none">
+            Pronto para ler <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-bullish">
+              o mercado?
+            </span>
           </h2>
           
-          <div className="max-w-md mx-auto space-y-8">
-            <Link to="/dashboard">
-              <Button size="lg" className="w-full h-20 bg-white text-black hover:bg-primary hover:text-black rounded-none font-black uppercase tracking-[0.3em] text-xl shadow-[0_0_60px_rgba(255,255,255,0.1)] transition-all duration-500 group">
-                Acesso Imediato
-                <ArrowRight className="ml-4 w-6 h-6 group-hover:translate-x-2 transition-transform" />
-              </Button>
-            </Link>
-            <p className="text-[#555] text-[10px] uppercase tracking-[0.5em] font-bold">
-              Resultados em tempo recorde • Protocolo 2026 Ativo
-            </p>
-          </div>
-          
-          <div className="pt-20 flex flex-col items-center gap-4">
-            <div className="w-px h-20 bg-gradient-to-b from-primary to-transparent" />
-            <p className="text-[#444] text-[10px] uppercase tracking-[0.6em]">© 2026 <a href="https://bauerlab.com.br" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">BauerLab</a> • Fluxo Dos Mercados • LGPD Compliant</p>
-          </div>
+          <p className="text-base sm:text-lg text-[#888] max-w-xl mx-auto">
+            Acesso imediato. Sem cadastro. Dados reais.
+          </p>
+
+          <Link to="/dashboard" className="inline-block w-full max-w-md">
+            <Button 
+              size="lg" 
+              className="w-full h-16 sm:h-20 bg-white text-black hover:bg-primary rounded-none font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-base sm:text-xl shadow-[0_0_60px_rgba(255,255,255,0.1)] transition-all duration-300 group"
+            >
+              Acessar Agora
+              <ArrowRight className="ml-3 w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-2 transition-transform" />
+            </Button>
+          </Link>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-white/5 py-8">
+        <div className="container px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] sm:text-xs text-[#555] uppercase tracking-widest">
+          <span>© 2026 Fluxo Dos Mercados</span>
+          <span>
+            Desenvolvido por{' '}
+            <a 
+              href="https://bauerlab.com.br" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-primary hover:underline font-bold"
+            >
+              BauerLab
+            </a>
+          </span>
+        </div>
+      </footer>
     </div>
   );
 };
