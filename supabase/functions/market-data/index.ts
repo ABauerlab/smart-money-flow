@@ -388,6 +388,50 @@ async function fetchNews(_markets: MarketData[], apiKey: string): Promise<any[]>
 }
 
 // ---- Cache Layer ----
+const CRYPTO_IDS = new Set(['btc', 'eth', 'sol', 'xrp', 'bnb', 'ada', 'doge']);
+
+function categoryFromRow(row: any): string {
+  const id = String(row.id || '').toLowerCase();
+  if (id === 'usdbrl' || id === 'eurbrl') return 'forex';
+  if (id === 'xauusd' || id === 'brent') return 'commodities';
+  if (CRYPTO_IDS.has(id)) return 'crypto';
+  if (row.ticker === 'PETR4') return 'stocks';
+  return 'indices';
+}
+
+function unpackHistorical(raw: any): { volumes: number[]; dates: string[]; source: 'real' | 'proxy' } {
+  if (!raw) return { volumes: [], dates: [], source: 'real' };
+  if (Array.isArray(raw)) return { volumes: raw, dates: [], source: 'real' };
+  return {
+    volumes: Array.isArray(raw.volumes) ? raw.volumes : [],
+    dates: Array.isArray(raw.dates) ? raw.dates : [],
+    source: raw.source === 'proxy' ? 'proxy' : 'real',
+  };
+}
+
+function rowToMarket(row: any): MarketData {
+  const hist = unpackHistorical(row.historical_volumes);
+  return {
+    id: row.id,
+    name: row.name,
+    ticker: row.ticker,
+    flag: row.flag,
+    category: categoryFromRow(row),
+    currentVolume: Number(row.current_volume),
+    averageVolume: Number(row.average_volume),
+    price: Number(row.price),
+    priceChange: Number(row.price_change),
+    volumeRatio: Number(row.volume_ratio),
+    zScore: Number(row.z_score),
+    flowType: row.flow_type as MarketData['flowType'],
+    convictionScore: Number(row.conviction_score),
+    currency: row.currency,
+    historicalVolumes: hist.volumes,
+    historicalDates: hist.dates,
+    volumeSource: hist.source,
+  };
+}
+
 async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
   try {
     const { data, error } = await supabase
@@ -397,38 +441,11 @@ async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
 
     if (error || !data || data.length === 0) return null;
 
-    // Check if cache is still fresh
     const oldestFetch = new Date(data[0].fetched_at);
-    const now = new Date();
-    const ageMinutes = (now.getTime() - oldestFetch.getTime()) / (1000 * 60);
-
+    const ageMinutes = (Date.now() - oldestFetch.getTime()) / (1000 * 60);
     if (ageMinutes > CACHE_TTL_MINUTES) return null;
 
-    return data.map((row: any) => {
-      const id = row.id;
-      const isForex = id === 'usdbrl' || id === 'eurbrl';
-      const isCommodity = id === 'xauusd' || id === 'brent';
-      const isCrypto = id === 'btc' || id === 'eth';
-      const isStock = row.ticker === 'PETR4';
-      const category = isForex ? 'forex' : isCommodity ? 'commodities' : isCrypto ? 'crypto' : isStock ? 'stocks' : 'indices';
-      return {
-      id: row.id,
-      name: row.name,
-      ticker: row.ticker,
-      flag: row.flag,
-      category,
-      currentVolume: Number(row.current_volume),
-      averageVolume: Number(row.average_volume),
-      price: Number(row.price),
-      priceChange: Number(row.price_change),
-      volumeRatio: Number(row.volume_ratio),
-      zScore: Number(row.z_score),
-      flowType: row.flow_type as MarketData['flowType'],
-      convictionScore: Number(row.conviction_score),
-      currency: row.currency,
-      historicalVolumes: row.historical_volumes || [],
-      };
-    });
+    return data.map(rowToMarket);
   } catch (e) {
     console.error('Cache read error:', e);
     return null;
@@ -454,7 +471,11 @@ async function saveToCache(supabase: any, markets: MarketData[]) {
           flow_type: m.flowType,
           conviction_score: m.convictionScore,
           currency: m.currency,
-          historical_volumes: m.historicalVolumes || [],
+          historical_volumes: {
+            volumes: m.historicalVolumes || [],
+            dates: m.historicalDates || [],
+            source: m.volumeSource || 'real',
+          },
           fetched_at: new Date().toISOString(),
         }, { onConflict: 'id' });
     }
