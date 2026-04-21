@@ -514,26 +514,38 @@ async function fetchBrapiBDR(
 // to get a real proxy of institutional activity, with real historical dates.
 async function fetchIbovespaProxy(apiKey: string): Promise<MarketData | null> {
   try {
-    // Top weighted Ibovespa stocks (covers ~25% of index weight)
+    // Top weighted Ibovespa stocks. Brapi free plan only allows 1 ticker per call → fetch in parallel.
     const tickers = ['PETR4', 'VALE3', 'ITUB4', 'BBDC4'];
-    const url = `https://brapi.dev/api/quote/${tickers.join(',')}?token=${apiKey}&range=1mo&interval=1d`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data?.results || data.results.length === 0) {
+    const quotes = await Promise.all(
+      tickers.map(async t => {
+        try {
+          const r = await fetch(`https://brapi.dev/api/quote/${t}?token=${apiKey}&range=1mo&interval=1d`);
+          const j = await r.json();
+          return j?.results?.[0] || null;
+        } catch { return null; }
+      })
+    );
+    const validQuotes = quotes.filter(Boolean);
+    if (validQuotes.length === 0) {
       console.warn('Ibovespa proxy: no blue chip data');
       return null;
     }
 
-    // Also fetch the actual ^BVSP price (the index level itself)
-    const bvspRes = await fetch(`https://brapi.dev/api/quote/^BVSP?token=${apiKey}`);
-    const bvspData = await bvspRes.json();
-    const bvspQuote = bvspData?.results?.[0];
-    const price = bvspQuote?.regularMarketPrice || 0;
-    const prevPrice = bvspQuote?.regularMarketPreviousClose || price;
+    // Fetch the actual ^BVSP price (the index level itself)
+    let price = 0, prevPrice = 0;
+    try {
+      const bvspRes = await fetch(`https://brapi.dev/api/quote/%5EBVSP?token=${apiKey}`);
+      const bvspData = await bvspRes.json();
+      const bvspQuote = bvspData?.results?.[0];
+      price = bvspQuote?.regularMarketPrice || 0;
+      prevPrice = bvspQuote?.regularMarketPreviousClose || price;
+    } catch (e) {
+      console.warn('Ibovespa: failed to fetch ^BVSP price', e);
+    }
 
     // Aggregate per-day volumes from each blue chip; align by ISO date
     const volumeByDate = new Map<string, number>();
-    for (const quote of data.results) {
+    for (const quote of validQuotes) {
       if (!Array.isArray(quote.historicalDataPrice)) continue;
       for (const day of quote.historicalDataPrice) {
         if (!day.date || !day.volume || day.volume <= 0) continue;
@@ -547,21 +559,18 @@ async function fetchIbovespaProxy(apiKey: string): Promise<MarketData | null> {
       return null;
     }
 
-    // Sort dates desc, take last 21 trading days
     const sortedDates = [...volumeByDate.keys()].sort((a, b) => b.localeCompare(a)).slice(0, 21);
-    const historicalDates = sortedDates;
     const historicalVolumes = sortedDates.map(d => volumeByDate.get(d)!);
-
-    // Scale up: blue chips ≈ 25% of index turnover → multiply by 4 for full Ibov estimate
+    // Blue chips ≈ 25% of index turnover → multiply by 4 for full Ibov estimate
     const scaledVolumes = historicalVolumes.map(v => v * 4);
     const currentVolume = scaledVolumes[0];
 
-    console.log(`Ibovespa proxy: ${sortedDates.length} days aggregated, today=${currentVolume.toFixed(0)}`);
+    console.log(`Ibovespa proxy: ${sortedDates.length} days from ${validQuotes.length}/4 blue chips, today=${currentVolume.toFixed(0)}`);
 
     return buildMarket(
       'bvsp', 'Ibovespa', '^BVSP', '🇧🇷', 'indices', 'BRL',
       price, prevPrice, currentVolume, scaledVolumes,
-      { dates: historicalDates, volumeSource: 'proxy' }
+      { dates: sortedDates, volumeSource: 'proxy' }
     );
   } catch (e) {
     console.error('Ibovespa proxy error:', e);
