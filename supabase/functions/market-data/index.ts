@@ -233,45 +233,53 @@ async function fetchForex(
   }
 }
 
-// ---- CoinMarketCap (Crypto - real volume + price) ----
-async function fetchCrypto(
-  symbol: string, name: string, flag: string, apiKey: string
-): Promise<MarketData | null> {
-  if (!apiKey) {
-    console.warn(`CoinMarketCap: no API key for ${symbol}`);
-    return null;
+// ---- CoinMarketCap (Crypto - real volume + price, batched) ----
+interface CryptoSpec { symbol: string; name: string; flag: string; }
+
+async function fetchCryptosBatch(specs: CryptoSpec[], apiKey: string): Promise<MarketData[]> {
+  if (!apiKey || specs.length === 0) {
+    if (!apiKey) console.warn('CoinMarketCap: missing API key');
+    return [];
   }
   try {
-    const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?symbol=${symbol}&convert=USD`;
+    const symbolsParam = specs.map(s => s.symbol).join(',');
+    const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?symbol=${symbolsParam}&convert=USD`;
     const res = await fetch(url, { headers: { 'X-CMC_PRO_API_KEY': apiKey } });
     const data = await res.json();
 
-    const entry = data?.data?.[symbol]?.[0] || data?.data?.[symbol];
-    const quote = entry?.quote?.USD;
-    if (!quote) {
-      console.warn(`CMC: no quote for ${symbol}`, data?.status?.error_message);
-      return null;
+    if (data?.status?.error_code && data.status.error_code !== 0) {
+      console.warn('CMC batch error:', data.status.error_message);
+      return [];
     }
 
-    const price = quote.price || 0;
-    const change24h = quote.percent_change_24h || 0;
-    const prevPrice = price / (1 + change24h / 100);
-    const currentVolume = quote.volume_24h || 0;
-    // Build a synthetic 21d volume series varying around current (CMC quotes endpoint
-    // doesn't include history; using ±10% jitter keeps Z-Score meaningful)
-    const volumes = Array.from({ length: 21 }, (_, i) => {
-      if (i === 0) return currentVolume;
-      const jitter = 0.9 + (((symbol.charCodeAt(0) + i) * 7919) % 200) / 1000;
-      return currentVolume * jitter;
-    });
-
-    return buildMarket(
-      symbol.toLowerCase(), name, symbol, flag, 'crypto', 'USD',
-      price, prevPrice, currentVolume, volumes
-    );
+    const out: MarketData[] = [];
+    for (const spec of specs) {
+      const entry = data?.data?.[spec.symbol]?.[0] || data?.data?.[spec.symbol];
+      const quote = entry?.quote?.USD;
+      if (!quote) {
+        console.warn(`CMC: no quote for ${spec.symbol}`);
+        continue;
+      }
+      const price = quote.price || 0;
+      const change24h = quote.percent_change_24h || 0;
+      const prevPrice = price / (1 + change24h / 100);
+      const currentVolume = quote.volume_24h || 0;
+      // CMC quotes endpoint doesn't return per-day history → ±10% jitter proxy
+      const volumes = Array.from({ length: 21 }, (_, i) => {
+        if (i === 0) return currentVolume;
+        const jitter = 0.9 + (((spec.symbol.charCodeAt(0) + i) * 7919) % 200) / 1000;
+        return currentVolume * jitter;
+      });
+      out.push(buildMarket(
+        spec.symbol.toLowerCase(), spec.name, spec.symbol, spec.flag, 'crypto', 'USD',
+        price, prevPrice, currentVolume, volumes,
+        { volumeSource: 'proxy' }
+      ));
+    }
+    return out;
   } catch (e) {
-    console.error(`CMC error for ${symbol}:`, e);
-    return null;
+    console.error('CMC batch error:', e);
+    return [];
   }
 }
 
@@ -295,10 +303,12 @@ async function fetchBrent(apiKey: string): Promise<MarketData | null> {
       const next = parseFloat(series[i + 1]?.value || d.value);
       return Math.abs(cur - next) * 1_000_000;
     });
+    const dates = series.slice(0, 21).map((d: any) => d.date || '');
     const currentVolume = volumes[0] || 1_000_000;
     return buildMarket(
       'brent', 'Petróleo Brent', 'BRENT', '🛢️', 'commodities', 'USD',
-      price, prevPrice, currentVolume, volumes
+      price, prevPrice, currentVolume, volumes,
+      { dates, volumeSource: 'proxy' }
     );
   } catch (e) {
     console.error('Brent error:', e);
