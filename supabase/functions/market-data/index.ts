@@ -134,22 +134,35 @@ async function fetchBrapiQuote(
     const currentVolume = quote.regularMarketVolume || 0;
     const avgVolume = quote.averageDailyVolume10Day || quote.averageDailyVolume3Month || 0;
 
-    // Extract historical volumes from historicalDataPrice if available
+    // Extract historical volumes + dates from historicalDataPrice if available
     let historicalVolumes: number[] = [];
+    let historicalDates: string[] = [];
     if (quote.historicalDataPrice && Array.isArray(quote.historicalDataPrice)) {
-      historicalVolumes = quote.historicalDataPrice
-        .reverse()
-        .slice(0, 21)
-        .map((d: any) => d.volume || 0)
-        .filter((v: number) => v > 0);
+      const ordered = [...quote.historicalDataPrice].sort((a: any, b: any) => (b.date || 0) - (a.date || 0));
+      const slice = ordered.slice(0, 21);
+      historicalVolumes = slice.map((d: any) => d.volume || 0);
+      historicalDates = slice.map((d: any) => {
+        if (!d.date) return '';
+        const dt = new Date(d.date * 1000);
+        return dt.toISOString().slice(0, 10);
+      });
+      // Filter out zero-volume entries while keeping date alignment
+      const filtered = historicalVolumes
+        .map((v, i) => ({ v, d: historicalDates[i] }))
+        .filter(x => x.v > 0);
+      historicalVolumes = filtered.map(x => x.v);
+      historicalDates = filtered.map(x => x.d);
     }
 
     // For indices like ^BVSP that don't report volume
     let effectiveVolume = currentVolume;
     let effectiveAvg = avgVolume;
     let effectiveHistory = historicalVolumes;
+    let effectiveDates = historicalDates;
+    let volumeSource: 'real' | 'proxy' = 'real';
 
     if (effectiveVolume === 0 && effectiveAvg === 0) {
+      volumeSource = 'proxy';
       // Use marketCap as a proxy for activity level on indices
       if (quote.marketCap && quote.marketCap > 0) {
         effectiveVolume = Math.round(quote.marketCap / 100);
@@ -162,17 +175,21 @@ async function fetchBrapiQuote(
         effectiveAvg = effectiveVolume;
         effectiveHistory = Array(10).fill(effectiveAvg);
       }
+      effectiveDates = [];
     }
 
     if (effectiveHistory.length === 0) {
       effectiveHistory = Array(10).fill(effectiveAvg > 0 ? effectiveAvg : effectiveVolume);
       effectiveHistory[0] = effectiveVolume;
+      volumeSource = 'proxy';
+      effectiveDates = [];
     }
 
     return buildMarket(
       symbol.toLowerCase().replace('^', '').replace('.', ''),
       name, symbol, flag, category, 'BRL',
-      price, prevPrice, effectiveVolume, effectiveHistory
+      price, prevPrice, effectiveVolume, effectiveHistory,
+      { dates: effectiveDates, volumeSource }
     );
   } catch (e) {
     console.error(`Brapi error for ${symbol}:`, e);
