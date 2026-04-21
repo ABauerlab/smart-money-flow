@@ -601,32 +601,7 @@ async function getCachedMarketsForce(supabase: any): Promise<MarketData[] | null
       .order('conviction_score', { ascending: false });
 
     if (!data || data.length === 0) return null;
-
-    return data.map((row: any) => {
-      const id = row.id;
-      const isForex = id === 'usdbrl' || id === 'eurbrl';
-      const isCommodity = id === 'xauusd' || id === 'brent';
-      const isCrypto = id === 'btc' || id === 'eth';
-      const isStock = row.ticker === 'PETR4';
-      const category = isForex ? 'forex' : isCommodity ? 'commodities' : isCrypto ? 'crypto' : isStock ? 'stocks' : 'indices';
-      return {
-      id: row.id,
-      name: row.name,
-      ticker: row.ticker,
-      flag: row.flag,
-      category,
-      currentVolume: Number(row.current_volume),
-      averageVolume: Number(row.average_volume),
-      price: Number(row.price),
-      priceChange: Number(row.price_change),
-      volumeRatio: Number(row.volume_ratio),
-      zScore: Number(row.z_score),
-      flowType: row.flow_type as MarketData['flowType'],
-      convictionScore: Number(row.conviction_score),
-      currency: row.currency,
-      historicalVolumes: row.historical_volumes || [],
-      };
-    });
+    return data.map(rowToMarket);
   } catch { return null; }
 }
 
