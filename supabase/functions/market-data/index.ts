@@ -593,8 +593,6 @@ const CRYPTO_SPECS: CryptoSpec[] = [
 const BDR_FALLBACKS: Array<{ id: string; ticker: string; name: string; flag: string; category: string; currency: string }> = [
   { id: 'spy',   ticker: 'IVVB11', name: 'S&P 500 (BDR)',     flag: '🇺🇸', category: 'indices', currency: 'BRL' },
   { id: 'qqq',   ticker: 'NASD11', name: 'Nasdaq 100 (BDR)',  flag: '📈', category: 'indices', currency: 'BRL' },
-  { id: 'ewj',   ticker: 'EWJB11', name: 'Nikkei/Japão (BDR)', flag: '🇯🇵', category: 'indices', currency: 'BRL' },
-  { id: 'vgk',   ticker: 'EURP11', name: 'Europa (BDR)',      flag: '🇪🇺', category: 'indices', currency: 'BRL' },
 ];
 
 async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: string): Promise<MarketData[]> {
