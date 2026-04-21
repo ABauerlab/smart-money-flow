@@ -100,7 +100,7 @@ async function fetchAlphaVantage(
     const currentVolume = parseFloat(today['5. volume']);
     const volumes = dates.map(d => parseFloat(timeSeries[d]['5. volume']));
 
-    return buildMarket(symbol.toLowerCase(), name, symbol, flag, category, currency, price, prevPrice, currentVolume, volumes);
+    return buildMarket(symbol.toLowerCase(), name, symbol, flag, category, currency, price, prevPrice, currentVolume, volumes, { dates, volumeSource: 'real' });
   } catch (e) {
     console.error(`Alpha Vantage error for ${symbol}:`, e);
     return null;
