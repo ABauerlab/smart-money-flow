@@ -216,11 +216,16 @@ async function fetchForex(
     // Volume proxy: daily price variance amplitude (no traditional volume on forex/commodities)
     const currentVolume = Math.abs(parseFloat(latest.varBid || '0')) * 1000000;
     const volumes = data.map((d: any) => Math.abs(parseFloat(d.varBid || '0')) * 1000000);
+    const dates = data.map((d: any) => {
+      const ts = parseInt(d.timestamp || '0', 10);
+      return ts ? new Date(ts * 1000).toISOString().slice(0, 10) : '';
+    });
 
     return buildMarket(
       pair.toLowerCase().replace('-', ''),
       name, pair.replace('-', '/'), flag, category, currency,
-      price, prevPrice, currentVolume, volumes
+      price, prevPrice, currentVolume, volumes,
+      { dates, volumeSource: 'proxy' }
     );
   } catch (e) {
     console.error(`AwesomeAPI error for ${pair}:`, e);
