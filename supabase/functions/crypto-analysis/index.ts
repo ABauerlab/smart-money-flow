@@ -87,53 +87,28 @@ CRYPTOS_DETECTED: BTC,ETH,SOL,...
 - NÃO use emojis
 - Use formato Markdown`;
 
-// ====== AI call abstraction: prefer OpenAI direct, fallback to Lovable AI Gateway ======
+// ====== AI call abstraction: Lovable AI Gateway (Gemini) only ======
 async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-  // Primary: OpenAI GPT-5 direct
-  if (OPENAI_API_KEY) {
-    try {
-      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'gpt-5', messages }),
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        const content = data.choices?.[0]?.message?.content || '';
-        return { ok: true, status: 200, content, model: 'openai/gpt-5' };
-      }
-      const errText = await resp.text();
-      console.error('OpenAI error:', resp.status, errText);
-      if (resp.status === 429 || resp.status === 402) {
-        return { ok: false, status: resp.status, content: '', model: 'openai/gpt-5', error: errText };
-      }
-      // Other failures -> try fallback below
-    } catch (e) {
-      console.error('OpenAI fetch threw:', e);
-    }
+  if (!LOVABLE_API_KEY) {
+    return { ok: false, status: 500, content: '', model: 'none', error: 'Lovable AI Gateway não configurado' };
   }
 
-  // Fallback: Lovable AI Gateway
-  if (LOVABLE_API_KEY) {
-    const model = opts.wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
-    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages }),
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      const content = data.choices?.[0]?.message?.content || '';
-      return { ok: true, status: 200, content, model };
-    }
-    const errText = await resp.text();
-    return { ok: false, status: resp.status, content: '', model, error: errText };
+  const model = opts.wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
+  const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages }),
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    return { ok: true, status: 200, content, model };
   }
-
-  return { ok: false, status: 500, content: '', model: 'none', error: 'No AI provider configured' };
+  const errText = await resp.text();
+  console.error('Lovable AI error:', resp.status, errText);
+  return { ok: false, status: resp.status, content: '', model, error: errText };
 }
 
 
@@ -395,9 +370,8 @@ serve(async (req) => {
         });
       }
 
-      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!OPENAI_API_KEY && !LOVABLE_API_KEY) throw new Error('Nenhum provedor de IA configurado');
+      if (!LOVABLE_API_KEY) throw new Error('Lovable AI Gateway não configurado');
 
       const uploadedImages: { url: string; name: string; base64: string }[] = [];
       for (const img of images) {
