@@ -9,7 +9,7 @@ export interface MarketData {
   name: string;
   ticker: string;
   flag: string;
-  category: 'stocks' | 'crypto' | 'forex' | 'options' | 'indices';
+  category: 'stocks' | 'crypto' | 'forex' | 'options' | 'indices' | 'commodities';
   currentVolume: number;
   averageVolume: number;
   price: number;
