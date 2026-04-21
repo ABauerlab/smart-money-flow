@@ -78,7 +78,9 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
               Análise de Volume Institucional
               <InfoTooltip text="Compara o volume de negociação atual com a média histórica. Barras verdes indicam volume acima de 120% da média (atividade institucional alta). Barras vermelhas indicam volume abaixo de 80% (atividade baixa). Dados mensais mostram apenas até o mês atual." />
             </h2>
-            <p className="text-xs text-muted-foreground">Compare o fluxo diário e mensal</p>
+            <p className="text-xs text-muted-foreground">
+              Compare o fluxo diário e mensal{isProxy ? ' • Volume aproximado por amplitude de preço (API não fornece volume diário)' : ' • Volume diário real fornecido pela API'}
+            </p>
           </div>
         </div>
 
