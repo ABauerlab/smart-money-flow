@@ -26,7 +26,7 @@ interface MarketData {
   volumeSource?: 'real' | 'proxy';
 }
 
-const CACHE_TTL_MINUTES = 60; // 1 hour cache to respect AV 25 calls/day limit
+const CACHE_TTL_MINUTES = 360; // 6h cache - Alpha Vantage free tier is 25 req/day
 
 function calculateZScore(current: number, average: number): number {
   const stdDev = average * 0.15;
@@ -319,6 +319,8 @@ async function fetchBrent(apiKey: string): Promise<MarketData | null> {
 // ---- NewsAPI (strictly filtered to tracked assets) ----
 // Each tracked asset has a label + list of keywords. An article must match
 // at least one keyword to be returned. The first matched asset becomes the tag.
+// Each tracked asset has a label + list of whole-word keywords (matched via \b boundaries
+// so "ada" doesn't match "apreensada", "sol" doesn't match "solenidade", etc.).
 const ASSET_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
   { label: 'Ibovespa', keywords: ['ibovespa', 'bovespa', 'b3', 'ibov'] },
   { label: 'Petrobras', keywords: ['petrobras', 'petr4', 'petr3'] },
@@ -326,23 +328,34 @@ const ASSET_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
   { label: 'Nasdaq', keywords: ['nasdaq', 'qqq'] },
   { label: 'Nikkei', keywords: ['nikkei', 'nikkei 225'] },
   { label: 'Mercado Europeu', keywords: ['stoxx', 'euro stoxx', 'dax', 'cac 40', 'ftse'] },
-  { label: 'Dólar/Real', keywords: ['dólar', 'dolar', 'usd/brl', 'real frente ao dólar', 'câmbio do dólar'] },
-  { label: 'Euro/Real', keywords: ['euro', 'eur/brl'] },
-  { label: 'Ouro', keywords: ['ouro', 'gold', 'xau'] },
+  { label: 'Dólar/Real', keywords: ['usd/brl', 'real frente ao dólar', 'câmbio do dólar', 'cotação do dólar', 'dólar comercial'] },
+  { label: 'Euro/Real', keywords: ['eur/brl', 'cotação do euro', 'euro comercial'] },
+  { label: 'Ouro', keywords: ['ouro spot', 'gold spot', 'xau/usd', 'preço do ouro', 'cotação do ouro'] },
   { label: 'Petróleo Brent', keywords: ['brent', 'petróleo', 'petroleo', 'crude oil', 'opep', 'opec'] },
   { label: 'Bitcoin', keywords: ['bitcoin', 'btc'] },
-  { label: 'Ethereum', keywords: ['ethereum', 'ether', 'eth '] },
-  { label: 'Solana', keywords: ['solana', 'sol '] },
+  { label: 'Ethereum', keywords: ['ethereum', 'ether'] },
+  { label: 'Solana', keywords: ['solana'] },
   { label: 'XRP', keywords: ['xrp', 'ripple'] },
-  { label: 'BNB', keywords: ['bnb', 'binance coin'] },
-  { label: 'Cardano', keywords: ['cardano', 'ada '] },
-  { label: 'Dogecoin', keywords: ['dogecoin', 'doge'] },
+  { label: 'BNB', keywords: ['binance coin', 'bnb'] },
+  { label: 'Cardano', keywords: ['cardano'] },
+  { label: 'Dogecoin', keywords: ['dogecoin'] },
 ];
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function matchesKeyword(text: string, keyword: string): boolean {
+  // Whole-word match: keyword must be surrounded by non-letter/digit chars (or string edges).
+  // Handles accented chars correctly via Unicode property escapes.
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegex(keyword)}([^\\p{L}\\p{N}]|$)`, 'iu');
+  return pattern.test(text);
+}
 
 function classifyArticle(title: string, description: string): string | null {
   const text = `${title} ${description}`.toLowerCase();
   for (const asset of ASSET_KEYWORDS) {
-    if (asset.keywords.some(k => text.includes(k))) return asset.label;
+    if (asset.keywords.some(k => matchesKeyword(text, k.toLowerCase()))) return asset.label;
   }
   return null;
 }
@@ -484,6 +497,87 @@ async function saveToCache(supabase: any, markets: MarketData[]) {
   }
 }
 
+// ---- Brapi BDR fallback for global indices when Alpha Vantage rate limit hits ----
+// BDRs (Brazilian Depositary Receipts) track US ETFs/indices and are quoted on B3.
+async function fetchBrapiBDR(
+  bdrTicker: string, name: string, flag: string, category: string, currency: string,
+  apiKey: string, fallbackId: string
+): Promise<MarketData | null> {
+  const m = await fetchBrapiQuote(bdrTicker, name, flag, category, apiKey);
+  if (!m) return null;
+  // Override the id so it matches the original Alpha Vantage cache slot
+  return { ...m, id: fallbackId, ticker: bdrTicker, currency };
+}
+
+// ---- Ibovespa proxy via blue chips (Brapi) ----
+// ^BVSP doesn't report volume. Sum the volumes of the heaviest weighted stocks
+// to get a real proxy of institutional activity, with real historical dates.
+async function fetchIbovespaProxy(apiKey: string): Promise<MarketData | null> {
+  try {
+    // Top weighted Ibovespa stocks. Brapi free plan only allows 1 ticker per call → fetch in parallel.
+    const tickers = ['PETR4', 'VALE3', 'ITUB4', 'BBDC4'];
+    const quotes = await Promise.all(
+      tickers.map(async t => {
+        try {
+          const r = await fetch(`https://brapi.dev/api/quote/${t}?token=${apiKey}&range=1mo&interval=1d`);
+          const j = await r.json();
+          return j?.results?.[0] || null;
+        } catch { return null; }
+      })
+    );
+    const validQuotes = quotes.filter(Boolean);
+    if (validQuotes.length === 0) {
+      console.warn('Ibovespa proxy: no blue chip data');
+      return null;
+    }
+
+    // Fetch the actual ^BVSP price (the index level itself)
+    let price = 0, prevPrice = 0;
+    try {
+      const bvspRes = await fetch(`https://brapi.dev/api/quote/%5EBVSP?token=${apiKey}`);
+      const bvspData = await bvspRes.json();
+      const bvspQuote = bvspData?.results?.[0];
+      price = bvspQuote?.regularMarketPrice || 0;
+      prevPrice = bvspQuote?.regularMarketPreviousClose || price;
+    } catch (e) {
+      console.warn('Ibovespa: failed to fetch ^BVSP price', e);
+    }
+
+    // Aggregate per-day volumes from each blue chip; align by ISO date
+    const volumeByDate = new Map<string, number>();
+    for (const quote of validQuotes) {
+      if (!Array.isArray(quote.historicalDataPrice)) continue;
+      for (const day of quote.historicalDataPrice) {
+        if (!day.date || !day.volume || day.volume <= 0) continue;
+        const isoDate = new Date(day.date * 1000).toISOString().slice(0, 10);
+        volumeByDate.set(isoDate, (volumeByDate.get(isoDate) || 0) + day.volume);
+      }
+    }
+
+    if (volumeByDate.size === 0) {
+      console.warn('Ibovespa proxy: no historical volume aggregated');
+      return null;
+    }
+
+    const sortedDates = [...volumeByDate.keys()].sort((a, b) => b.localeCompare(a)).slice(0, 21);
+    const historicalVolumes = sortedDates.map(d => volumeByDate.get(d)!);
+    // Blue chips ≈ 25% of index turnover → multiply by 4 for full Ibov estimate
+    const scaledVolumes = historicalVolumes.map(v => v * 4);
+    const currentVolume = scaledVolumes[0];
+
+    console.log(`Ibovespa proxy: ${sortedDates.length} days from ${validQuotes.length}/4 blue chips, today=${currentVolume.toFixed(0)}`);
+
+    return buildMarket(
+      'bvsp', 'Ibovespa', '^BVSP', '🇧🇷', 'indices', 'BRL',
+      price, prevPrice, currentVolume, scaledVolumes,
+      { dates: sortedDates, volumeSource: 'proxy' }
+    );
+  } catch (e) {
+    console.error('Ibovespa proxy error:', e);
+    return null;
+  }
+}
+
 // ---- Fetch with staggered delays to respect rate limits ----
 const CRYPTO_SPECS: CryptoSpec[] = [
   { symbol: 'BTC',  name: 'Bitcoin',  flag: '₿' },
@@ -495,41 +589,58 @@ const CRYPTO_SPECS: CryptoSpec[] = [
   { symbol: 'DOGE', name: 'Dogecoin', flag: '🐕' },
 ];
 
+// BDR fallbacks for Alpha Vantage assets — used when AV rate-limits us
+const BDR_FALLBACKS: Array<{ id: string; ticker: string; name: string; flag: string; category: string; currency: string }> = [
+  { id: 'spy',   ticker: 'IVVB11', name: 'S&P 500 (BDR)',     flag: '🇺🇸', category: 'indices', currency: 'BRL' },
+  { id: 'qqq',   ticker: 'NASD11', name: 'Nasdaq 100 (BDR)',  flag: '📈', category: 'indices', currency: 'BRL' },
+];
+
 async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: string): Promise<MarketData[]> {
   const results: MarketData[] = [];
+  const fetchedIds = new Set<string>();
 
   // Batch 1: independent APIs (Brapi, AwesomeAPI, batched CoinMarketCap) — no shared rate limit
   const [bvsp, petr4, usdbrl, eurbrl, xauusd, cryptos] = await Promise.all([
-    fetchBrapiQuote('^BVSP', 'Ibovespa', '🇧🇷', 'indices', brapiKey),
+    fetchIbovespaProxy(brapiKey),
     fetchBrapiQuote('PETR4', 'Petrobras PN', '🛢️', 'stocks', brapiKey),
     fetchForex('USD-BRL', 'Dólar/Real', '💵'),
     fetchForex('EUR-BRL', 'Euro/Real', '💶'),
     fetchForex('XAU-USD', 'Ouro Spot', '🥇', 'commodities', 'USD'),
     fetchCryptosBatch(CRYPTO_SPECS, cmcKey),
   ]);
-  for (const m of [bvsp, petr4, usdbrl, eurbrl, xauusd]) if (m) results.push(m);
-  results.push(...cryptos);
+  for (const m of [bvsp, petr4, usdbrl, eurbrl, xauusd]) {
+    if (m) { results.push(m); fetchedIds.add(m.id); }
+  }
+  for (const c of cryptos) { results.push(c); fetchedIds.add(c.id); }
 
-  // Batch 2: Alpha Vantage (5 calls/min limit — stagger)
-  const av1 = await fetchAlphaVantage('SPY', 'S&P 500', '🇺🇸', 'indices', 'USD', alphaKey);
-  if (av1) results.push(av1);
-  await new Promise(r => setTimeout(r, 1500));
+  // Batch 2: Alpha Vantage (5 calls/min, 25/day limit — stagger). Track failures for BDR fallback.
+  const avTargets = [
+    { sym: 'SPY', id: 'spy', name: 'S&P 500',     flag: '🇺🇸' },
+    { sym: 'QQQ', id: 'qqq', name: 'Nasdaq 100',  flag: '📈' },
+    { sym: 'EWJ', id: 'ewj', name: 'Nikkei 225 (ETF)', flag: '🇯🇵' },
+    { sym: 'VGK', id: 'vgk', name: 'Mercado Europeu',  flag: '🇪🇺' },
+  ];
 
-  const av2 = await fetchAlphaVantage('QQQ', 'Nasdaq 100', '📈', 'indices', 'USD', alphaKey);
-  if (av2) results.push(av2);
-  await new Promise(r => setTimeout(r, 1500));
-
-  const av3 = await fetchAlphaVantage('EWJ', 'Nikkei 225 (ETF)', '🇯🇵', 'indices', 'USD', alphaKey);
-  if (av3) results.push(av3);
-  await new Promise(r => setTimeout(r, 1500));
-
-  const av4 = await fetchAlphaVantage('VGK', 'Mercado Europeu', '🇪🇺', 'indices', 'USD', alphaKey);
-  if (av4) results.push(av4);
-  await new Promise(r => setTimeout(r, 1500));
+  for (const t of avTargets) {
+    const m = await fetchAlphaVantage(t.sym, t.name, t.flag, 'indices', 'USD', alphaKey);
+    if (m) { results.push(m); fetchedIds.add(t.id); }
+    await new Promise(r => setTimeout(r, 1500));
+  }
 
   // Brent uses commodity endpoint (separate quota from TIME_SERIES)
   const brent = await fetchBrent(alphaKey);
-  if (brent) results.push(brent);
+  if (brent) { results.push(brent); fetchedIds.add('brent'); }
+
+  // BDR fallback: for any AV asset that failed, try its Brapi BDR equivalent
+  for (const bdr of BDR_FALLBACKS) {
+    if (fetchedIds.has(bdr.id)) continue;
+    const m = await fetchBrapiBDR(bdr.ticker, bdr.name, bdr.flag, bdr.category, bdr.currency, brapiKey, bdr.id);
+    if (m) {
+      console.log(`BDR fallback: filled ${bdr.id} via ${bdr.ticker}`);
+      results.push(m);
+      fetchedIds.add(bdr.id);
+    }
+  }
 
   return results;
 }
