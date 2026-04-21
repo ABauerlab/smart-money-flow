@@ -139,10 +139,27 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                   boxShadow: 'var(--shadow-card)',
                   padding: '12px',
                 }}
-                formatter={(v: number) => {
-                  const status = v > 120 ? 'Alta atividade' : v < 80 ? 'Baixa atividade' : 'Normal';
-                  return [`${v.toFixed(1)}% — ${status}`, 'Volume vs Média'];
+                labelFormatter={(label: string, payload: any) => {
+                  const p = payload?.[0]?.payload;
+                  const dateStr = p?.date ? new Date(p.date).toLocaleDateString('pt-BR') : '';
+                  return dateStr ? `${label} (${dateStr})` : label;
                 }}
+                formatter={(v: number, _n: any, item: any) => {
+                  const status = v > 120 ? 'Alta atividade' : v < 80 ? 'Baixa atividade' : 'Normal';
+                  const proxyTag = item?.payload?.source === 'proxy' ? ' (proxy)' : '';
+                  return [`${v.toFixed(1)}% — ${status}${proxyTag}`, 'Volume vs Média'];
+                }}
+              />
+              <Legend
+                verticalAlign="top"
+                align="right"
+                height={28}
+                iconType="square"
+                payload={[
+                  { value: 'Alta (>120%)', type: 'square', color: 'hsl(var(--bullish))' },
+                  { value: 'Normal', type: 'square', color: 'hsl(var(--primary))' },
+                  { value: 'Baixa (<80%)', type: 'square', color: 'hsl(var(--bearish))' },
+                ] as any}
               />
               <Bar dataKey="ratio" radius={[6, 6, 0, 0]} maxBarSize={60}>
                 {chartData.map((entry: any, index: number) => (
