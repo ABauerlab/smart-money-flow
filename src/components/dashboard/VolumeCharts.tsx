@@ -35,21 +35,31 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
   };
 
   const getDailyData = (market: MarketData) => {
-    if (!market.historicalVolumes) {
-      // Mock daily data
+    const source = market.volumeSource ?? 'real';
+    if (!market.historicalVolumes || market.historicalVolumes.length === 0) {
+      // Fallback only if API truly returned nothing
       return Array.from({ length: 10 }).map((_, i) => ({
         day: `D-${9 - i}`,
-        ratio: (0.7 + Math.random() * 0.8) * 100
+        date: '',
+        ratio: (0.7 + Math.random() * 0.8) * 100,
+        source,
       }));
     }
-    
-    return market.historicalVolumes.map((vol, index) => ({
-      day: `D-${market.historicalVolumes!.length - 1 - index}`,
+
+    const vols = market.historicalVolumes;
+    const dates = market.historicalDates || [];
+    // Order: index 0 is the most recent → render oldest → most recent (left to right)
+    const points = vols.map((vol, index) => ({
+      day: index === 0 ? 'Hoje' : `D-${index}`,
+      date: dates[index] || '',
       ratio: (vol / market.averageVolume) * 100,
-    })).reverse();
+      source,
+    }));
+    return points.reverse();
   };
 
   const chartData = viewType === 'daily' ? getDailyData(selectedMarket) : getMonthlyData(selectedMarket);
+  const isProxy = (selectedMarket.volumeSource ?? 'real') === 'proxy';
 
   return (
     <motion.div
