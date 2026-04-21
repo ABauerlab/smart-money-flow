@@ -22,6 +22,8 @@ interface MarketData {
   convictionScore: number;
   currency: string;
   historicalVolumes?: number[];
+  historicalDates?: string[];
+  volumeSource?: 'real' | 'proxy';
 }
 
 const CACHE_TTL_MINUTES = 60; // 1 hour cache to respect AV 25 calls/day limit
