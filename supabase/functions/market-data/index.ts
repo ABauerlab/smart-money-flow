@@ -464,20 +464,30 @@ async function saveToCache(supabase: any, markets: MarketData[]) {
 }
 
 // ---- Fetch with staggered delays to respect rate limits ----
+const CRYPTO_SPECS: CryptoSpec[] = [
+  { symbol: 'BTC',  name: 'Bitcoin',  flag: '₿' },
+  { symbol: 'ETH',  name: 'Ethereum', flag: 'Ξ' },
+  { symbol: 'SOL',  name: 'Solana',   flag: '◎' },
+  { symbol: 'XRP',  name: 'XRP',      flag: '✕' },
+  { symbol: 'BNB',  name: 'BNB',      flag: '🟡' },
+  { symbol: 'ADA',  name: 'Cardano',  flag: '₳' },
+  { symbol: 'DOGE', name: 'Dogecoin', flag: '🐕' },
+];
+
 async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: string): Promise<MarketData[]> {
   const results: MarketData[] = [];
 
-  // Batch 1: independent APIs (Brapi, AwesomeAPI, CoinMarketCap) — no shared rate limit
-  const batch1 = await Promise.all([
+  // Batch 1: independent APIs (Brapi, AwesomeAPI, batched CoinMarketCap) — no shared rate limit
+  const [bvsp, petr4, usdbrl, eurbrl, xauusd, cryptos] = await Promise.all([
     fetchBrapiQuote('^BVSP', 'Ibovespa', '🇧🇷', 'indices', brapiKey),
     fetchBrapiQuote('PETR4', 'Petrobras PN', '🛢️', 'stocks', brapiKey),
     fetchForex('USD-BRL', 'Dólar/Real', '💵'),
     fetchForex('EUR-BRL', 'Euro/Real', '💶'),
     fetchForex('XAU-USD', 'Ouro Spot', '🥇', 'commodities', 'USD'),
-    fetchCrypto('BTC', 'Bitcoin', '₿', cmcKey),
-    fetchCrypto('ETH', 'Ethereum', 'Ξ', cmcKey),
+    fetchCryptosBatch(CRYPTO_SPECS, cmcKey),
   ]);
-  results.push(...batch1.filter(Boolean) as MarketData[]);
+  for (const m of [bvsp, petr4, usdbrl, eurbrl, xauusd]) if (m) results.push(m);
+  results.push(...cryptos);
 
   // Batch 2: Alpha Vantage (5 calls/min limit — stagger)
   const av1 = await fetchAlphaVantage('SPY', 'S&P 500', '🇺🇸', 'indices', 'USD', alphaKey);
