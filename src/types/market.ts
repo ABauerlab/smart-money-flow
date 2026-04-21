@@ -20,6 +20,8 @@ export interface MarketData {
   convictionScore: number;
   currency: string;
   historicalVolumes?: number[];
+  historicalDates?: string[];
+  volumeSource?: 'real' | 'proxy';
   monthlyVolumes?: MonthlyVolume[];
 }
 

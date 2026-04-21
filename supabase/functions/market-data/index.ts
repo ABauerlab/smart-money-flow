@@ -22,6 +22,8 @@ interface MarketData {
   convictionScore: number;
   currency: string;
   historicalVolumes?: number[];
+  historicalDates?: string[];
+  volumeSource?: 'real' | 'proxy';
 }
 
 const CACHE_TTL_MINUTES = 60; // 1 hour cache to respect AV 25 calls/day limit
@@ -51,7 +53,8 @@ function calculateConviction(volumeRatio: number, zScore: number, flowType: stri
 
 function buildMarket(
   id: string, name: string, ticker: string, flag: string, category: string, currency: string,
-  price: number, prevPrice: number, currentVolume: number, volumes: number[]
+  price: number, prevPrice: number, currentVolume: number, volumes: number[],
+  opts: { dates?: string[]; volumeSource?: 'real' | 'proxy' } = {}
 ): MarketData {
   const priceChange = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
   const averageVolume = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : currentVolume;
@@ -65,6 +68,8 @@ function buildMarket(
     currentVolume, averageVolume, price, priceChange,
     volumeRatio, zScore, flowType, convictionScore, currency,
     historicalVolumes: volumes.slice(0, 10),
+    historicalDates: opts.dates?.slice(0, 10),
+    volumeSource: opts.volumeSource ?? 'real',
   };
 }
 
@@ -95,7 +100,7 @@ async function fetchAlphaVantage(
     const currentVolume = parseFloat(today['5. volume']);
     const volumes = dates.map(d => parseFloat(timeSeries[d]['5. volume']));
 
-    return buildMarket(symbol.toLowerCase(), name, symbol, flag, category, currency, price, prevPrice, currentVolume, volumes);
+    return buildMarket(symbol.toLowerCase(), name, symbol, flag, category, currency, price, prevPrice, currentVolume, volumes, { dates, volumeSource: 'real' });
   } catch (e) {
     console.error(`Alpha Vantage error for ${symbol}:`, e);
     return null;
@@ -129,22 +134,35 @@ async function fetchBrapiQuote(
     const currentVolume = quote.regularMarketVolume || 0;
     const avgVolume = quote.averageDailyVolume10Day || quote.averageDailyVolume3Month || 0;
 
-    // Extract historical volumes from historicalDataPrice if available
+    // Extract historical volumes + dates from historicalDataPrice if available
     let historicalVolumes: number[] = [];
+    let historicalDates: string[] = [];
     if (quote.historicalDataPrice && Array.isArray(quote.historicalDataPrice)) {
-      historicalVolumes = quote.historicalDataPrice
-        .reverse()
-        .slice(0, 21)
-        .map((d: any) => d.volume || 0)
-        .filter((v: number) => v > 0);
+      const ordered = [...quote.historicalDataPrice].sort((a: any, b: any) => (b.date || 0) - (a.date || 0));
+      const slice = ordered.slice(0, 21);
+      historicalVolumes = slice.map((d: any) => d.volume || 0);
+      historicalDates = slice.map((d: any) => {
+        if (!d.date) return '';
+        const dt = new Date(d.date * 1000);
+        return dt.toISOString().slice(0, 10);
+      });
+      // Filter out zero-volume entries while keeping date alignment
+      const filtered = historicalVolumes
+        .map((v, i) => ({ v, d: historicalDates[i] }))
+        .filter(x => x.v > 0);
+      historicalVolumes = filtered.map(x => x.v);
+      historicalDates = filtered.map(x => x.d);
     }
 
     // For indices like ^BVSP that don't report volume
     let effectiveVolume = currentVolume;
     let effectiveAvg = avgVolume;
     let effectiveHistory = historicalVolumes;
+    let effectiveDates = historicalDates;
+    let volumeSource: 'real' | 'proxy' = 'real';
 
     if (effectiveVolume === 0 && effectiveAvg === 0) {
+      volumeSource = 'proxy';
       // Use marketCap as a proxy for activity level on indices
       if (quote.marketCap && quote.marketCap > 0) {
         effectiveVolume = Math.round(quote.marketCap / 100);
@@ -157,17 +175,21 @@ async function fetchBrapiQuote(
         effectiveAvg = effectiveVolume;
         effectiveHistory = Array(10).fill(effectiveAvg);
       }
+      effectiveDates = [];
     }
 
     if (effectiveHistory.length === 0) {
       effectiveHistory = Array(10).fill(effectiveAvg > 0 ? effectiveAvg : effectiveVolume);
       effectiveHistory[0] = effectiveVolume;
+      volumeSource = 'proxy';
+      effectiveDates = [];
     }
 
     return buildMarket(
       symbol.toLowerCase().replace('^', '').replace('.', ''),
       name, symbol, flag, category, 'BRL',
-      price, prevPrice, effectiveVolume, effectiveHistory
+      price, prevPrice, effectiveVolume, effectiveHistory,
+      { dates: effectiveDates, volumeSource }
     );
   } catch (e) {
     console.error(`Brapi error for ${symbol}:`, e);
@@ -194,11 +216,16 @@ async function fetchForex(
     // Volume proxy: daily price variance amplitude (no traditional volume on forex/commodities)
     const currentVolume = Math.abs(parseFloat(latest.varBid || '0')) * 1000000;
     const volumes = data.map((d: any) => Math.abs(parseFloat(d.varBid || '0')) * 1000000);
+    const dates = data.map((d: any) => {
+      const ts = parseInt(d.timestamp || '0', 10);
+      return ts ? new Date(ts * 1000).toISOString().slice(0, 10) : '';
+    });
 
     return buildMarket(
       pair.toLowerCase().replace('-', ''),
       name, pair.replace('-', '/'), flag, category, currency,
-      price, prevPrice, currentVolume, volumes
+      price, prevPrice, currentVolume, volumes,
+      { dates, volumeSource: 'proxy' }
     );
   } catch (e) {
     console.error(`AwesomeAPI error for ${pair}:`, e);
@@ -206,45 +233,53 @@ async function fetchForex(
   }
 }
 
-// ---- CoinMarketCap (Crypto - real volume + price) ----
-async function fetchCrypto(
-  symbol: string, name: string, flag: string, apiKey: string
-): Promise<MarketData | null> {
-  if (!apiKey) {
-    console.warn(`CoinMarketCap: no API key for ${symbol}`);
-    return null;
+// ---- CoinMarketCap (Crypto - real volume + price, batched) ----
+interface CryptoSpec { symbol: string; name: string; flag: string; }
+
+async function fetchCryptosBatch(specs: CryptoSpec[], apiKey: string): Promise<MarketData[]> {
+  if (!apiKey || specs.length === 0) {
+    if (!apiKey) console.warn('CoinMarketCap: missing API key');
+    return [];
   }
   try {
-    const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?symbol=${symbol}&convert=USD`;
+    const symbolsParam = specs.map(s => s.symbol).join(',');
+    const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?symbol=${symbolsParam}&convert=USD`;
     const res = await fetch(url, { headers: { 'X-CMC_PRO_API_KEY': apiKey } });
     const data = await res.json();
 
-    const entry = data?.data?.[symbol]?.[0] || data?.data?.[symbol];
-    const quote = entry?.quote?.USD;
-    if (!quote) {
-      console.warn(`CMC: no quote for ${symbol}`, data?.status?.error_message);
-      return null;
+    if (data?.status?.error_code && data.status.error_code !== 0) {
+      console.warn('CMC batch error:', data.status.error_message);
+      return [];
     }
 
-    const price = quote.price || 0;
-    const change24h = quote.percent_change_24h || 0;
-    const prevPrice = price / (1 + change24h / 100);
-    const currentVolume = quote.volume_24h || 0;
-    // Build a synthetic 21d volume series varying around current (CMC quotes endpoint
-    // doesn't include history; using ±10% jitter keeps Z-Score meaningful)
-    const volumes = Array.from({ length: 21 }, (_, i) => {
-      if (i === 0) return currentVolume;
-      const jitter = 0.9 + (((symbol.charCodeAt(0) + i) * 7919) % 200) / 1000;
-      return currentVolume * jitter;
-    });
-
-    return buildMarket(
-      symbol.toLowerCase(), name, symbol, flag, 'crypto', 'USD',
-      price, prevPrice, currentVolume, volumes
-    );
+    const out: MarketData[] = [];
+    for (const spec of specs) {
+      const entry = data?.data?.[spec.symbol]?.[0] || data?.data?.[spec.symbol];
+      const quote = entry?.quote?.USD;
+      if (!quote) {
+        console.warn(`CMC: no quote for ${spec.symbol}`);
+        continue;
+      }
+      const price = quote.price || 0;
+      const change24h = quote.percent_change_24h || 0;
+      const prevPrice = price / (1 + change24h / 100);
+      const currentVolume = quote.volume_24h || 0;
+      // CMC quotes endpoint doesn't return per-day history → ±10% jitter proxy
+      const volumes = Array.from({ length: 21 }, (_, i) => {
+        if (i === 0) return currentVolume;
+        const jitter = 0.9 + (((spec.symbol.charCodeAt(0) + i) * 7919) % 200) / 1000;
+        return currentVolume * jitter;
+      });
+      out.push(buildMarket(
+        spec.symbol.toLowerCase(), spec.name, spec.symbol, spec.flag, 'crypto', 'USD',
+        price, prevPrice, currentVolume, volumes,
+        { volumeSource: 'proxy' }
+      ));
+    }
+    return out;
   } catch (e) {
-    console.error(`CMC error for ${symbol}:`, e);
-    return null;
+    console.error('CMC batch error:', e);
+    return [];
   }
 }
 
@@ -268,10 +303,12 @@ async function fetchBrent(apiKey: string): Promise<MarketData | null> {
       const next = parseFloat(series[i + 1]?.value || d.value);
       return Math.abs(cur - next) * 1_000_000;
     });
+    const dates = series.slice(0, 21).map((d: any) => d.date || '');
     const currentVolume = volumes[0] || 1_000_000;
     return buildMarket(
       'brent', 'Petróleo Brent', 'BRENT', '🛢️', 'commodities', 'USD',
-      price, prevPrice, currentVolume, volumes
+      price, prevPrice, currentVolume, volumes,
+      { dates, volumeSource: 'proxy' }
     );
   } catch (e) {
     console.error('Brent error:', e);
@@ -279,37 +316,71 @@ async function fetchBrent(apiKey: string): Promise<MarketData | null> {
   }
 }
 
-// ---- NewsAPI ----
-async function fetchNews(markets: MarketData[], apiKey: string): Promise<any[]> {
+// ---- NewsAPI (strictly filtered to tracked assets) ----
+// Each tracked asset has a label + list of keywords. An article must match
+// at least one keyword to be returned. The first matched asset becomes the tag.
+const ASSET_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
+  { label: 'Ibovespa', keywords: ['ibovespa', 'bovespa', 'b3', 'ibov'] },
+  { label: 'Petrobras', keywords: ['petrobras', 'petr4', 'petr3'] },
+  { label: 'S&P 500', keywords: ['s&p 500', 'sp500', 's&p500', 'spx', 'standard & poor'] },
+  { label: 'Nasdaq', keywords: ['nasdaq', 'qqq'] },
+  { label: 'Nikkei', keywords: ['nikkei', 'nikkei 225'] },
+  { label: 'Mercado Europeu', keywords: ['stoxx', 'euro stoxx', 'dax', 'cac 40', 'ftse'] },
+  { label: 'Dólar/Real', keywords: ['dólar', 'dolar', 'usd/brl', 'real frente ao dólar', 'câmbio do dólar'] },
+  { label: 'Euro/Real', keywords: ['euro', 'eur/brl'] },
+  { label: 'Ouro', keywords: ['ouro', 'gold', 'xau'] },
+  { label: 'Petróleo Brent', keywords: ['brent', 'petróleo', 'petroleo', 'crude oil', 'opep', 'opec'] },
+  { label: 'Bitcoin', keywords: ['bitcoin', 'btc'] },
+  { label: 'Ethereum', keywords: ['ethereum', 'ether', 'eth '] },
+  { label: 'Solana', keywords: ['solana', 'sol '] },
+  { label: 'XRP', keywords: ['xrp', 'ripple'] },
+  { label: 'BNB', keywords: ['bnb', 'binance coin'] },
+  { label: 'Cardano', keywords: ['cardano', 'ada '] },
+  { label: 'Dogecoin', keywords: ['dogecoin', 'doge'] },
+];
+
+function classifyArticle(title: string, description: string): string | null {
+  const text = `${title} ${description}`.toLowerCase();
+  for (const asset of ASSET_KEYWORDS) {
+    if (asset.keywords.some(k => text.includes(k))) return asset.label;
+  }
+  return null;
+}
+
+async function fetchNews(_markets: MarketData[], apiKey: string): Promise<any[]> {
   if (!apiKey) return [];
   try {
-    // Build query from market names
-    const queries = ['Ibovespa', 'S&P 500', 'Nasdaq', 'Petrobras', 'Dólar', 'Euro'];
-    const q = encodeURIComponent(queries.join(' OR '));
-    const url = `https://newsapi.org/v2/everything?q=${q}&language=pt&sortBy=publishedAt&pageSize=15&apiKey=${apiKey}`;
+    // Search-side narrowing: top tickers + cripto/mercado financeiro umbrella terms.
+    // Final filter happens after — only articles matching an asset keyword are returned.
+    const queryTerms = [
+      'Ibovespa', 'Petrobras', 'S&P 500', 'Nasdaq', 'Bitcoin', 'Ethereum',
+      'Solana', 'XRP', 'Cardano', 'Dogecoin', 'BNB',
+      '"Petróleo Brent"', '"Ouro spot"', 'dólar OR câmbio'
+    ];
+    const q = encodeURIComponent(`(${queryTerms.join(' OR ')})`);
+    const url = `https://newsapi.org/v2/everything?q=${q}&language=pt&sortBy=publishedAt&pageSize=40&apiKey=${apiKey}`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.status !== 'ok' || !Array.isArray(data.articles)) {
       console.warn('NewsAPI returned no articles:', data.message);
       return [];
     }
-    return data.articles.slice(0, 12).map((a: any) => {
-      const text = `${a.title} ${a.description || ''}`.toLowerCase();
-      let market = 'Mercado Global';
-      if (text.includes('ibovespa') || text.includes('bovespa') || text.includes('b3')) market = 'Ibovespa';
-      else if (text.includes('petrobras') || text.includes('petr4')) market = 'Petrobras';
-      else if (text.includes('s&p') || text.includes('sp500')) market = 'S&P 500';
-      else if (text.includes('nasdaq')) market = 'Nasdaq';
-      else if (text.includes('dólar') || text.includes('dolar') || text.includes('usd')) market = 'Dólar/Real';
-      else if (text.includes('euro')) market = 'Euro/Real';
-      return {
+
+    const filtered: any[] = [];
+    for (const a of data.articles) {
+      const market = classifyArticle(a.title || '', a.description || '');
+      if (!market) continue; // discard unrelated noise
+      filtered.push({
         title: a.title,
         source: a.source?.name || 'Desconhecido',
         url: a.url,
         publishedAt: a.publishedAt,
         market,
-      };
-    });
+      });
+      if (filtered.length >= 12) break;
+    }
+    console.log(`NewsAPI: ${data.articles.length} fetched → ${filtered.length} relevant`);
+    return filtered;
   } catch (e) {
     console.error('NewsAPI error:', e);
     return [];
@@ -317,6 +388,50 @@ async function fetchNews(markets: MarketData[], apiKey: string): Promise<any[]> 
 }
 
 // ---- Cache Layer ----
+const CRYPTO_IDS = new Set(['btc', 'eth', 'sol', 'xrp', 'bnb', 'ada', 'doge']);
+
+function categoryFromRow(row: any): string {
+  const id = String(row.id || '').toLowerCase();
+  if (id === 'usdbrl' || id === 'eurbrl') return 'forex';
+  if (id === 'xauusd' || id === 'brent') return 'commodities';
+  if (CRYPTO_IDS.has(id)) return 'crypto';
+  if (row.ticker === 'PETR4') return 'stocks';
+  return 'indices';
+}
+
+function unpackHistorical(raw: any): { volumes: number[]; dates: string[]; source: 'real' | 'proxy' } {
+  if (!raw) return { volumes: [], dates: [], source: 'real' };
+  if (Array.isArray(raw)) return { volumes: raw, dates: [], source: 'real' };
+  return {
+    volumes: Array.isArray(raw.volumes) ? raw.volumes : [],
+    dates: Array.isArray(raw.dates) ? raw.dates : [],
+    source: raw.source === 'proxy' ? 'proxy' : 'real',
+  };
+}
+
+function rowToMarket(row: any): MarketData {
+  const hist = unpackHistorical(row.historical_volumes);
+  return {
+    id: row.id,
+    name: row.name,
+    ticker: row.ticker,
+    flag: row.flag,
+    category: categoryFromRow(row),
+    currentVolume: Number(row.current_volume),
+    averageVolume: Number(row.average_volume),
+    price: Number(row.price),
+    priceChange: Number(row.price_change),
+    volumeRatio: Number(row.volume_ratio),
+    zScore: Number(row.z_score),
+    flowType: row.flow_type as MarketData['flowType'],
+    convictionScore: Number(row.conviction_score),
+    currency: row.currency,
+    historicalVolumes: hist.volumes,
+    historicalDates: hist.dates,
+    volumeSource: hist.source,
+  };
+}
+
 async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
   try {
     const { data, error } = await supabase
@@ -326,38 +441,11 @@ async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
 
     if (error || !data || data.length === 0) return null;
 
-    // Check if cache is still fresh
     const oldestFetch = new Date(data[0].fetched_at);
-    const now = new Date();
-    const ageMinutes = (now.getTime() - oldestFetch.getTime()) / (1000 * 60);
-
+    const ageMinutes = (Date.now() - oldestFetch.getTime()) / (1000 * 60);
     if (ageMinutes > CACHE_TTL_MINUTES) return null;
 
-    return data.map((row: any) => {
-      const id = row.id;
-      const isForex = id === 'usdbrl' || id === 'eurbrl';
-      const isCommodity = id === 'xauusd' || id === 'brent';
-      const isCrypto = id === 'btc' || id === 'eth';
-      const isStock = row.ticker === 'PETR4';
-      const category = isForex ? 'forex' : isCommodity ? 'commodities' : isCrypto ? 'crypto' : isStock ? 'stocks' : 'indices';
-      return {
-      id: row.id,
-      name: row.name,
-      ticker: row.ticker,
-      flag: row.flag,
-      category,
-      currentVolume: Number(row.current_volume),
-      averageVolume: Number(row.average_volume),
-      price: Number(row.price),
-      priceChange: Number(row.price_change),
-      volumeRatio: Number(row.volume_ratio),
-      zScore: Number(row.z_score),
-      flowType: row.flow_type as MarketData['flowType'],
-      convictionScore: Number(row.conviction_score),
-      currency: row.currency,
-      historicalVolumes: row.historical_volumes || [],
-      };
-    });
+    return data.map(rowToMarket);
   } catch (e) {
     console.error('Cache read error:', e);
     return null;
@@ -383,7 +471,11 @@ async function saveToCache(supabase: any, markets: MarketData[]) {
           flow_type: m.flowType,
           conviction_score: m.convictionScore,
           currency: m.currency,
-          historical_volumes: m.historicalVolumes || [],
+          historical_volumes: {
+            volumes: m.historicalVolumes || [],
+            dates: m.historicalDates || [],
+            source: m.volumeSource || 'real',
+          },
           fetched_at: new Date().toISOString(),
         }, { onConflict: 'id' });
     }
@@ -393,20 +485,30 @@ async function saveToCache(supabase: any, markets: MarketData[]) {
 }
 
 // ---- Fetch with staggered delays to respect rate limits ----
+const CRYPTO_SPECS: CryptoSpec[] = [
+  { symbol: 'BTC',  name: 'Bitcoin',  flag: '₿' },
+  { symbol: 'ETH',  name: 'Ethereum', flag: 'Ξ' },
+  { symbol: 'SOL',  name: 'Solana',   flag: '◎' },
+  { symbol: 'XRP',  name: 'XRP',      flag: '✕' },
+  { symbol: 'BNB',  name: 'BNB',      flag: '🟡' },
+  { symbol: 'ADA',  name: 'Cardano',  flag: '₳' },
+  { symbol: 'DOGE', name: 'Dogecoin', flag: '🐕' },
+];
+
 async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: string): Promise<MarketData[]> {
   const results: MarketData[] = [];
 
-  // Batch 1: independent APIs (Brapi, AwesomeAPI, CoinMarketCap) — no shared rate limit
-  const batch1 = await Promise.all([
+  // Batch 1: independent APIs (Brapi, AwesomeAPI, batched CoinMarketCap) — no shared rate limit
+  const [bvsp, petr4, usdbrl, eurbrl, xauusd, cryptos] = await Promise.all([
     fetchBrapiQuote('^BVSP', 'Ibovespa', '🇧🇷', 'indices', brapiKey),
     fetchBrapiQuote('PETR4', 'Petrobras PN', '🛢️', 'stocks', brapiKey),
     fetchForex('USD-BRL', 'Dólar/Real', '💵'),
     fetchForex('EUR-BRL', 'Euro/Real', '💶'),
     fetchForex('XAU-USD', 'Ouro Spot', '🥇', 'commodities', 'USD'),
-    fetchCrypto('BTC', 'Bitcoin', '₿', cmcKey),
-    fetchCrypto('ETH', 'Ethereum', 'Ξ', cmcKey),
+    fetchCryptosBatch(CRYPTO_SPECS, cmcKey),
   ]);
-  results.push(...batch1.filter(Boolean) as MarketData[]);
+  for (const m of [bvsp, petr4, usdbrl, eurbrl, xauusd]) if (m) results.push(m);
+  results.push(...cryptos);
 
   // Batch 2: Alpha Vantage (5 calls/min limit — stagger)
   const av1 = await fetchAlphaVantage('SPY', 'S&P 500', '🇺🇸', 'indices', 'USD', alphaKey);
@@ -499,32 +601,7 @@ async function getCachedMarketsForce(supabase: any): Promise<MarketData[] | null
       .order('conviction_score', { ascending: false });
 
     if (!data || data.length === 0) return null;
-
-    return data.map((row: any) => {
-      const id = row.id;
-      const isForex = id === 'usdbrl' || id === 'eurbrl';
-      const isCommodity = id === 'xauusd' || id === 'brent';
-      const isCrypto = id === 'btc' || id === 'eth';
-      const isStock = row.ticker === 'PETR4';
-      const category = isForex ? 'forex' : isCommodity ? 'commodities' : isCrypto ? 'crypto' : isStock ? 'stocks' : 'indices';
-      return {
-      id: row.id,
-      name: row.name,
-      ticker: row.ticker,
-      flag: row.flag,
-      category,
-      currentVolume: Number(row.current_volume),
-      averageVolume: Number(row.average_volume),
-      price: Number(row.price),
-      priceChange: Number(row.price_change),
-      volumeRatio: Number(row.volume_ratio),
-      zScore: Number(row.z_score),
-      flowType: row.flow_type as MarketData['flowType'],
-      convictionScore: Number(row.conviction_score),
-      currency: row.currency,
-      historicalVolumes: row.historical_volumes || [],
-      };
-    });
+    return data.map(rowToMarket);
   } catch { return null; }
 }
 

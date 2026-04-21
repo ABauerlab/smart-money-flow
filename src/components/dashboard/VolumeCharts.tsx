@@ -35,21 +35,31 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
   };
 
   const getDailyData = (market: MarketData) => {
-    if (!market.historicalVolumes) {
-      // Mock daily data
+    const source = market.volumeSource ?? 'real';
+    if (!market.historicalVolumes || market.historicalVolumes.length === 0) {
+      // Fallback only if API truly returned nothing
       return Array.from({ length: 10 }).map((_, i) => ({
         day: `D-${9 - i}`,
-        ratio: (0.7 + Math.random() * 0.8) * 100
+        date: '',
+        ratio: (0.7 + Math.random() * 0.8) * 100,
+        source,
       }));
     }
-    
-    return market.historicalVolumes.map((vol, index) => ({
-      day: `D-${market.historicalVolumes!.length - 1 - index}`,
+
+    const vols = market.historicalVolumes;
+    const dates = market.historicalDates || [];
+    // Order: index 0 is the most recent → render oldest → most recent (left to right)
+    const points = vols.map((vol, index) => ({
+      day: index === 0 ? 'Hoje' : `D-${index}`,
+      date: dates[index] || '',
       ratio: (vol / market.averageVolume) * 100,
-    })).reverse();
+      source,
+    }));
+    return points.reverse();
   };
 
   const chartData = viewType === 'daily' ? getDailyData(selectedMarket) : getMonthlyData(selectedMarket);
+  const isProxy = (selectedMarket.volumeSource ?? 'real') === 'proxy';
 
   return (
     <motion.div
@@ -68,7 +78,9 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
               Análise de Volume Institucional
               <InfoTooltip text="Compara o volume de negociação atual com a média histórica. Barras verdes indicam volume acima de 120% da média (atividade institucional alta). Barras vermelhas indicam volume abaixo de 80% (atividade baixa). Dados mensais mostram apenas até o mês atual." />
             </h2>
-            <p className="text-xs text-muted-foreground">Compare o fluxo diário e mensal</p>
+            <p className="text-xs text-muted-foreground">
+              Compare o fluxo diário e mensal{isProxy ? ' • Volume aproximado por amplitude de preço (API não fornece volume diário)' : ' • Volume diário real fornecido pela API'}
+            </p>
           </div>
         </div>
 
@@ -127,10 +139,27 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                   boxShadow: 'var(--shadow-card)',
                   padding: '12px',
                 }}
-                formatter={(v: number) => {
-                  const status = v > 120 ? 'Alta atividade' : v < 80 ? 'Baixa atividade' : 'Normal';
-                  return [`${v.toFixed(1)}% — ${status}`, 'Volume vs Média'];
+                labelFormatter={(label: string, payload: any) => {
+                  const p = payload?.[0]?.payload;
+                  const dateStr = p?.date ? new Date(p.date).toLocaleDateString('pt-BR') : '';
+                  return dateStr ? `${label} (${dateStr})` : label;
                 }}
+                formatter={(v: number, _n: any, item: any) => {
+                  const status = v > 120 ? 'Alta atividade' : v < 80 ? 'Baixa atividade' : 'Normal';
+                  const proxyTag = item?.payload?.source === 'proxy' ? ' (proxy)' : '';
+                  return [`${v.toFixed(1)}% — ${status}${proxyTag}`, 'Volume vs Média'];
+                }}
+              />
+              <Legend
+                verticalAlign="top"
+                align="right"
+                height={28}
+                iconType="square"
+                payload={[
+                  { value: 'Alta (>120%)', type: 'square', color: 'hsl(var(--bullish))' },
+                  { value: 'Normal', type: 'square', color: 'hsl(var(--primary))' },
+                  { value: 'Baixa (<80%)', type: 'square', color: 'hsl(var(--bearish))' },
+                ] as any}
               />
               <Bar dataKey="ratio" radius={[6, 6, 0, 0]} maxBarSize={60}>
                 {chartData.map((entry: any, index: number) => (
