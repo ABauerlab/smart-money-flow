@@ -53,7 +53,8 @@ function calculateConviction(volumeRatio: number, zScore: number, flowType: stri
 
 function buildMarket(
   id: string, name: string, ticker: string, flag: string, category: string, currency: string,
-  price: number, prevPrice: number, currentVolume: number, volumes: number[]
+  price: number, prevPrice: number, currentVolume: number, volumes: number[],
+  opts: { dates?: string[]; volumeSource?: 'real' | 'proxy' } = {}
 ): MarketData {
   const priceChange = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
   const averageVolume = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : currentVolume;
@@ -67,6 +68,8 @@ function buildMarket(
     currentVolume, averageVolume, price, priceChange,
     volumeRatio, zScore, flowType, convictionScore, currency,
     historicalVolumes: volumes.slice(0, 10),
+    historicalDates: opts.dates?.slice(0, 10),
+    volumeSource: opts.volumeSource ?? 'real',
   };
 }
 
