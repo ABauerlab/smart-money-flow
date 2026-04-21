@@ -26,7 +26,7 @@ interface MarketData {
   volumeSource?: 'real' | 'proxy';
 }
 
-const CACHE_TTL_MINUTES = 60; // 1 hour cache to respect AV 25 calls/day limit
+const CACHE_TTL_MINUTES = 360; // 6h cache - Alpha Vantage free tier is 25 req/day
 
 function calculateZScore(current: number, average: number): number {
   const stdDev = average * 0.15;
@@ -319,6 +319,8 @@ async function fetchBrent(apiKey: string): Promise<MarketData | null> {
 // ---- NewsAPI (strictly filtered to tracked assets) ----
 // Each tracked asset has a label + list of keywords. An article must match
 // at least one keyword to be returned. The first matched asset becomes the tag.
+// Each tracked asset has a label + list of whole-word keywords (matched via \b boundaries
+// so "ada" doesn't match "apreensada", "sol" doesn't match "solenidade", etc.).
 const ASSET_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
   { label: 'Ibovespa', keywords: ['ibovespa', 'bovespa', 'b3', 'ibov'] },
   { label: 'Petrobras', keywords: ['petrobras', 'petr4', 'petr3'] },
@@ -326,23 +328,34 @@ const ASSET_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
   { label: 'Nasdaq', keywords: ['nasdaq', 'qqq'] },
   { label: 'Nikkei', keywords: ['nikkei', 'nikkei 225'] },
   { label: 'Mercado Europeu', keywords: ['stoxx', 'euro stoxx', 'dax', 'cac 40', 'ftse'] },
-  { label: 'Dólar/Real', keywords: ['dólar', 'dolar', 'usd/brl', 'real frente ao dólar', 'câmbio do dólar'] },
-  { label: 'Euro/Real', keywords: ['euro', 'eur/brl'] },
-  { label: 'Ouro', keywords: ['ouro', 'gold', 'xau'] },
+  { label: 'Dólar/Real', keywords: ['usd/brl', 'real frente ao dólar', 'câmbio do dólar', 'cotação do dólar', 'dólar comercial'] },
+  { label: 'Euro/Real', keywords: ['eur/brl', 'cotação do euro', 'euro comercial'] },
+  { label: 'Ouro', keywords: ['ouro spot', 'gold spot', 'xau/usd', 'preço do ouro', 'cotação do ouro'] },
   { label: 'Petróleo Brent', keywords: ['brent', 'petróleo', 'petroleo', 'crude oil', 'opep', 'opec'] },
   { label: 'Bitcoin', keywords: ['bitcoin', 'btc'] },
-  { label: 'Ethereum', keywords: ['ethereum', 'ether', 'eth '] },
-  { label: 'Solana', keywords: ['solana', 'sol '] },
+  { label: 'Ethereum', keywords: ['ethereum', 'ether'] },
+  { label: 'Solana', keywords: ['solana'] },
   { label: 'XRP', keywords: ['xrp', 'ripple'] },
-  { label: 'BNB', keywords: ['bnb', 'binance coin'] },
-  { label: 'Cardano', keywords: ['cardano', 'ada '] },
-  { label: 'Dogecoin', keywords: ['dogecoin', 'doge'] },
+  { label: 'BNB', keywords: ['binance coin', 'bnb'] },
+  { label: 'Cardano', keywords: ['cardano'] },
+  { label: 'Dogecoin', keywords: ['dogecoin'] },
 ];
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function matchesKeyword(text: string, keyword: string): boolean {
+  // Whole-word match: keyword must be surrounded by non-letter/digit chars (or string edges).
+  // Handles accented chars correctly via Unicode property escapes.
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegex(keyword)}([^\\p{L}\\p{N}]|$)`, 'iu');
+  return pattern.test(text);
+}
 
 function classifyArticle(title: string, description: string): string | null {
   const text = `${title} ${description}`.toLowerCase();
   for (const asset of ASSET_KEYWORDS) {
-    if (asset.keywords.some(k => text.includes(k))) return asset.label;
+    if (asset.keywords.some(k => matchesKeyword(text, k.toLowerCase()))) return asset.label;
   }
   return null;
 }
