@@ -334,14 +334,18 @@ async function getCachedMarkets(supabase: any): Promise<MarketData[] | null> {
     if (ageMinutes > CACHE_TTL_MINUTES) return null;
 
     return data.map((row: any) => {
-      const isForex = row.id === 'usdbrl' || row.id === 'eurbrl';
+      const id = row.id;
+      const isForex = id === 'usdbrl' || id === 'eurbrl';
+      const isCommodity = id === 'xauusd' || id === 'brent';
+      const isCrypto = id === 'btc' || id === 'eth';
       const isStock = row.ticker === 'PETR4';
+      const category = isForex ? 'forex' : isCommodity ? 'commodities' : isCrypto ? 'crypto' : isStock ? 'stocks' : 'indices';
       return {
       id: row.id,
       name: row.name,
       ticker: row.ticker,
       flag: row.flag,
-      category: isForex ? 'forex' : isStock ? 'stocks' : 'indices',
+      category,
       currentVolume: Number(row.current_volume),
       averageVolume: Number(row.average_volume),
       price: Number(row.price),
@@ -497,14 +501,18 @@ async function getCachedMarketsForce(supabase: any): Promise<MarketData[] | null
     if (!data || data.length === 0) return null;
 
     return data.map((row: any) => {
-      const isForex = row.id === 'usdbrl' || row.id === 'eurbrl';
+      const id = row.id;
+      const isForex = id === 'usdbrl' || id === 'eurbrl';
+      const isCommodity = id === 'xauusd' || id === 'brent';
+      const isCrypto = id === 'btc' || id === 'eth';
       const isStock = row.ticker === 'PETR4';
+      const category = isForex ? 'forex' : isCommodity ? 'commodities' : isCrypto ? 'crypto' : isStock ? 'stocks' : 'indices';
       return {
       id: row.id,
       name: row.name,
       ticker: row.ticker,
       flag: row.flag,
-      category: isForex ? 'forex' : isStock ? 'stocks' : 'indices',
+      category,
       currentVolume: Number(row.current_volume),
       averageVolume: Number(row.average_volume),
       price: Number(row.price),
