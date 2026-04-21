@@ -316,37 +316,71 @@ async function fetchBrent(apiKey: string): Promise<MarketData | null> {
   }
 }
 
-// ---- NewsAPI ----
-async function fetchNews(markets: MarketData[], apiKey: string): Promise<any[]> {
+// ---- NewsAPI (strictly filtered to tracked assets) ----
+// Each tracked asset has a label + list of keywords. An article must match
+// at least one keyword to be returned. The first matched asset becomes the tag.
+const ASSET_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
+  { label: 'Ibovespa', keywords: ['ibovespa', 'bovespa', 'b3', 'ibov'] },
+  { label: 'Petrobras', keywords: ['petrobras', 'petr4', 'petr3'] },
+  { label: 'S&P 500', keywords: ['s&p 500', 'sp500', 's&p500', 'spx', 'standard & poor'] },
+  { label: 'Nasdaq', keywords: ['nasdaq', 'qqq'] },
+  { label: 'Nikkei', keywords: ['nikkei', 'nikkei 225'] },
+  { label: 'Mercado Europeu', keywords: ['stoxx', 'euro stoxx', 'dax', 'cac 40', 'ftse'] },
+  { label: 'Dólar/Real', keywords: ['dólar', 'dolar', 'usd/brl', 'real frente ao dólar', 'câmbio do dólar'] },
+  { label: 'Euro/Real', keywords: ['euro', 'eur/brl'] },
+  { label: 'Ouro', keywords: ['ouro', 'gold', 'xau'] },
+  { label: 'Petróleo Brent', keywords: ['brent', 'petróleo', 'petroleo', 'crude oil', 'opep', 'opec'] },
+  { label: 'Bitcoin', keywords: ['bitcoin', 'btc'] },
+  { label: 'Ethereum', keywords: ['ethereum', 'ether', 'eth '] },
+  { label: 'Solana', keywords: ['solana', 'sol '] },
+  { label: 'XRP', keywords: ['xrp', 'ripple'] },
+  { label: 'BNB', keywords: ['bnb', 'binance coin'] },
+  { label: 'Cardano', keywords: ['cardano', 'ada '] },
+  { label: 'Dogecoin', keywords: ['dogecoin', 'doge'] },
+];
+
+function classifyArticle(title: string, description: string): string | null {
+  const text = `${title} ${description}`.toLowerCase();
+  for (const asset of ASSET_KEYWORDS) {
+    if (asset.keywords.some(k => text.includes(k))) return asset.label;
+  }
+  return null;
+}
+
+async function fetchNews(_markets: MarketData[], apiKey: string): Promise<any[]> {
   if (!apiKey) return [];
   try {
-    // Build query from market names
-    const queries = ['Ibovespa', 'S&P 500', 'Nasdaq', 'Petrobras', 'Dólar', 'Euro'];
-    const q = encodeURIComponent(queries.join(' OR '));
-    const url = `https://newsapi.org/v2/everything?q=${q}&language=pt&sortBy=publishedAt&pageSize=15&apiKey=${apiKey}`;
+    // Search-side narrowing: top tickers + cripto/mercado financeiro umbrella terms.
+    // Final filter happens after — only articles matching an asset keyword are returned.
+    const queryTerms = [
+      'Ibovespa', 'Petrobras', 'S&P 500', 'Nasdaq', 'Bitcoin', 'Ethereum',
+      'Solana', 'XRP', 'Cardano', 'Dogecoin', 'BNB',
+      '"Petróleo Brent"', '"Ouro spot"', 'dólar OR câmbio'
+    ];
+    const q = encodeURIComponent(`(${queryTerms.join(' OR ')})`);
+    const url = `https://newsapi.org/v2/everything?q=${q}&language=pt&sortBy=publishedAt&pageSize=40&apiKey=${apiKey}`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.status !== 'ok' || !Array.isArray(data.articles)) {
       console.warn('NewsAPI returned no articles:', data.message);
       return [];
     }
-    return data.articles.slice(0, 12).map((a: any) => {
-      const text = `${a.title} ${a.description || ''}`.toLowerCase();
-      let market = 'Mercado Global';
-      if (text.includes('ibovespa') || text.includes('bovespa') || text.includes('b3')) market = 'Ibovespa';
-      else if (text.includes('petrobras') || text.includes('petr4')) market = 'Petrobras';
-      else if (text.includes('s&p') || text.includes('sp500')) market = 'S&P 500';
-      else if (text.includes('nasdaq')) market = 'Nasdaq';
-      else if (text.includes('dólar') || text.includes('dolar') || text.includes('usd')) market = 'Dólar/Real';
-      else if (text.includes('euro')) market = 'Euro/Real';
-      return {
+
+    const filtered: any[] = [];
+    for (const a of data.articles) {
+      const market = classifyArticle(a.title || '', a.description || '');
+      if (!market) continue; // discard unrelated noise
+      filtered.push({
         title: a.title,
         source: a.source?.name || 'Desconhecido',
         url: a.url,
         publishedAt: a.publishedAt,
         market,
-      };
-    });
+      });
+      if (filtered.length >= 12) break;
+    }
+    console.log(`NewsAPI: ${data.articles.length} fetched → ${filtered.length} relevant`);
+    return filtered;
   } catch (e) {
     console.error('NewsAPI error:', e);
     return [];
