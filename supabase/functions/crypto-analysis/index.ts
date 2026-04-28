@@ -571,6 +571,94 @@ Formato Markdown. Não use emojis.`,
       });
     }
 
+    // ========== REFRESH LISTS (reprocess + AI consolidation for current week) ==========
+    if (action === 'refresh-lists') {
+      const body = await req.json().catch(() => ({}));
+      const { accessCode, periodType } = body;
+      const targetPeriod = periodType || 'weekly';
+
+      const periodToDays: Record<string, number> = {
+        three_days: 3, weekly: 7, biweekly: 15, triweekly: 21,
+        monthly: 30, bimonthly: 60, quarterly: 90, semiannual: 180, annual: 365,
+      };
+      const days = periodToDays[targetPeriod] || 7;
+      const now = new Date();
+      const endDate = new Date(now);
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - (days - 1));
+      const periodStart = startDate.toISOString().split('T')[0];
+      const periodEnd = endDate.toISOString().split('T')[0];
+
+      let mentionsQuery = supabase
+        .from('crypto_mentions')
+        .select('symbol, report_type, report_date')
+        .gte('report_date', periodStart)
+        .lte('report_date', periodEnd);
+      if (accessCode) mentionsQuery = mentionsQuery.eq('access_code', accessCode);
+
+      const { data: mentions, error: mErr } = await mentionsQuery;
+      if (mErr) throw mErr;
+
+      const altaCounts: Record<string, number> = {};
+      const baixaCounts: Record<string, number> = {};
+      for (const m of (mentions || [])) {
+        if (m.report_type === 'alta') altaCounts[m.symbol] = (altaCounts[m.symbol] || 0) + 1;
+        else if (m.report_type === 'baixa') baixaCounts[m.symbol] = (baixaCounts[m.symbol] || 0) + 1;
+      }
+      const altaRankings = Object.entries(altaCounts).map(([symbol, count]) => ({ symbol, count })).sort((a, b) => b.count - a.count);
+      const baixaRankings = Object.entries(baixaCounts).map(([symbol, count]) => ({ symbol, count })).sort((a, b) => b.count - a.count);
+
+      const allCounts: Record<string, { total: number; alta: number; baixa: number; volume: number }> = {};
+      for (const m of (mentions || [])) {
+        if (!allCounts[m.symbol]) allCounts[m.symbol] = { total: 0, alta: 0, baixa: 0, volume: 0 };
+        allCounts[m.symbol].total++;
+        if (m.report_type === 'alta') allCounts[m.symbol].alta++;
+        if (m.report_type === 'baixa') allCounts[m.symbol].baixa++;
+        if (m.report_type === 'volume') allCounts[m.symbol].volume++;
+      }
+      const rankings = Object.entries(allCounts).map(([symbol, c]) => ({ symbol, ...c })).sort((a, b) => b.total - a.total);
+
+      let aiAnalysis = '';
+      let aiModelUsed = 'none';
+      if (rankings.length > 0) {
+        const laText = altaRankings.length > 0
+          ? `### Lista de Alta (LA)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
+          : '### Lista de Alta (LA)\nNenhum dado de alta no período.';
+        const lbText = baixaRankings.length > 0
+          ? `### Lista de Baixa (LB)\n${baixaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
+          : '### Lista de Baixa (LB)\nNenhum dado de baixa no período.';
+
+        const aiResult = await callAI([
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: `Atualização solicitada das listas (${periodStart} a ${periodEnd}).\n\n${laText}\n\n${lbText}\n\nTotal de criptos: ${rankings.length}\nTotal de menções: ${mentions?.length || 0}\n\nReanalise os padrões atuais, identifique mudanças e destaques. Separe LA e LB. Não use emojis.` },
+        ]);
+        if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
+      }
+
+      const { data: report, error: insertErr } = await supabase
+        .from('crypto_periodic_reports')
+        .insert({
+          period_type: targetPeriod,
+          period_start: periodStart,
+          period_end: periodEnd,
+          year: now.getFullYear(),
+          week_number: getISOWeek(now),
+          rankings: rankings as any,
+          summary: `[ATUALIZAÇÃO MANUAL] LA: ${altaRankings.length} criptos | LB: ${baixaRankings.length} criptos`,
+          ai_analysis: aiAnalysis,
+          access_code: accessCode || null,
+        })
+        .select()
+        .single();
+      if (insertErr) throw insertErr;
+
+      return new Response(JSON.stringify({
+        success: true,
+        rankings, altaRankings, baixaRankings,
+        report, aiModelUsed,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     return new Response(JSON.stringify({ error: 'Ação inválida' }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
