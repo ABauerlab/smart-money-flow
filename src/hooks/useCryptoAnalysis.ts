@@ -56,6 +56,7 @@ export const useCryptoAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshingLists, setIsRefreshingLists] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
