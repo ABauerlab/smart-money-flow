@@ -78,6 +78,7 @@ const CryptoAnalysis = () => {
     periodicReports, isLoadingPeriodicReports,
     generatePeriodicReport, isGeneratingReport,
     deleteAnalyses, isDeleting,
+    refreshLists, isRefreshingLists,
   } = useCryptoAnalysis();
 
   if (!accessCode) {
