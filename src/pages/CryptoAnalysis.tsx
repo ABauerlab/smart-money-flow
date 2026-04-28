@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon, LogOut } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon, LogOut, ImagePlus, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ImageUploader } from '@/components/analysis/ImageUploader';
 import { AnalysisReport } from '@/components/analysis/AnalysisReport';
@@ -78,6 +78,7 @@ const CryptoAnalysis = () => {
     periodicReports, isLoadingPeriodicReports,
     generatePeriodicReport, isGeneratingReport,
     deleteAnalyses, isDeleting,
+    refreshLists, isRefreshingLists,
   } = useCryptoAnalysis();
 
   if (!accessCode) {
@@ -221,7 +222,24 @@ const CryptoAnalysis = () => {
               className="bg-card border-border/50"
             />
 
-            <ImageUploader images={images} onImagesChange={setImages} disabled={isAnalyzing} />
+            {/* Highlighted image upload section */}
+            <div className="rounded-xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 space-y-3 shadow-lg shadow-primary/10">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-primary/20">
+                    <ImagePlus className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Imagens da Análise</h3>
+                    <p className="text-[11px] text-muted-foreground">Anexe os prints dos relatórios para a IA processar</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono px-2 py-1 rounded-md bg-primary/15 text-primary">
+                  {images.length} {images.length === 1 ? 'imagem' : 'imagens'}
+                </span>
+              </div>
+              <ImageUploader images={images} onImagesChange={setImages} disabled={isAnalyzing} />
+            </div>
 
             {/* Crypto selector */}
             <div className="space-y-2">
@@ -266,6 +284,22 @@ const CryptoAnalysis = () => {
                 <><Send className="w-4 h-4" /> Enviar {REPORT_TYPES.find(r => r.value === reportType)?.label} ({images.length} {images.length === 1 ? 'imagem' : 'imagens'})</>
               )}
             </Button>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-border/30">
+              <Button
+                onClick={() => refreshLists('weekly')}
+                disabled={isRefreshingLists}
+                variant="outline"
+                className="flex-1 gap-2"
+              >
+                {isRefreshingLists ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Atualizando listas via IA...</>
+                ) : (
+                  <><RefreshCw className="w-4 h-4" /> Atualizar Listas (reprocessar + IA)</>
+                )}
+              </Button>
+              <InfoTooltip text="Reprocessa os rankings da semana atual com base nos relatórios já enviados E pede uma nova análise consolidada à IA. Útil para forçar uma atualização sem precisar enviar nova imagem." />
+            </div>
 
             {currentReport && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>

@@ -87,15 +87,59 @@ CRYPTOS_DETECTED: BTC,ETH,SOL,...
 - NÃO use emojis
 - Use formato Markdown`;
 
-// ====== AI call abstraction: Lovable AI Gateway (Gemini) only ======
-async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+// ====== AI call abstraction ======
+// Priority: Official Gemini API (GEMINI_API_KEY) -> Lovable AI Gateway fallback
+async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) return { ok: false, status: 0, content: '', model: 'none', error: 'no key' };
 
-  if (!LOVABLE_API_KEY) {
-    return { ok: false, status: 500, content: '', model: 'none', error: 'Lovable AI Gateway não configurado' };
+  const model = wantsVision ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+
+  // Convert OpenAI-style messages -> Gemini contents
+  let systemInstruction: string | undefined;
+  const contents: any[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') {
+      systemInstruction = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      continue;
+    }
+    const parts: any[] = [];
+    if (typeof m.content === 'string') {
+      parts.push({ text: m.content });
+    } else if (Array.isArray(m.content)) {
+      for (const p of m.content) {
+        if (p.type === 'text') parts.push({ text: p.text });
+        else if (p.type === 'image_url') {
+          const url: string = p.image_url?.url || '';
+          const match = url.match(/^data:(.+?);base64,(.+)$/);
+          if (match) parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+        }
+      }
+    }
+    contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts });
   }
 
-  const model = opts.wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
+  const body: any = { contents };
+  if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
+
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  );
+  if (resp.ok) {
+    const data = await resp.json();
+    const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
+    return { ok: true, status: 200, content, model: `google/${model} (official)` };
+  }
+  const errText = await resp.text();
+  console.error('Gemini official error:', resp.status, errText);
+  return { ok: false, status: resp.status, content: '', model: `google/${model} (official)`, error: errText };
+}
+
+async function callLovableGateway(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) return { ok: false, status: 500, content: '', model: 'none', error: 'Lovable AI Gateway não configurado' };
+  const model = wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
   const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
@@ -104,11 +148,23 @@ async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Pr
   if (resp.ok) {
     const data = await resp.json();
     const content = data.choices?.[0]?.message?.content || '';
-    return { ok: true, status: 200, content, model };
+    return { ok: true, status: 200, content, model: `${model} (gateway)` };
   }
   const errText = await resp.text();
   console.error('Lovable AI error:', resp.status, errText);
   return { ok: false, status: resp.status, content: '', model, error: errText };
+}
+
+async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
+  const wantsVision = !!opts.wantsVision;
+  // Try official Gemini first if configured
+  const official = await callGeminiOfficial(messages, wantsVision);
+  if (official.ok) return official;
+  // If official failed (and key existed) but with quota/rate, fall through to gateway
+  if (official.error && official.error !== 'no key') {
+    console.log('Falling back to Lovable Gateway after official Gemini error:', official.status);
+  }
+  return await callLovableGateway(messages, wantsVision);
 }
 
 
@@ -370,8 +426,9 @@ serve(async (req) => {
         });
       }
 
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) throw new Error('Lovable AI Gateway não configurado');
+      if (!Deno.env.get('GEMINI_API_KEY') && !Deno.env.get('LOVABLE_API_KEY')) {
+        throw new Error('Nenhum provedor de IA configurado (GEMINI_API_KEY ou LOVABLE_API_KEY).');
+      }
 
       const uploadedImages: { url: string; name: string; base64: string }[] = [];
       for (const img of images) {
@@ -512,6 +569,94 @@ Formato Markdown. Não use emojis.`,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // ========== REFRESH LISTS (reprocess + AI consolidation for current week) ==========
+    if (action === 'refresh-lists') {
+      const body = await req.json().catch(() => ({}));
+      const { accessCode, periodType } = body;
+      const targetPeriod = periodType || 'weekly';
+
+      const periodToDays: Record<string, number> = {
+        three_days: 3, weekly: 7, biweekly: 15, triweekly: 21,
+        monthly: 30, bimonthly: 60, quarterly: 90, semiannual: 180, annual: 365,
+      };
+      const days = periodToDays[targetPeriod] || 7;
+      const now = new Date();
+      const endDate = new Date(now);
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - (days - 1));
+      const periodStart = startDate.toISOString().split('T')[0];
+      const periodEnd = endDate.toISOString().split('T')[0];
+
+      let mentionsQuery = supabase
+        .from('crypto_mentions')
+        .select('symbol, report_type, report_date')
+        .gte('report_date', periodStart)
+        .lte('report_date', periodEnd);
+      if (accessCode) mentionsQuery = mentionsQuery.eq('access_code', accessCode);
+
+      const { data: mentions, error: mErr } = await mentionsQuery;
+      if (mErr) throw mErr;
+
+      const altaCounts: Record<string, number> = {};
+      const baixaCounts: Record<string, number> = {};
+      for (const m of (mentions || [])) {
+        if (m.report_type === 'alta') altaCounts[m.symbol] = (altaCounts[m.symbol] || 0) + 1;
+        else if (m.report_type === 'baixa') baixaCounts[m.symbol] = (baixaCounts[m.symbol] || 0) + 1;
+      }
+      const altaRankings = Object.entries(altaCounts).map(([symbol, count]) => ({ symbol, count })).sort((a, b) => b.count - a.count);
+      const baixaRankings = Object.entries(baixaCounts).map(([symbol, count]) => ({ symbol, count })).sort((a, b) => b.count - a.count);
+
+      const allCounts: Record<string, { total: number; alta: number; baixa: number; volume: number }> = {};
+      for (const m of (mentions || [])) {
+        if (!allCounts[m.symbol]) allCounts[m.symbol] = { total: 0, alta: 0, baixa: 0, volume: 0 };
+        allCounts[m.symbol].total++;
+        if (m.report_type === 'alta') allCounts[m.symbol].alta++;
+        if (m.report_type === 'baixa') allCounts[m.symbol].baixa++;
+        if (m.report_type === 'volume') allCounts[m.symbol].volume++;
+      }
+      const rankings = Object.entries(allCounts).map(([symbol, c]) => ({ symbol, ...c })).sort((a, b) => b.total - a.total);
+
+      let aiAnalysis = '';
+      let aiModelUsed = 'none';
+      if (rankings.length > 0) {
+        const laText = altaRankings.length > 0
+          ? `### Lista de Alta (LA)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
+          : '### Lista de Alta (LA)\nNenhum dado de alta no período.';
+        const lbText = baixaRankings.length > 0
+          ? `### Lista de Baixa (LB)\n${baixaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
+          : '### Lista de Baixa (LB)\nNenhum dado de baixa no período.';
+
+        const aiResult = await callAI([
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: `Atualização solicitada das listas (${periodStart} a ${periodEnd}).\n\n${laText}\n\n${lbText}\n\nTotal de criptos: ${rankings.length}\nTotal de menções: ${mentions?.length || 0}\n\nReanalise os padrões atuais, identifique mudanças e destaques. Separe LA e LB. Não use emojis.` },
+        ]);
+        if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
+      }
+
+      const { data: report, error: insertErr } = await supabase
+        .from('crypto_periodic_reports')
+        .insert({
+          period_type: targetPeriod,
+          period_start: periodStart,
+          period_end: periodEnd,
+          year: now.getFullYear(),
+          week_number: getISOWeek(now),
+          rankings: rankings as any,
+          summary: `[ATUALIZAÇÃO MANUAL] LA: ${altaRankings.length} criptos | LB: ${baixaRankings.length} criptos`,
+          ai_analysis: aiAnalysis,
+          access_code: accessCode || null,
+        })
+        .select()
+        .single();
+      if (insertErr) throw insertErr;
+
+      return new Response(JSON.stringify({
+        success: true,
+        rankings, altaRankings, baixaRankings,
+        report, aiModelUsed,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     return new Response(JSON.stringify({ error: 'Ação inválida' }), {

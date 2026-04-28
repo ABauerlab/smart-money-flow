@@ -56,6 +56,7 @@ export const useCryptoAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshingLists, setIsRefreshingLists] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -179,13 +180,44 @@ export const useCryptoAnalysis = () => {
     }
   };
 
+  const refreshLists = async (periodType: string = 'weekly') => {
+    setIsRefreshingLists(true);
+    try {
+      const resp = await fetch(`${BASE_URL}?action=refresh-lists`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ periodType, accessCode: getAccessCode() }),
+      });
+      if (resp.status === 429) {
+        toast({ title: 'Limite atingido', description: 'Tente novamente em alguns minutos.', variant: 'destructive' });
+        return null;
+      }
+      if (resp.status === 402) {
+        toast({ title: 'Créditos esgotados', description: 'Adicione créditos para continuar.', variant: 'destructive' });
+        return null;
+      }
+      if (!resp.ok) throw new Error('Erro ao atualizar listas');
+      const data = await resp.json();
+      toast({ title: 'Listas atualizadas!', description: `Reprocessado + análise IA (${data.aiModelUsed || 'sem IA'}).` });
+      queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
+      queryClient.invalidateQueries({ queryKey: ['periodic-reports'] });
+      return data;
+    } catch (error) {
+      toast({ title: 'Erro', description: (error as Error).message, variant: 'destructive' });
+      return null;
+    } finally {
+      setIsRefreshingLists(false);
+    }
+  };
+
   return {
     isAnalyzing,
     isGeneratingReport,
     isDeleting,
+    isRefreshingLists,
     submitAnalysis,
     generatePeriodicReport,
     deleteAnalyses,
+    refreshLists,
     history: historyQuery.data?.analyses || [],
     isLoadingHistory: historyQuery.isLoading,
     rankings: rankingsQuery.data?.rankings || [],
