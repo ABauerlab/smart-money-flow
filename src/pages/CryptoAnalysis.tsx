@@ -222,7 +222,24 @@ const CryptoAnalysis = () => {
               className="bg-card border-border/50"
             />
 
-            <ImageUploader images={images} onImagesChange={setImages} disabled={isAnalyzing} />
+            {/* Highlighted image upload section */}
+            <div className="rounded-xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 space-y-3 shadow-lg shadow-primary/10">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-primary/20">
+                    <ImagePlus className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Imagens da Análise</h3>
+                    <p className="text-[11px] text-muted-foreground">Anexe os prints dos relatórios para a IA processar</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono px-2 py-1 rounded-md bg-primary/15 text-primary">
+                  {images.length} {images.length === 1 ? 'imagem' : 'imagens'}
+                </span>
+              </div>
+              <ImageUploader images={images} onImagesChange={setImages} disabled={isAnalyzing} />
+            </div>
 
             {/* Crypto selector */}
             <div className="space-y-2">
