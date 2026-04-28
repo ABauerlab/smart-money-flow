@@ -285,6 +285,22 @@ const CryptoAnalysis = () => {
               )}
             </Button>
 
+            <div className="flex items-center gap-2 pt-2 border-t border-border/30">
+              <Button
+                onClick={() => refreshLists('weekly')}
+                disabled={isRefreshingLists}
+                variant="outline"
+                className="flex-1 gap-2"
+              >
+                {isRefreshingLists ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Atualizando listas via IA...</>
+                ) : (
+                  <><RefreshCw className="w-4 h-4" /> Atualizar Listas (reprocessar + IA)</>
+                )}
+              </Button>
+              <InfoTooltip text="Reprocessa os rankings da semana atual com base nos relatórios já enviados E pede uma nova análise consolidada à IA. Útil para forçar uma atualização sem precisar enviar nova imagem." />
+            </div>
+
             {currentReport && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                 <AnalysisReport
