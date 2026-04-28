@@ -426,8 +426,9 @@ serve(async (req) => {
         });
       }
 
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) throw new Error('Lovable AI Gateway não configurado');
+      if (!Deno.env.get('GEMINI_API_KEY') && !Deno.env.get('LOVABLE_API_KEY')) {
+        throw new Error('Nenhum provedor de IA configurado (GEMINI_API_KEY ou LOVABLE_API_KEY).');
+      }
 
       const uploadedImages: { url: string; name: string; base64: string }[] = [];
       for (const img of images) {
