@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon, LogOut } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon, LogOut, ImagePlus, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ImageUploader } from '@/components/analysis/ImageUploader';
 import { AnalysisReport } from '@/components/analysis/AnalysisReport';
