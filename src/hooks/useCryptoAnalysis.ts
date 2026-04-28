@@ -197,7 +197,18 @@ export const useCryptoAnalysis = () => {
       }
       if (!resp.ok) throw new Error('Erro ao atualizar listas');
       const data = await resp.json();
-      toast({ title: 'Listas atualizadas!', description: `Reprocessado + análise IA (${data.aiModelUsed || 'sem IA'}).` });
+      const total = (data.altaRankings?.length || 0) + (data.baixaRankings?.length || 0);
+      if (total === 0) {
+        toast({
+          title: 'Listas atualizadas (vazias)',
+          description: `Nenhuma menção encontrada na janela ${periodType}. Envie relatórios RA/RB recentes para popular.`,
+        });
+      } else {
+        toast({
+          title: 'Listas atualizadas!',
+          description: `LA: ${data.altaRankings?.length || 0} • LB: ${data.baixaRankings?.length || 0} • IA: ${data.aiModelUsed || 'sem IA'}`,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
       queryClient.invalidateQueries({ queryKey: ['periodic-reports'] });
       return data;
