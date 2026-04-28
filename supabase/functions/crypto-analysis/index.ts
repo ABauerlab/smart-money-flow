@@ -87,15 +87,59 @@ CRYPTOS_DETECTED: BTC,ETH,SOL,...
 - NÃO use emojis
 - Use formato Markdown`;
 
-// ====== AI call abstraction: Lovable AI Gateway (Gemini) only ======
-async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+// ====== AI call abstraction ======
+// Priority: Official Gemini API (GEMINI_API_KEY) -> Lovable AI Gateway fallback
+async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) return { ok: false, status: 0, content: '', model: 'none', error: 'no key' };
 
-  if (!LOVABLE_API_KEY) {
-    return { ok: false, status: 500, content: '', model: 'none', error: 'Lovable AI Gateway não configurado' };
+  const model = wantsVision ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+
+  // Convert OpenAI-style messages -> Gemini contents
+  let systemInstruction: string | undefined;
+  const contents: any[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') {
+      systemInstruction = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      continue;
+    }
+    const parts: any[] = [];
+    if (typeof m.content === 'string') {
+      parts.push({ text: m.content });
+    } else if (Array.isArray(m.content)) {
+      for (const p of m.content) {
+        if (p.type === 'text') parts.push({ text: p.text });
+        else if (p.type === 'image_url') {
+          const url: string = p.image_url?.url || '';
+          const match = url.match(/^data:(.+?);base64,(.+)$/);
+          if (match) parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+        }
+      }
+    }
+    contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts });
   }
 
-  const model = opts.wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
+  const body: any = { contents };
+  if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
+
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  );
+  if (resp.ok) {
+    const data = await resp.json();
+    const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
+    return { ok: true, status: 200, content, model: `google/${model} (official)` };
+  }
+  const errText = await resp.text();
+  console.error('Gemini official error:', resp.status, errText);
+  return { ok: false, status: resp.status, content: '', model: `google/${model} (official)`, error: errText };
+}
+
+async function callLovableGateway(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) return { ok: false, status: 500, content: '', model: 'none', error: 'Lovable AI Gateway não configurado' };
+  const model = wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
   const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
@@ -104,11 +148,23 @@ async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Pr
   if (resp.ok) {
     const data = await resp.json();
     const content = data.choices?.[0]?.message?.content || '';
-    return { ok: true, status: 200, content, model };
+    return { ok: true, status: 200, content, model: `${model} (gateway)` };
   }
   const errText = await resp.text();
   console.error('Lovable AI error:', resp.status, errText);
   return { ok: false, status: resp.status, content: '', model, error: errText };
+}
+
+async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
+  const wantsVision = !!opts.wantsVision;
+  // Try official Gemini first if configured
+  const official = await callGeminiOfficial(messages, wantsVision);
+  if (official.ok) return official;
+  // If official failed (and key existed) but with quota/rate, fall through to gateway
+  if (official.error && official.error !== 'no key') {
+    console.log('Falling back to Lovable Gateway after official Gemini error:', official.status);
+  }
+  return await callLovableGateway(messages, wantsVision);
 }
 
 
