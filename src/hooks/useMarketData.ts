@@ -70,29 +70,6 @@ export const useMarketData = () => {
           news: [],
           lastUpdated: new Date().toISOString(),
         };
-      }
-
-        // Convert timestamp strings to Date objects for alerts
-        const alertsWithDates = data.alerts.map(alert => ({
-          ...alert,
-          timestamp: new Date(alert.timestamp as unknown as string),
-        }));
-
-        return {
-          ...data,
-          alerts: alertsWithDates,
-        };
-      } catch (error) {
-        console.error('Failed to fetch market data:', error);
-        return {
-          markets: mockMarketData,
-          globalMetrics: mockGlobalMetrics,
-          alerts: mockAlerts,
-          correlations: [],
-          news: [], // Mock news is empty for now
-          lastUpdated: new Date().toISOString(),
-        };
-      }
     },
     refetchInterval: 60000,
     staleTime: 30000,
