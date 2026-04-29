@@ -107,7 +107,67 @@ async function fetchAlphaVantage(
   }
 }
 
-// ---- Brapi (Brazilian market - real Ibovespa in BRL) ----
+// ---- Yahoo Finance (free, no API key, no relevant rate limit) ----
+// Used as primary source for international ETFs and as fallback for Alpha Vantage.
+async function fetchYahoo(
+  symbol: string, name: string, flag: string, category: string, currency: string,
+  idOverride?: string
+): Promise<MarketData | null> {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1mo&interval=1d`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!res.ok) {
+      console.warn(`Yahoo HTTP ${res.status} for ${symbol}`);
+      return null;
+    }
+    const data = await res.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) {
+      console.warn(`Yahoo: no result for ${symbol}`);
+      return null;
+    }
+
+    const timestamps: number[] = result.timestamp || [];
+    const quote = result.indicators?.quote?.[0];
+    const closes: (number | null)[] = quote?.close || [];
+    const volumes: (number | null)[] = quote?.volume || [];
+    const meta = result.meta || {};
+
+    // Build aligned (date, close, volume) tuples for valid entries, newest first
+    const tuples: Array<{ date: string; close: number; volume: number }> = [];
+    for (let i = timestamps.length - 1; i >= 0 && tuples.length < 21; i--) {
+      const c = closes[i];
+      const v = volumes[i];
+      if (c == null || v == null || v <= 0) continue;
+      tuples.push({
+        date: new Date(timestamps[i] * 1000).toISOString().slice(0, 10),
+        close: c,
+        volume: v,
+      });
+    }
+
+    if (tuples.length < 2) {
+      console.warn(`Yahoo: not enough valid data for ${symbol}`);
+      return null;
+    }
+
+    const price = meta.regularMarketPrice ?? tuples[0].close;
+    const prevPrice = tuples[1].close;
+    const currentVolume = meta.regularMarketVolume ?? tuples[0].volume;
+    const volsList = tuples.map(t => t.volume);
+    const datesList = tuples.map(t => t.date);
+
+    return buildMarket(
+      idOverride ?? symbol.toLowerCase().replace(/\^/g, ''),
+      name, symbol, flag, category, currency,
+      price, prevPrice, currentVolume, volsList,
+      { dates: datesList, volumeSource: 'real' }
+    );
+  } catch (e) {
+    console.error(`Yahoo error for ${symbol}:`, e);
+    return null;
+  }
+}
 async function fetchBrapiQuote(
   symbol: string, name: string, flag: string, category: string, apiKey: string
 ): Promise<MarketData | null> {
