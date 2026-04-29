@@ -667,7 +667,7 @@ async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: strin
     { sym: 'EWJ',  id: 'ewj',  name: 'Nikkei 225 (ETF)', flag: '🇯🇵' },
     { sym: 'VGK',  id: 'vgk',  name: 'Mercado Europeu',  flag: '🇪🇺' },
     { sym: 'EWG',  id: 'ewg',  name: 'DAX 40 (ETF)',     flag: '🇩🇪' },
-    { sym: 'NYA',  id: 'nya',  name: 'NYSE Composite',   flag: '🏛️' },
+    { sym: 'IYY',  id: 'nya',  name: 'NYSE Composite (ETF)', flag: '🏛️' },
     { sym: 'EWY',  id: 'ewy',  name: 'KOSPI (ETF)',      flag: '🇰🇷' },
     { sym: 'INDA', id: 'inda', name: 'BSE Sensex (ETF)', flag: '🇮🇳' },
   ];
