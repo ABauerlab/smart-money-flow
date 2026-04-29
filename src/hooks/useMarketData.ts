@@ -70,6 +70,7 @@ export const useMarketData = () => {
           news: [],
           lastUpdated: new Date().toISOString(),
         };
+      }
     },
     refetchInterval: 60000,
     staleTime: 30000,
