@@ -672,10 +672,20 @@ async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: strin
     { sym: 'INDA', id: 'inda', name: 'BSE Sensex (ETF)', flag: '🇮🇳' },
   ];
 
-  for (const t of avTargets) {
-    const m = await fetchAlphaVantage(t.sym, t.name, t.flag, 'indices', 'USD', alphaKey);
+  // Yahoo Finance is the primary source (free, no rate limit). Fetched in parallel.
+  // Alpha Vantage is kept as a secondary fallback only if Yahoo fails for a symbol.
+  const yahooResults = await Promise.all(
+    avTargets.map(t => fetchYahoo(t.sym, t.name, t.flag, 'indices', 'USD', t.id))
+  );
+  for (let i = 0; i < avTargets.length; i++) {
+    const t = avTargets[i];
+    let m = yahooResults[i];
+    if (!m) {
+      console.warn(`Yahoo failed for ${t.sym}, trying Alpha Vantage fallback`);
+      m = await fetchAlphaVantage(t.sym, t.name, t.flag, 'indices', 'USD', alphaKey);
+      await new Promise(r => setTimeout(r, 1500));
+    }
     if (m) { results.push(m); fetchedIds.add(t.id); }
-    await new Promise(r => setTimeout(r, 1500));
   }
 
   // Brent uses commodity endpoint (separate quota from TIME_SERIES)
