@@ -35,7 +35,7 @@ export const NewsPanel = ({ news }: NewsPanelProps) => {
           <Newspaper className="w-5 h-5 text-primary" />
         </div>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Notícias de Mercado (Smart Nelson)
+          Notícias de Mercado (Fluxo dos Mercados)
         </h2>
       </div>
 

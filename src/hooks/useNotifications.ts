@@ -29,9 +29,19 @@ export const useNotifications = () => {
       setState(prev => ({ ...prev, permission: Notification.permission }));
     }
     
-    // Load preferences from localStorage
-    const savedSound = localStorage.getItem('smartmoney_sound');
-    const savedNotifs = localStorage.getItem('smartmoney_notifications');
+    // Load preferences from localStorage (with one-shot migration from legacy keys)
+    const legacySound = localStorage.getItem('smartmoney_sound');
+    const legacyNotifs = localStorage.getItem('smartmoney_notifications');
+    if (legacySound !== null && localStorage.getItem('fluxomercados_sound') === null) {
+      localStorage.setItem('fluxomercados_sound', legacySound);
+      localStorage.removeItem('smartmoney_sound');
+    }
+    if (legacyNotifs !== null && localStorage.getItem('fluxomercados_notifications') === null) {
+      localStorage.setItem('fluxomercados_notifications', legacyNotifs);
+      localStorage.removeItem('smartmoney_notifications');
+    }
+    const savedSound = localStorage.getItem('fluxomercados_sound');
+    const savedNotifs = localStorage.getItem('fluxomercados_notifications');
     
     setState(prev => ({
       ...prev,
@@ -54,7 +64,7 @@ export const useNotifications = () => {
   const toggleSound = useCallback(() => {
     setState(prev => {
       const newValue = !prev.soundEnabled;
-      localStorage.setItem('smartmoney_sound', String(newValue));
+      localStorage.setItem('fluxomercados_sound', String(newValue));
       return { ...prev, soundEnabled: newValue };
     });
   }, []);
@@ -67,7 +77,7 @@ export const useNotifications = () => {
     
     setState(prev => {
       const newValue = !prev.notificationsEnabled;
-      localStorage.setItem('smartmoney_notifications', String(newValue));
+      localStorage.setItem('fluxomercados_notifications', String(newValue));
       return { ...prev, notificationsEnabled: newValue };
     });
   }, [state.permission, requestPermission]);

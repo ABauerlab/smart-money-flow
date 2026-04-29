@@ -327,18 +327,13 @@ const ASSET_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
   { label: 'S&P 500', keywords: ['s&p 500', 'sp500', 's&p500', 'spx', 'standard & poor'] },
   { label: 'Nasdaq', keywords: ['nasdaq', 'qqq'] },
   { label: 'Nikkei', keywords: ['nikkei', 'nikkei 225'] },
-  { label: 'Mercado Europeu', keywords: ['stoxx', 'euro stoxx', 'dax', 'cac 40', 'ftse'] },
-  { label: 'Dólar/Real', keywords: ['usd/brl', 'real frente ao dólar', 'câmbio do dólar', 'cotação do dólar', 'dólar comercial'] },
-  { label: 'Euro/Real', keywords: ['eur/brl', 'cotação do euro', 'euro comercial'] },
-  { label: 'Ouro', keywords: ['ouro spot', 'gold spot', 'xau/usd', 'preço do ouro', 'cotação do ouro'] },
+  { label: 'Mercado Europeu', keywords: ['stoxx', 'euro stoxx', 'cac 40', 'ftse'] },
+  { label: 'DAX 40', keywords: ['dax', 'dax 40', 'dax40', 'bolsa alemã', 'bolsa alema', 'frankfurt'] },
+  { label: 'NYSE Composite', keywords: ['nyse', 'new york stock exchange', 'nyse composite'] },
+  { label: 'KOSPI', keywords: ['kospi', 'bolsa coreana', 'coreia do sul', 'coréia do sul', 'south korea'] },
+  { label: 'BSE Sensex', keywords: ['bse', 'sensex', 'bombay stock exchange', 'bolsa de bombaim', 'india market', 'mercado indiano'] },
   { label: 'Petróleo Brent', keywords: ['brent', 'petróleo', 'petroleo', 'crude oil', 'opep', 'opec'] },
   { label: 'Bitcoin', keywords: ['bitcoin', 'btc'] },
-  { label: 'Ethereum', keywords: ['ethereum', 'ether'] },
-  { label: 'Solana', keywords: ['solana'] },
-  { label: 'XRP', keywords: ['xrp', 'ripple'] },
-  { label: 'BNB', keywords: ['binance coin', 'bnb'] },
-  { label: 'Cardano', keywords: ['cardano'] },
-  { label: 'Dogecoin', keywords: ['dogecoin'] },
 ];
 
 function escapeRegex(s: string): string {
@@ -366,9 +361,9 @@ async function fetchNews(_markets: MarketData[], apiKey: string): Promise<any[]>
     // Search-side narrowing: top tickers + cripto/mercado financeiro umbrella terms.
     // Final filter happens after — only articles matching an asset keyword are returned.
     const queryTerms = [
-      'Ibovespa', 'Petrobras', 'S&P 500', 'Nasdaq', 'Bitcoin', 'Ethereum',
-      'Solana', 'XRP', 'Cardano', 'Dogecoin', 'BNB',
-      '"Petróleo Brent"', '"Ouro spot"', 'dólar OR câmbio'
+      'Ibovespa', 'Petrobras', 'S&P 500', 'Nasdaq', 'Bitcoin',
+      'DAX', 'NYSE', 'KOSPI', 'Sensex', '"Bombay Stock Exchange"',
+      '"Petróleo Brent"'
     ];
     const q = encodeURIComponent(`(${queryTerms.join(' OR ')})`);
     const url = `https://newsapi.org/v2/everything?q=${q}&language=pt&sortBy=publishedAt&pageSize=40&apiKey=${apiKey}`;
@@ -401,7 +396,7 @@ async function fetchNews(_markets: MarketData[], apiKey: string): Promise<any[]>
 }
 
 // ---- Cache Layer ----
-const CRYPTO_IDS = new Set(['btc', 'eth', 'sol', 'xrp', 'bnb', 'ada', 'doge']);
+const CRYPTO_IDS = new Set(['btc']);
 
 function categoryFromRow(row: any): string {
   const id = String(row.id || '').toLowerCase();
@@ -580,13 +575,7 @@ async function fetchIbovespaProxy(apiKey: string): Promise<MarketData | null> {
 
 // ---- Fetch with staggered delays to respect rate limits ----
 const CRYPTO_SPECS: CryptoSpec[] = [
-  { symbol: 'BTC',  name: 'Bitcoin',  flag: '₿' },
-  { symbol: 'ETH',  name: 'Ethereum', flag: 'Ξ' },
-  { symbol: 'SOL',  name: 'Solana',   flag: '◎' },
-  { symbol: 'XRP',  name: 'XRP',      flag: '✕' },
-  { symbol: 'BNB',  name: 'BNB',      flag: '🟡' },
-  { symbol: 'ADA',  name: 'Cardano',  flag: '₳' },
-  { symbol: 'DOGE', name: 'Dogecoin', flag: '🐕' },
+  { symbol: 'BTC', name: 'Bitcoin', flag: '₿' },
 ];
 
 // BDR fallbacks for Alpha Vantage assets — used when AV rate-limits us
@@ -599,26 +588,28 @@ async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: strin
   const results: MarketData[] = [];
   const fetchedIds = new Set<string>();
 
-  // Batch 1: independent APIs (Brapi, AwesomeAPI, batched CoinMarketCap) — no shared rate limit
-  const [bvsp, petr4, usdbrl, eurbrl, xauusd, cryptos] = await Promise.all([
+  // Batch 1: independent APIs (Brapi, batched CoinMarketCap) — no shared rate limit
+  const [bvsp, petr4, cryptos] = await Promise.all([
     fetchIbovespaProxy(brapiKey),
     fetchBrapiQuote('PETR4', 'Petrobras PN', '🛢️', 'stocks', brapiKey),
-    fetchForex('USD-BRL', 'Dólar/Real', '💵'),
-    fetchForex('EUR-BRL', 'Euro/Real', '💶'),
-    fetchForex('XAU-USD', 'Ouro Spot', '🥇', 'commodities', 'USD'),
     fetchCryptosBatch(CRYPTO_SPECS, cmcKey),
   ]);
-  for (const m of [bvsp, petr4, usdbrl, eurbrl, xauusd]) {
+  for (const m of [bvsp, petr4]) {
     if (m) { results.push(m); fetchedIds.add(m.id); }
   }
   for (const c of cryptos) { results.push(c); fetchedIds.add(c.id); }
 
   // Batch 2: Alpha Vantage (5 calls/min, 25/day limit — stagger). Track failures for BDR fallback.
+  // International indices use US-listed country ETFs as proxies (real volume + liquidity available on free tier).
   const avTargets = [
-    { sym: 'SPY', id: 'spy', name: 'S&P 500',     flag: '🇺🇸' },
-    { sym: 'QQQ', id: 'qqq', name: 'Nasdaq 100',  flag: '📈' },
-    { sym: 'EWJ', id: 'ewj', name: 'Nikkei 225 (ETF)', flag: '🇯🇵' },
-    { sym: 'VGK', id: 'vgk', name: 'Mercado Europeu',  flag: '🇪🇺' },
+    { sym: 'SPY',  id: 'spy',  name: 'S&P 500',          flag: '🇺🇸' },
+    { sym: 'QQQ',  id: 'qqq',  name: 'Nasdaq 100',       flag: '📈' },
+    { sym: 'EWJ',  id: 'ewj',  name: 'Nikkei 225 (ETF)', flag: '🇯🇵' },
+    { sym: 'VGK',  id: 'vgk',  name: 'Mercado Europeu',  flag: '🇪🇺' },
+    { sym: 'EWG',  id: 'ewg',  name: 'DAX 40 (ETF)',     flag: '🇩🇪' },
+    { sym: 'NYA',  id: 'nya',  name: 'NYSE Composite',   flag: '🏛️' },
+    { sym: 'EWY',  id: 'ewy',  name: 'KOSPI (ETF)',      flag: '🇰🇷' },
+    { sym: 'INDA', id: 'inda', name: 'BSE Sensex (ETF)', flag: '🇮🇳' },
   ];
 
   for (const t of avTargets) {
