@@ -1,81 +1,61 @@
+## Plano
 
+### 1. Reconfigurar mercados exibidos no dashboard
 
-## Plano: Refatorar IA do CriptoEx + Renomear Sistema para "Fluxo Dos Mercados"
+**Lista final (12 mercados):**
+- Ibovespa (BR) — já existe (Brapi proxy)
+- Petrobras PN (PETR4) — já existe (Brapi)
+- Bitcoin (BTC) — já existe (CoinMarketCap)
+- S&P 500 (SPY) — já existe (Alpha Vantage)
+- Nasdaq 100 (QQQ) — já existe (Alpha Vantage)
+- Nikkei 225 ETF (EWJ) — já existe (Alpha Vantage)
+- Mercado Europeu (VGK) — já existe (Alpha Vantage)
+- Petróleo Brent — já existe (Alpha Vantage commodity)
+- **DAX 40 (EWG ETF)** — novo, via Alpha Vantage
+- **NYSE Composite (NYA)** — novo, via Alpha Vantage (ETF VTI como proxy se NYA falhar)
+- **KOSPI (EWY ETF)** — novo, via Alpha Vantage (ETF iShares MSCI South Korea, proxy do KOSPI)
+- **BSE/Sensex (INDA ETF)** — novo, via Alpha Vantage (ETF iShares MSCI India, proxy do Sensex/BSE)
 
-### Contexto
-A IA precisa ser reeducada com um prompt mais claro e direto. A tarefa dela e simples: ler relatórios RA e RB, extrair criptos, contar repetições e ordenar. Alem disso, o sistema inteiro precisa ser renomeado de "Smart Nelson Money" para "Fluxo Dos Mercados".
+**Por que ETFs para os índices internacionais:** Alpha Vantage não retorna volume confiável para índices nativos como `^GDAXI`, `^KS11` ou `^BSESN` (mesmo motivo pelo qual hoje usamos EWJ para Nikkei e VGK para Europa). ETFs americanos do mesmo país têm volume real diário e são a melhor proxy de fluxo institucional disponível na cota gratuita.
 
----
+**Remover:** Tudo que não está na lista — Forex (USD-BRL, EUR-BRL), Ouro Spot (XAU-USD), e as criptos extras (ETH, SOL, XRP, BNB, ADA, DOGE). Manter apenas BTC.
 
-### 1. Reescrever o SYSTEM_PROMPT da Edge Function
+### 2. Renomear "Smart Money" → "Fluxo dos Mercados"
 
-Substituir o prompt atual por um focado e preciso:
+Substituir em:
+- `src/index.css` (comentário do tema)
+- `src/pages/Glossary.tsx` (subtítulo)
+- `src/lib/glossaryData.ts` (definições "Volume Relativo", "Conviction Score", e o termo "Dinheiro Grosso (Smart Money)" → "Dinheiro Grosso (Fluxo dos Mercados)")
+- `src/components/dashboard/NewsPanel.tsx` (corrigir também o typo "Smart Nelson")
+- `src/hooks/useNotifications.ts` (chaves localStorage `smartmoney_sound` e `smartmoney_notifications` → `fluxomercados_sound` / `fluxomercados_notifications`, com migração: ler valor antigo na primeira execução e copiar para a nova chave para não perder a preferência do usuário)
 
-- A IA recebe relatórios RA (Alta) e RB (Baixa)
-- Cada relatório tem colunas: Cripto, Repetição, Data, Hora, Rank
-- Deve separar RA dos RB rigorosamente (nunca misturar)
-- Gerar Lista de Alta (LA) a partir dos RA e Lista de Baixa (LB) a partir dos RB
-- Ordenar ambas as listas por repetição (descendente)
-- Entregar resultados nos seguintes periodos: Diario, Tres dias, Semanal, Mensal, Bimestral, Trimestral, Anual
-- A resposta deve incluir: contagem total de relatorios do dia, da semana e do mes
-- Considerar apenas dados a partir de 06/04/2026
-- Linguagem neutra, tecnica, sem recomendacao financeira
+### 3. Edge function `market-data`
 
-### 2. Atualizar Edge Function `crypto-analysis/index.ts`
+- Adicionar 4 novos targets em `avTargets`: EWG (DAX), NYA (NYSE), EWY (KOSPI), INDA (BSE).
+- Remover chamadas a `fetchForex` (USD-BRL, EUR-BRL, XAU-USD).
+- Reduzir `CRYPTO_SPECS` para apenas BTC.
+- Limpar entradas obsoletas do cache `market_data_cache` (USDBRL, EURBRL, XAUUSD, ETH, SOL, XRP, BNB, ADA, DOGE) via migração SQL.
+- Atualizar `ASSET_KEYWORDS` (NewsAPI): remover Dólar/Real, Euro/Real, Ouro, ETH, SOL, XRP, BNB, ADA, DOGE; adicionar entradas para DAX, NYSE, KOSPI/Coréia, BSE/Sensex/Índia.
+- Como vamos passar de 4 para 8 chamadas Alpha Vantage por refresh (limite 25/dia, 5/min) o cache TTL de 6h continua confortável (4 refreshes/dia × 8 = 32 — ajustar TTL para 8h para ficar dentro da cota com folga, ou manter 6h aceitando que ocasionalmente algum índice volta do cache via merge stale, que já é o comportamento atual).
+- Manter delay de 1.5s entre chamadas AV (já implementado).
 
-- Atualizar o `SYSTEM_PROMPT` conforme acima
-- Na action `analyze`: melhorar o user prompt para instruir a IA a entregar LA e LB separados com contagem
-- Na action `rankings`: separar rankings em `alta` e `baixa` ao invés de misturar tudo num unico ranking
-- Na action `generate-periodic`: gerar relatórios com LA e LB separados por período
-- Adicionar suporte a periodos `three_days` e `annual`
+### 4. Mock data e notas
 
-### 3. Atualizar Frontend — RepetitionDashboard
+- Atualizar `src/lib/mockData.ts` para refletir a nova lista (fallback quando API falha) e remover entradas que não existem mais.
 
-- Dividir a visualização em duas abas/seções: "Lista de Alta (LA)" e "Lista de Baixa (LB)"
-- Mostrar contadores: total hoje, total semana, total mês
-- Cada lista ordena por repetição descendente
+### Detalhes técnicos
 
-### 4. Atualizar PeriodicReportsView
+- `BDR_FALLBACKS` continua cobrindo SPY/QQQ via IVVB11/NASD11. Não há BDRs diretos para DAX/NYSE/KOSPI/BSE no Brasil com liquidez relevante via Brapi free, então se Alpha Vantage falhar esses ficarão temporariamente do cache stale (comportamento atual já faz merge).
+- Migração SQL: `DELETE FROM market_data_cache WHERE id IN ('usdbrl','eurbrl','xauusd','eth','sol','xrp','bnb','ada','doge');`
+- A renomeação de chaves localStorage inclui código de migração one-shot em `useNotifications.ts` para preservar preferências.
 
-- Adicionar períodos "3 Dias" e "Anual" nos botões de geração
-- Nos relatórios expandidos, mostrar LA e LB separadamente
+### Arquivos a editar
 
-### 5. Renomear o Sistema para "Fluxo Dos Mercados"
-
-Arquivos afetados (todos as ocorrências de "Smart Nelson Money", "Smart Nelson", "SMART NELSON"):
-
-| Arquivo | O que muda |
-|---|---|
-| `index.html` | title, meta description, og tags, twitter tags, apple-web-app-title |
-| `public/manifest.json` | name, short_name, description |
-| `vite.config.ts` | PWA manifest name/short_name/description |
-| `src/pages/Landing.tsx` | Header, footer, textos |
-| `src/pages/Index.tsx` | Footer version text |
-| `src/pages/Glossary.tsx` | Título |
-| `src/components/dashboard/Header.tsx` | Nome no header |
-| `src/lib/exportPeriodicReportPdf.ts` | Header e footer do PDF |
-| `src/lib/glossaryData.ts` | Referência ao nome |
-
-### 6. Atualizar SEO
-
-- Title: "Fluxo Dos Mercados | Análise de Fluxo Institucional em Tempo Real"
-- Description: atualizar para mencionar "Fluxo Dos Mercados"
-- OG/Twitter: atualizar todos
-
----
-
-### Arquivos Modificados
-- `supabase/functions/crypto-analysis/index.ts` — Novo prompt + lógica LA/LB
-- `src/components/analysis/RepetitionDashboard.tsx` — Separar LA/LB + contadores
-- `src/components/analysis/PeriodicReportsView.tsx` — Adicionar 3 dias e anual
-- `src/hooks/useCryptoAnalysis.ts` — Suporte a novos períodos
-- `index.html` — Renomear SEO
-- `public/manifest.json` — Renomear
-- `vite.config.ts` — Renomear PWA
-- `src/pages/Landing.tsx` — Renomear
-- `src/pages/Index.tsx` — Renomear
-- `src/pages/Glossary.tsx` — Renomear
-- `src/components/dashboard/Header.tsx` — Renomear
-- `src/lib/exportPeriodicReportPdf.ts` — Renomear
-- `src/lib/glossaryData.ts` — Renomear
-
+- `supabase/functions/market-data/index.ts`
+- `src/lib/mockData.ts`
+- `src/index.css`
+- `src/pages/Glossary.tsx`
+- `src/lib/glossaryData.ts`
+- `src/components/dashboard/NewsPanel.tsx`
+- `src/hooks/useNotifications.ts`
+- nova migração SQL para limpar cache
