@@ -30,7 +30,7 @@ const Glossary = () => {
           transition={{ delay: 0.2 }}
           className="text-lg text-muted-foreground mb-8 max-w-3xl"
         >
-          Entenda os termos técnicos e métricas utilizadas para rastrear o fluxo de dinheiro institucional (Smart Money) nos mercados globais.
+          Entenda os termos técnicos e métricas utilizadas para rastrear o fluxo de dinheiro institucional (Fluxo dos Mercados) nos mercados globais.
         </motion.p>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
