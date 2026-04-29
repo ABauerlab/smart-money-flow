@@ -41,14 +41,36 @@ export const useMarketData = () => {
         if (!data || !data.markets || data.markets.length === 0) {
           console.warn('No market data received, using mock data');
           return {
-            markets: mockMarketData,
+            markets: sortMarkets(mockMarketData),
             globalMetrics: mockGlobalMetrics,
             alerts: mockAlerts.map(a => ({ ...a, timestamp: a.timestamp.toISOString() })) as unknown as Alert[],
             correlations: [],
-            news: [], // Mock news is empty for now
+            news: [],
             lastUpdated: new Date().toISOString(),
           };
         }
+
+        const alertsWithDates = data.alerts.map(alert => ({
+          ...alert,
+          timestamp: new Date(alert.timestamp as unknown as string),
+        }));
+
+        return {
+          ...data,
+          markets: sortMarkets(data.markets),
+          alerts: alertsWithDates,
+        };
+      } catch (error) {
+        console.error('Failed to fetch market data:', error);
+        return {
+          markets: sortMarkets(mockMarketData),
+          globalMetrics: mockGlobalMetrics,
+          alerts: mockAlerts,
+          correlations: [],
+          news: [],
+          lastUpdated: new Date().toISOString(),
+        };
+      }
 
         // Convert timestamp strings to Date objects for alerts
         const alertsWithDates = data.alerts.map(alert => ({
