@@ -343,6 +343,54 @@ async function fetchCryptosBatch(specs: CryptoSpec[], apiKey: string): Promise<M
   }
 }
 
+// ---- CoinMarketCap Global Metrics (Cripto Global - total market cap + volume) ----
+async function fetchCryptoGlobal(apiKey: string): Promise<MarketData | null> {
+  if (!apiKey) {
+    console.warn('Cripto Global: missing CMC API key');
+    return null;
+  }
+  try {
+    const url = 'https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest?convert=USD';
+    const res = await fetch(url, { headers: { 'X-CMC_PRO_API_KEY': apiKey } });
+    const data = await res.json();
+    if (data?.status?.error_code && data.status.error_code !== 0) {
+      console.warn('CMC global error:', data.status.error_message);
+      return null;
+    }
+    const quote = data?.data?.quote?.USD;
+    if (!quote) return null;
+
+    const totalMarketCap = quote.total_market_cap || 0;
+    const totalVolume24h = quote.total_volume_24h || 0;
+    const mcChange24h = quote.total_market_cap_yesterday_percentage_change
+      ?? quote.percent_change_24h
+      ?? 0;
+    const volChange24h = quote.total_volume_24h_yesterday_percentage_change ?? 0;
+
+    // Use market cap as "price" (in trillions for display sanity? keep raw USD)
+    const price = totalMarketCap;
+    const prevPrice = totalMarketCap / (1 + mcChange24h / 100);
+    const currentVolume = totalVolume24h;
+    const prevVolume = volChange24h !== 0 ? totalVolume24h / (1 + volChange24h / 100) : totalVolume24h;
+    // Synthetic 21-day series with mild jitter (CMC global endpoint has no history)
+    const volumes = Array.from({ length: 21 }, (_, i) => {
+      if (i === 0) return currentVolume;
+      if (i === 1) return prevVolume;
+      const jitter = 0.92 + ((i * 7919) % 160) / 1000;
+      return currentVolume * jitter;
+    });
+
+    return buildMarket(
+      'cryptoglobal', 'Cripto Global', 'CRYPTO', '🌐', 'crypto', 'USD',
+      price, prevPrice, currentVolume, volumes,
+      { volumeSource: 'proxy' }
+    );
+  } catch (e) {
+    console.error('Cripto Global error:', e);
+    return null;
+  }
+}
+
 // ---- Alpha Vantage Brent Oil (commodity endpoint, separate quota) ----
 async function fetchBrent(apiKey: string): Promise<MarketData | null> {
   try {
