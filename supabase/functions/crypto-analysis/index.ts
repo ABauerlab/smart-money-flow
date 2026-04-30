@@ -594,8 +594,7 @@ Formato Markdown. Não use emojis.`,
 
     // ========== REFRESH LISTS (reprocess + AI consolidation for current week) ==========
     if (action === 'refresh-lists') {
-      const body = await req.json().catch(() => ({}));
-      const { accessCode, periodType } = body;
+      const { periodType } = reqBody;
       const targetPeriod = periodType || 'weekly';
 
       const periodToDays: Record<string, number> = {
@@ -610,12 +609,12 @@ Formato Markdown. Não use emojis.`,
       const periodStart = startDate.toISOString().split('T')[0];
       const periodEnd = endDate.toISOString().split('T')[0];
 
-      let mentionsQuery = supabase
+      const mentionsQuery = supabase
         .from('crypto_mentions')
         .select('symbol, report_type, report_date')
+        .eq('access_code', accessCode)
         .gte('report_date', periodStart)
         .lte('report_date', periodEnd);
-      if (accessCode) mentionsQuery = mentionsQuery.eq('access_code', accessCode);
 
       const { data: mentions, error: mErr } = await mentionsQuery;
       if (mErr) throw mErr;
