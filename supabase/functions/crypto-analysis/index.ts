@@ -434,11 +434,15 @@ serve(async (req) => {
 
     // ========== ANALYZE (main) ==========
     if (action === 'analyze') {
-      const body = await req.json();
-      const { images, cryptoSymbols, title, reportType, sessionTime, accessCode } = body;
+      const { images, cryptoSymbols, title, reportType, sessionTime } = reqBody;
 
-      if (!images || images.length === 0) {
+      if (!images || !Array.isArray(images) || images.length === 0) {
         return new Response(JSON.stringify({ error: 'Nenhuma imagem fornecida' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (images.length > 20) {
+        return new Response(JSON.stringify({ error: 'Máximo de 20 imagens por requisição.' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
