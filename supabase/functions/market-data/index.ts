@@ -343,6 +343,54 @@ async function fetchCryptosBatch(specs: CryptoSpec[], apiKey: string): Promise<M
   }
 }
 
+// ---- CoinMarketCap Global Metrics (Cripto Global - total market cap + volume) ----
+async function fetchCryptoGlobal(apiKey: string): Promise<MarketData | null> {
+  if (!apiKey) {
+    console.warn('Cripto Global: missing CMC API key');
+    return null;
+  }
+  try {
+    const url = 'https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest?convert=USD';
+    const res = await fetch(url, { headers: { 'X-CMC_PRO_API_KEY': apiKey } });
+    const data = await res.json();
+    if (data?.status?.error_code && data.status.error_code !== 0) {
+      console.warn('CMC global error:', data.status.error_message);
+      return null;
+    }
+    const quote = data?.data?.quote?.USD;
+    if (!quote) return null;
+
+    const totalMarketCap = quote.total_market_cap || 0;
+    const totalVolume24h = quote.total_volume_24h || 0;
+    const mcChange24h = quote.total_market_cap_yesterday_percentage_change
+      ?? quote.percent_change_24h
+      ?? 0;
+    const volChange24h = quote.total_volume_24h_yesterday_percentage_change ?? 0;
+
+    // Use market cap as "price" (in trillions for display sanity? keep raw USD)
+    const price = totalMarketCap;
+    const prevPrice = totalMarketCap / (1 + mcChange24h / 100);
+    const currentVolume = totalVolume24h;
+    const prevVolume = volChange24h !== 0 ? totalVolume24h / (1 + volChange24h / 100) : totalVolume24h;
+    // Synthetic 21-day series with mild jitter (CMC global endpoint has no history)
+    const volumes = Array.from({ length: 21 }, (_, i) => {
+      if (i === 0) return currentVolume;
+      if (i === 1) return prevVolume;
+      const jitter = 0.92 + ((i * 7919) % 160) / 1000;
+      return currentVolume * jitter;
+    });
+
+    return buildMarket(
+      'cryptoglobal', 'Cripto Global', 'CRYPTO', '🌐', 'crypto', 'USD',
+      price, prevPrice, currentVolume, volumes,
+      { volumeSource: 'proxy' }
+    );
+  } catch (e) {
+    console.error('Cripto Global error:', e);
+    return null;
+  }
+}
+
 // ---- Alpha Vantage Brent Oil (commodity endpoint, separate quota) ----
 async function fetchBrent(apiKey: string): Promise<MarketData | null> {
   try {
@@ -392,7 +440,7 @@ const ASSET_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
   { label: 'NYSE Composite', keywords: ['nyse', 'new york stock exchange', 'nyse composite'] },
   { label: 'KOSPI', keywords: ['kospi', 'bolsa coreana', 'coreia do sul', 'coréia do sul', 'south korea'] },
   { label: 'BSE Sensex', keywords: ['bse', 'sensex', 'bombay stock exchange', 'bolsa de bombaim', 'india market', 'mercado indiano'] },
-  { label: 'Petróleo Brent', keywords: ['brent', 'petróleo', 'petroleo', 'crude oil', 'opep', 'opec'] },
+  { label: 'Cripto Global', keywords: ['crypto market', 'cripto global', 'mercado cripto', 'mercado de criptomoedas', 'altcoin', 'altcoins'] },
   { label: 'Bitcoin', keywords: ['bitcoin', 'btc'] },
 ];
 
@@ -423,7 +471,7 @@ async function fetchNews(_markets: MarketData[], apiKey: string): Promise<any[]>
     const queryTerms = [
       'Ibovespa', 'Petrobras', 'S&P 500', 'Nasdaq', 'Bitcoin',
       'DAX', 'NYSE', 'KOSPI', 'Sensex', '"Bombay Stock Exchange"',
-      '"Petróleo Brent"'
+      '"crypto market"', '"mercado de criptomoedas"'
     ];
     const q = encodeURIComponent(`(${queryTerms.join(' OR ')})`);
     const url = `https://newsapi.org/v2/everything?q=${q}&language=pt&sortBy=publishedAt&pageSize=40&apiKey=${apiKey}`;
@@ -456,12 +504,12 @@ async function fetchNews(_markets: MarketData[], apiKey: string): Promise<any[]>
 }
 
 // ---- Cache Layer ----
-const CRYPTO_IDS = new Set(['btc']);
+const CRYPTO_IDS = new Set(['btc', 'cryptoglobal']);
 
 function categoryFromRow(row: any): string {
   const id = String(row.id || '').toLowerCase();
   if (id === 'usdbrl' || id === 'eurbrl') return 'forex';
-  if (id === 'xauusd' || id === 'brent') return 'commodities';
+  if (id === 'xauusd') return 'commodities';
   if (CRYPTO_IDS.has(id)) return 'crypto';
   if (row.ticker === 'PETR4') return 'stocks';
   return 'indices';
@@ -648,16 +696,18 @@ async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: strin
   const results: MarketData[] = [];
   const fetchedIds = new Set<string>();
 
-  // Batch 1: independent APIs (Brapi, batched CoinMarketCap) — no shared rate limit
-  const [bvsp, petr4, cryptos] = await Promise.all([
+  // Batch 1: independent APIs (Brapi, batched CoinMarketCap, CMC global) — no shared rate limit
+  const [bvsp, petr4, cryptos, cryptoGlobal] = await Promise.all([
     fetchIbovespaProxy(brapiKey),
     fetchBrapiQuote('PETR4', 'Petrobras PN', '🛢️', 'stocks', brapiKey),
     fetchCryptosBatch(CRYPTO_SPECS, cmcKey),
+    fetchCryptoGlobal(cmcKey),
   ]);
   for (const m of [bvsp, petr4]) {
     if (m) { results.push(m); fetchedIds.add(m.id); }
   }
   for (const c of cryptos) { results.push(c); fetchedIds.add(c.id); }
+  if (cryptoGlobal) { results.push(cryptoGlobal); fetchedIds.add(cryptoGlobal.id); }
 
   // Batch 2: Alpha Vantage (5 calls/min, 25/day limit — stagger). Track failures for BDR fallback.
   // International indices use US-listed country ETFs as proxies (real volume + liquidity available on free tier).
@@ -687,10 +737,6 @@ async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: strin
     }
     if (m) { results.push(m); fetchedIds.add(t.id); }
   }
-
-  // Brent uses commodity endpoint (separate quota from TIME_SERIES)
-  const brent = await fetchBrent(alphaKey);
-  if (brent) { results.push(brent); fetchedIds.add('brent'); }
 
   // BDR fallback: for any AV asset that failed, try its Brapi BDR equivalent
   for (const bdr of BDR_FALLBACKS) {
