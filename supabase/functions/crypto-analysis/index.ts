@@ -231,21 +231,19 @@ serve(async (req) => {
       if (error) throw error;
       const ids_count = ownedIds.length;
 
-      return new Response(JSON.stringify({ success: true, deleted: ids.length }), {
+      return new Response(JSON.stringify({ success: true, deleted: ownedIds.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // ========== HISTORY ==========
     if (action === 'history') {
-      const body = await req.json().catch(() => ({}));
-      let query = supabase
+      const { data: analyses, error } = await supabase
         .from('crypto_analyses')
         .select('*, crypto_analysis_images(*)')
+        .eq('access_code', accessCode)
         .order('created_at', { ascending: false })
         .limit(50);
-      if (body.accessCode) query = query.eq('access_code', body.accessCode);
-      const { data: analyses, error } = await query;
       if (error) throw error;
       return new Response(JSON.stringify({ analyses }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -254,11 +252,12 @@ serve(async (req) => {
 
     // ========== REPETITION RANKINGS ==========
     if (action === 'rankings') {
-      const body = await req.json();
-      const { periodType, year, weekNumber, accessCode } = body;
+      const { periodType, year, weekNumber } = reqBody;
 
-      let query = supabase.from('crypto_mentions').select('symbol, report_type');
-      if (accessCode) query = query.eq('access_code', accessCode);
+      let query = supabase
+        .from('crypto_mentions')
+        .select('symbol, report_type')
+        .eq('access_code', accessCode);
 
       if (periodType === 'weekly' && weekNumber && year) {
         query = query.eq('week_number', weekNumber).eq('year', year);
@@ -307,14 +306,12 @@ serve(async (req) => {
 
     // ========== PERIODIC REPORTS ==========
     if (action === 'periodic-reports') {
-      const body = await req.json().catch(() => ({}));
-      let query = supabase
+      const { data, error } = await supabase
         .from('crypto_periodic_reports')
         .select('*')
+        .eq('access_code', accessCode)
         .order('created_at', { ascending: false })
         .limit(30);
-      if (body.accessCode) query = query.eq('access_code', body.accessCode);
-      const { data, error } = await query;
       if (error) throw error;
       return new Response(JSON.stringify({ reports: data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
