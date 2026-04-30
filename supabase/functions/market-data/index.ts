@@ -440,7 +440,7 @@ const ASSET_KEYWORDS: Array<{ label: string; keywords: string[] }> = [
   { label: 'NYSE Composite', keywords: ['nyse', 'new york stock exchange', 'nyse composite'] },
   { label: 'KOSPI', keywords: ['kospi', 'bolsa coreana', 'coreia do sul', 'coréia do sul', 'south korea'] },
   { label: 'BSE Sensex', keywords: ['bse', 'sensex', 'bombay stock exchange', 'bolsa de bombaim', 'india market', 'mercado indiano'] },
-  { label: 'Petróleo Brent', keywords: ['brent', 'petróleo', 'petroleo', 'crude oil', 'opep', 'opec'] },
+  { label: 'Cripto Global', keywords: ['crypto market', 'cripto global', 'mercado cripto', 'mercado de criptomoedas', 'altcoin', 'altcoins'] },
   { label: 'Bitcoin', keywords: ['bitcoin', 'btc'] },
 ];
 
