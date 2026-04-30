@@ -320,24 +320,15 @@ serve(async (req) => {
 
     // ========== GENERATE PERIODIC REPORT ==========
     if (action === 'generate-periodic') {
-      const body = await req.json();
-      const { periodType, accessCode } = body;
+      const { periodType } = reqBody;
 
       const now = new Date();
       const currentWeek = getISOWeek(now);
       const currentYear = now.getFullYear();
 
-      // Day-based windows for ALL periods (more accurate than ISO week buckets)
       const periodToDays: Record<string, number> = {
-        three_days: 3,
-        weekly: 7,
-        biweekly: 15,
-        triweekly: 21,
-        monthly: 30,
-        bimonthly: 60,
-        quarterly: 90,
-        semiannual: 180,
-        annual: 365,
+        three_days: 3, weekly: 7, biweekly: 15, triweekly: 21,
+        monthly: 30, bimonthly: 60, quarterly: 90, semiannual: 180, annual: 365,
       };
       const days = periodToDays[periodType];
       if (!days) throw new Error('Tipo de período inválido');
@@ -348,13 +339,12 @@ serve(async (req) => {
       const periodStart = startDate.toISOString().split('T')[0];
       const periodEnd = endDate.toISOString().split('T')[0];
 
-      let mentionsQuery = supabase
+      const mentionsQuery = supabase
         .from('crypto_mentions')
         .select('symbol, report_type, report_date')
+        .eq('access_code', accessCode)
         .gte('report_date', periodStart)
         .lte('report_date', periodEnd);
-
-      if (accessCode) mentionsQuery = mentionsQuery.eq('access_code', accessCode);
 
       const { data: mentions, error: mError } = await mentionsQuery;
       if (mError) throw mError;
