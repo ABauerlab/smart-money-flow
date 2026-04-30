@@ -167,6 +167,22 @@ async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Pr
   return await callLovableGateway(messages, wantsVision);
 }
 
+// In-memory rate limiter for AI-expensive actions (per accessCode + IP).
+// Sliding window: max N requests per WINDOW_MS.
+const RL_WINDOW_MS = 60_000; // 1 minute
+const RL_MAX = 8; // max 8 expensive AI calls per minute per key
+const rlBuckets = new Map<string, number[]>();
+function rateLimit(key: string): { ok: boolean; retryAfter: number } {
+  const now = Date.now();
+  const arr = (rlBuckets.get(key) || []).filter(t => now - t < RL_WINDOW_MS);
+  if (arr.length >= RL_MAX) {
+    const retryAfter = Math.ceil((RL_WINDOW_MS - (now - arr[0])) / 1000);
+    return { ok: false, retryAfter };
+  }
+  arr.push(now);
+  rlBuckets.set(key, arr);
+  return { ok: true, retryAfter: 0 };
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -179,43 +195,85 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Parse body once and enforce access code on every action.
+    const reqBody = await req.json().catch(() => ({} as any));
+    const accessCodeRaw = typeof reqBody.accessCode === 'string' ? reqBody.accessCode.trim() : '';
+    if (!accessCodeRaw || accessCodeRaw.length < 4 || accessCodeRaw.length > 64) {
+      return new Response(
+        JSON.stringify({ error: 'Código de acesso obrigatório (mínimo 4 caracteres).' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const accessCode = accessCodeRaw;
+
+    // Rate limit AI-expensive actions to prevent credit abuse.
+    const expensiveActions = new Set(['analyze', 'generate-periodic', 'refresh-lists']);
+    if (expensiveActions.has(action)) {
+      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+      const rl = rateLimit(`${accessCode}:${ip}:${action}`);
+      if (!rl.ok) {
+        return new Response(
+          JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${rl.retryAfter}s.` }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } },
+        );
+      }
+    }
+
+
     // ========== DELETE ANALYSES ==========
     if (action === 'delete') {
-      const body = await req.json();
-      const { ids, accessCode } = body;
+      const { ids } = reqBody;
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return new Response(JSON.stringify({ error: 'Nenhum ID fornecido' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      await supabase.from('crypto_analysis_images').delete().in('analysis_id', ids);
-      const { data: subs } = await supabase.from('crypto_report_submissions').select('id').in('analysis_id', ids);
+      // Scope cascade deletes to rows owned by this access code only.
+      const { data: ownedAnalyses } = await supabase
+        .from('crypto_analyses')
+        .select('id')
+        .in('id', ids)
+        .eq('access_code', accessCode);
+      const ownedIds = (ownedAnalyses || []).map(a => a.id);
+      if (ownedIds.length === 0) {
+        return new Response(JSON.stringify({ success: true, deleted: 0 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      await supabase.from('crypto_analysis_images').delete().in('analysis_id', ownedIds);
+      const { data: subs } = await supabase
+        .from('crypto_report_submissions')
+        .select('id')
+        .in('analysis_id', ownedIds)
+        .eq('access_code', accessCode);
       if (subs && subs.length > 0) {
         const subIds = subs.map(s => s.id);
-        await supabase.from('crypto_mentions').delete().in('submission_id', subIds);
-        await supabase.from('crypto_report_submissions').delete().in('analysis_id', ids);
+        await supabase.from('crypto_mentions').delete().in('submission_id', subIds).eq('access_code', accessCode);
+        await supabase.from('crypto_report_submissions').delete().in('analysis_id', ownedIds).eq('access_code', accessCode);
       }
-      let q = supabase.from('crypto_analyses').delete().in('id', ids);
-      if (accessCode) q = q.eq('access_code', accessCode);
-      const { error } = await q;
+      const { error } = await supabase
+        .from('crypto_analyses')
+        .delete()
+        .in('id', ownedIds)
+        .eq('access_code', accessCode);
       if (error) throw error;
+      const ids_count = ownedIds.length;
 
-      return new Response(JSON.stringify({ success: true, deleted: ids.length }), {
+      return new Response(JSON.stringify({ success: true, deleted: ownedIds.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // ========== HISTORY ==========
     if (action === 'history') {
-      const body = await req.json().catch(() => ({}));
-      let query = supabase
+      const { data: analyses, error } = await supabase
         .from('crypto_analyses')
         .select('*, crypto_analysis_images(*)')
+        .eq('access_code', accessCode)
         .order('created_at', { ascending: false })
         .limit(50);
-      if (body.accessCode) query = query.eq('access_code', body.accessCode);
-      const { data: analyses, error } = await query;
       if (error) throw error;
       return new Response(JSON.stringify({ analyses }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -224,11 +282,12 @@ serve(async (req) => {
 
     // ========== REPETITION RANKINGS ==========
     if (action === 'rankings') {
-      const body = await req.json();
-      const { periodType, year, weekNumber, accessCode } = body;
+      const { periodType, year, weekNumber } = reqBody;
 
-      let query = supabase.from('crypto_mentions').select('symbol, report_type');
-      if (accessCode) query = query.eq('access_code', accessCode);
+      let query = supabase
+        .from('crypto_mentions')
+        .select('symbol, report_type')
+        .eq('access_code', accessCode);
 
       if (periodType === 'weekly' && weekNumber && year) {
         query = query.eq('week_number', weekNumber).eq('year', year);
@@ -277,14 +336,12 @@ serve(async (req) => {
 
     // ========== PERIODIC REPORTS ==========
     if (action === 'periodic-reports') {
-      const body = await req.json().catch(() => ({}));
-      let query = supabase
+      const { data, error } = await supabase
         .from('crypto_periodic_reports')
         .select('*')
+        .eq('access_code', accessCode)
         .order('created_at', { ascending: false })
         .limit(30);
-      if (body.accessCode) query = query.eq('access_code', body.accessCode);
-      const { data, error } = await query;
       if (error) throw error;
       return new Response(JSON.stringify({ reports: data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -293,24 +350,15 @@ serve(async (req) => {
 
     // ========== GENERATE PERIODIC REPORT ==========
     if (action === 'generate-periodic') {
-      const body = await req.json();
-      const { periodType, accessCode } = body;
+      const { periodType } = reqBody;
 
       const now = new Date();
       const currentWeek = getISOWeek(now);
       const currentYear = now.getFullYear();
 
-      // Day-based windows for ALL periods (more accurate than ISO week buckets)
       const periodToDays: Record<string, number> = {
-        three_days: 3,
-        weekly: 7,
-        biweekly: 15,
-        triweekly: 21,
-        monthly: 30,
-        bimonthly: 60,
-        quarterly: 90,
-        semiannual: 180,
-        annual: 365,
+        three_days: 3, weekly: 7, biweekly: 15, triweekly: 21,
+        monthly: 30, bimonthly: 60, quarterly: 90, semiannual: 180, annual: 365,
       };
       const days = periodToDays[periodType];
       if (!days) throw new Error('Tipo de período inválido');
@@ -321,13 +369,12 @@ serve(async (req) => {
       const periodStart = startDate.toISOString().split('T')[0];
       const periodEnd = endDate.toISOString().split('T')[0];
 
-      let mentionsQuery = supabase
+      const mentionsQuery = supabase
         .from('crypto_mentions')
         .select('symbol, report_type, report_date')
+        .eq('access_code', accessCode)
         .gte('report_date', periodStart)
         .lte('report_date', periodEnd);
-
-      if (accessCode) mentionsQuery = mentionsQuery.eq('access_code', accessCode);
 
       const { data: mentions, error: mError } = await mentionsQuery;
       if (mError) throw mError;
@@ -417,11 +464,15 @@ serve(async (req) => {
 
     // ========== ANALYZE (main) ==========
     if (action === 'analyze') {
-      const body = await req.json();
-      const { images, cryptoSymbols, title, reportType, sessionTime, accessCode } = body;
+      const { images, cryptoSymbols, title, reportType, sessionTime } = reqBody;
 
-      if (!images || images.length === 0) {
+      if (!images || !Array.isArray(images) || images.length === 0) {
         return new Response(JSON.stringify({ error: 'Nenhuma imagem fornecida' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (images.length > 20) {
+        return new Response(JSON.stringify({ error: 'Máximo de 20 imagens por requisição.' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -573,8 +624,7 @@ Formato Markdown. Não use emojis.`,
 
     // ========== REFRESH LISTS (reprocess + AI consolidation for current week) ==========
     if (action === 'refresh-lists') {
-      const body = await req.json().catch(() => ({}));
-      const { accessCode, periodType } = body;
+      const { periodType } = reqBody;
       const targetPeriod = periodType || 'weekly';
 
       const periodToDays: Record<string, number> = {
@@ -589,12 +639,12 @@ Formato Markdown. Não use emojis.`,
       const periodStart = startDate.toISOString().split('T')[0];
       const periodEnd = endDate.toISOString().split('T')[0];
 
-      let mentionsQuery = supabase
+      const mentionsQuery = supabase
         .from('crypto_mentions')
         .select('symbol, report_type, report_date')
+        .eq('access_code', accessCode)
         .gte('report_date', periodStart)
         .lte('report_date', periodEnd);
-      if (accessCode) mentionsQuery = mentionsQuery.eq('access_code', accessCode);
 
       const { data: mentions, error: mErr } = await mentionsQuery;
       if (mErr) throw mErr;
