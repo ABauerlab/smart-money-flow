@@ -471,7 +471,7 @@ async function fetchNews(_markets: MarketData[], apiKey: string): Promise<any[]>
     const queryTerms = [
       'Ibovespa', 'Petrobras', 'S&P 500', 'Nasdaq', 'Bitcoin',
       'DAX', 'NYSE', 'KOSPI', 'Sensex', '"Bombay Stock Exchange"',
-      '"Petróleo Brent"'
+      '"crypto market"', '"mercado de criptomoedas"'
     ];
     const q = encodeURIComponent(`(${queryTerms.join(' OR ')})`);
     const url = `https://newsapi.org/v2/everything?q=${q}&language=pt&sortBy=publishedAt&pageSize=40&apiKey=${apiKey}`;
