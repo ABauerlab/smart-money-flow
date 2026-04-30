@@ -696,16 +696,18 @@ async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: strin
   const results: MarketData[] = [];
   const fetchedIds = new Set<string>();
 
-  // Batch 1: independent APIs (Brapi, batched CoinMarketCap) — no shared rate limit
-  const [bvsp, petr4, cryptos] = await Promise.all([
+  // Batch 1: independent APIs (Brapi, batched CoinMarketCap, CMC global) — no shared rate limit
+  const [bvsp, petr4, cryptos, cryptoGlobal] = await Promise.all([
     fetchIbovespaProxy(brapiKey),
     fetchBrapiQuote('PETR4', 'Petrobras PN', '🛢️', 'stocks', brapiKey),
     fetchCryptosBatch(CRYPTO_SPECS, cmcKey),
+    fetchCryptoGlobal(cmcKey),
   ]);
   for (const m of [bvsp, petr4]) {
     if (m) { results.push(m); fetchedIds.add(m.id); }
   }
   for (const c of cryptos) { results.push(c); fetchedIds.add(c.id); }
+  if (cryptoGlobal) { results.push(cryptoGlobal); fetchedIds.add(cryptoGlobal.id); }
 
   // Batch 2: Alpha Vantage (5 calls/min, 25/day limit — stagger). Track failures for BDR fallback.
   // International indices use US-listed country ETFs as proxies (real volume + liquidity available on free tier).
@@ -735,10 +737,6 @@ async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: strin
     }
     if (m) { results.push(m); fetchedIds.add(t.id); }
   }
-
-  // Brent uses commodity endpoint (separate quota from TIME_SERIES)
-  const brent = await fetchBrent(alphaKey);
-  if (brent) { results.push(brent); fetchedIds.add('brent'); }
 
   // BDR fallback: for any AV asset that failed, try its Brapi BDR equivalent
   for (const bdr of BDR_FALLBACKS) {
