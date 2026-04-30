@@ -179,27 +179,57 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Parse body once and enforce access code on every action.
+    const reqBody = await req.json().catch(() => ({} as any));
+    const accessCodeRaw = typeof reqBody.accessCode === 'string' ? reqBody.accessCode.trim() : '';
+    if (!accessCodeRaw || accessCodeRaw.length < 4 || accessCodeRaw.length > 64) {
+      return new Response(
+        JSON.stringify({ error: 'Código de acesso obrigatório (mínimo 4 caracteres).' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const accessCode = accessCodeRaw;
+
     // ========== DELETE ANALYSES ==========
     if (action === 'delete') {
-      const body = await req.json();
-      const { ids, accessCode } = body;
+      const { ids } = reqBody;
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return new Response(JSON.stringify({ error: 'Nenhum ID fornecido' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      await supabase.from('crypto_analysis_images').delete().in('analysis_id', ids);
-      const { data: subs } = await supabase.from('crypto_report_submissions').select('id').in('analysis_id', ids);
+      // Scope cascade deletes to rows owned by this access code only.
+      const { data: ownedAnalyses } = await supabase
+        .from('crypto_analyses')
+        .select('id')
+        .in('id', ids)
+        .eq('access_code', accessCode);
+      const ownedIds = (ownedAnalyses || []).map(a => a.id);
+      if (ownedIds.length === 0) {
+        return new Response(JSON.stringify({ success: true, deleted: 0 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      await supabase.from('crypto_analysis_images').delete().in('analysis_id', ownedIds);
+      const { data: subs } = await supabase
+        .from('crypto_report_submissions')
+        .select('id')
+        .in('analysis_id', ownedIds)
+        .eq('access_code', accessCode);
       if (subs && subs.length > 0) {
         const subIds = subs.map(s => s.id);
-        await supabase.from('crypto_mentions').delete().in('submission_id', subIds);
-        await supabase.from('crypto_report_submissions').delete().in('analysis_id', ids);
+        await supabase.from('crypto_mentions').delete().in('submission_id', subIds).eq('access_code', accessCode);
+        await supabase.from('crypto_report_submissions').delete().in('analysis_id', ownedIds).eq('access_code', accessCode);
       }
-      let q = supabase.from('crypto_analyses').delete().in('id', ids);
-      if (accessCode) q = q.eq('access_code', accessCode);
-      const { error } = await q;
+      const { error } = await supabase
+        .from('crypto_analyses')
+        .delete()
+        .in('id', ownedIds)
+        .eq('access_code', accessCode);
       if (error) throw error;
+      const ids_count = ownedIds.length;
 
       return new Response(JSON.stringify({ success: true, deleted: ids.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
