@@ -167,6 +167,22 @@ async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Pr
   return await callLovableGateway(messages, wantsVision);
 }
 
+// In-memory rate limiter for AI-expensive actions (per accessCode + IP).
+// Sliding window: max N requests per WINDOW_MS.
+const RL_WINDOW_MS = 60_000; // 1 minute
+const RL_MAX = 8; // max 8 expensive AI calls per minute per key
+const rlBuckets = new Map<string, number[]>();
+function rateLimit(key: string): { ok: boolean; retryAfter: number } {
+  const now = Date.now();
+  const arr = (rlBuckets.get(key) || []).filter(t => now - t < RL_WINDOW_MS);
+  if (arr.length >= RL_MAX) {
+    const retryAfter = Math.ceil((RL_WINDOW_MS - (now - arr[0])) / 1000);
+    return { ok: false, retryAfter };
+  }
+  arr.push(now);
+  rlBuckets.set(key, arr);
+  return { ok: true, retryAfter: 0 };
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -189,6 +205,20 @@ serve(async (req) => {
       );
     }
     const accessCode = accessCodeRaw;
+
+    // Rate limit AI-expensive actions to prevent credit abuse.
+    const expensiveActions = new Set(['analyze', 'generate-periodic', 'refresh-lists']);
+    if (expensiveActions.has(action)) {
+      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+      const rl = rateLimit(`${accessCode}:${ip}:${action}`);
+      if (!rl.ok) {
+        return new Response(
+          JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${rl.retryAfter}s.` }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } },
+        );
+      }
+    }
+
 
     // ========== DELETE ANALYSES ==========
     if (action === 'delete') {
