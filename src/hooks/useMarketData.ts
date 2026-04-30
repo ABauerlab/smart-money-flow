@@ -4,7 +4,7 @@ import { MarketData, GlobalMetrics, Alert, VolumeCorrelation, NewsArticle } from
 import { mockMarketData, mockGlobalMetrics, mockAlerts } from '@/lib/mockData';
 
 // Ordem de exibição definida pelo usuário
-const MARKET_ORDER = ['inda', 'ewy', 'ewg', 'ewj', 'qqq', 'spy', 'nya', 'vgk', 'btc', 'petr4', 'bvsp', 'brent'];
+const MARKET_ORDER = ['inda', 'ewy', 'ewg', 'ewj', 'qqq', 'spy', 'nya', 'vgk', 'cryptoglobal', 'btc', 'petr4', 'bvsp'];
 
 const sortMarkets = (markets: MarketData[]): MarketData[] => {
   return [...markets].sort((a, b) => {
