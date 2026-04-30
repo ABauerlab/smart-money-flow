@@ -504,12 +504,12 @@ async function fetchNews(_markets: MarketData[], apiKey: string): Promise<any[]>
 }
 
 // ---- Cache Layer ----
-const CRYPTO_IDS = new Set(['btc']);
+const CRYPTO_IDS = new Set(['btc', 'cryptoglobal']);
 
 function categoryFromRow(row: any): string {
   const id = String(row.id || '').toLowerCase();
   if (id === 'usdbrl' || id === 'eurbrl') return 'forex';
-  if (id === 'xauusd' || id === 'brent') return 'commodities';
+  if (id === 'xauusd') return 'commodities';
   if (CRYPTO_IDS.has(id)) return 'crypto';
   if (row.ticker === 'PETR4') return 'stocks';
   return 'indices';
