@@ -2,12 +2,10 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 
-interface AnalysisImage {
-  name: string;
-  base64: string;
-  type: string;
-  preview: string;
-}
+export type Region = 'asia' | 'west';
+export type PeriodType = 'daily' | 'weekly' | 'monthly';
+
+interface AnalysisImage { name: string; base64: string; type: string; preview: string; }
 
 interface CryptoAnalysis {
   id: string;
@@ -16,22 +14,12 @@ interface CryptoAnalysis {
   period_type: string;
   crypto_symbols: string[];
   ai_model_used: string;
+  region?: string | null;
   created_at: string;
   crypto_analysis_images?: { id: string; image_url: string; image_name: string }[];
 }
 
-interface RankingEntry {
-  symbol: string;
-  total: number;
-  alta: number;
-  baixa: number;
-  volume: number;
-}
-
-interface SeparateRanking {
-  symbol: string;
-  count: number;
-}
+interface SeparateRanking { symbol: string; count: number; }
 
 interface PeriodicReport {
   id: string;
@@ -40,7 +28,8 @@ interface PeriodicReport {
   period_end: string;
   year: number;
   week_number: number;
-  rankings: RankingEntry[];
+  region?: string;
+  rankings: { symbol: string; total: number; alta: number; baixa: number; volume: number }[];
   summary: string;
   ai_analysis: string;
   created_at: string;
@@ -52,7 +41,13 @@ const headers = {
   'Content-Type': 'application/json',
 };
 
-export const useCryptoAnalysis = () => {
+interface UseCryptoAnalysisOpts {
+  region: Region;
+  periodType?: PeriodType;
+  windowIndex?: number;
+}
+
+export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex = 0 }: UseCryptoAnalysisOpts) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -63,10 +58,10 @@ export const useCryptoAnalysis = () => {
   const getAccessCode = () => localStorage.getItem('crypto_access_code') || undefined;
 
   const historyQuery = useQuery<{ analyses: CryptoAnalysis[] }>({
-    queryKey: ['crypto-analyses'],
+    queryKey: ['crypto-analyses', region],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=history`, {
-        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode() }),
+        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode(), region }),
       });
       if (!resp.ok) throw new Error('Failed to fetch history');
       return resp.json();
@@ -75,10 +70,10 @@ export const useCryptoAnalysis = () => {
   });
 
   const periodicReportsQuery = useQuery<{ reports: PeriodicReport[] }>({
-    queryKey: ['periodic-reports'],
+    queryKey: ['periodic-reports', region],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=periodic-reports`, {
-        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode() }),
+        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode(), region }),
       });
       if (!resp.ok) throw new Error('Failed to fetch periodic reports');
       return resp.json();
@@ -86,14 +81,12 @@ export const useCryptoAnalysis = () => {
     staleTime: 60000,
   });
 
-  const rankingsQuery = useQuery<{ rankings: RankingEntry[]; altaRankings: SeparateRanking[]; baixaRankings: SeparateRanking[] }>({
-    queryKey: ['crypto-rankings'],
+  const rankingsQuery = useQuery<{ altaRankings: SeparateRanking[]; window: any; totalMentions: number }>({
+    queryKey: ['crypto-rankings', region, periodType, windowIndex],
     queryFn: async () => {
-      const now = new Date();
-      const weekNumber = getISOWeek(now);
       const resp = await fetch(`${BASE_URL}?action=rankings`, {
         method: 'POST', headers,
-        body: JSON.stringify({ periodType: 'weekly', year: now.getFullYear(), weekNumber, accessCode: getAccessCode() }),
+        body: JSON.stringify({ accessCode: getAccessCode(), region, periodType, windowIndex }),
       });
       if (!resp.ok) throw new Error('Failed to fetch rankings');
       return resp.json();
@@ -105,7 +98,6 @@ export const useCryptoAnalysis = () => {
     images: AnalysisImage[],
     cryptoSymbols: string[],
     title: string,
-    reportType?: string,
     sessionTime?: string,
   ) => {
     setIsAnalyzing(true);
@@ -114,52 +106,41 @@ export const useCryptoAnalysis = () => {
         method: 'POST', headers,
         body: JSON.stringify({
           images: images.map(img => ({ name: img.name, base64: img.base64, type: img.type })),
-          cryptoSymbols, title, reportType, sessionTime,
+          cryptoSymbols, title, sessionTime,
           accessCode: getAccessCode(),
+          region,
         }),
       });
-
-      if (resp.status === 429) {
-        toast({ title: 'Limite atingido', description: 'Tente novamente em alguns minutos.', variant: 'destructive' });
-        return null;
-      }
-      if (resp.status === 402) {
-        toast({ title: 'Créditos esgotados', description: 'Adicione créditos para continuar.', variant: 'destructive' });
-        return null;
-      }
+      if (resp.status === 429) { toast({ title: 'Limite atingido', description: 'Tente novamente em alguns minutos.', variant: 'destructive' }); return null; }
+      if (resp.status === 402) { toast({ title: 'Créditos esgotados', variant: 'destructive' }); return null; }
       if (!resp.ok) throw new Error('Erro na análise');
-
       const data = await resp.json();
-      toast({ title: 'Análise concluída!', description: 'Relatório gerado com sucesso.' });
+      toast({ title: 'Análise concluída!', description: `RA registrado em ${region === 'asia' ? 'Ásia' : 'Ocidente'}.` });
       queryClient.invalidateQueries({ queryKey: ['crypto-analyses'] });
       queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
       return data.analysis;
     } catch (error) {
       toast({ title: 'Erro', description: (error as Error).message, variant: 'destructive' });
       return null;
-    } finally {
-      setIsAnalyzing(false);
-    }
+    } finally { setIsAnalyzing(false); }
   };
 
-  const generatePeriodicReport = async (periodType: string) => {
+  const generatePeriodicReport = async (period: PeriodType, winIdx = 0) => {
     setIsGeneratingReport(true);
     try {
       const resp = await fetch(`${BASE_URL}?action=generate-periodic`, {
         method: 'POST', headers,
-        body: JSON.stringify({ periodType, accessCode: getAccessCode() }),
+        body: JSON.stringify({ periodType: period, windowIndex: winIdx, accessCode: getAccessCode(), region }),
       });
       if (!resp.ok) throw new Error('Erro ao gerar relatório');
       const data = await resp.json();
-      toast({ title: 'Relatório gerado!', description: `Relatório ${periodType} criado com sucesso.` });
+      toast({ title: 'Relatório gerado!', description: `${period} criado.` });
       queryClient.invalidateQueries({ queryKey: ['periodic-reports'] });
       return data.report;
     } catch (error) {
       toast({ title: 'Erro', description: (error as Error).message, variant: 'destructive' });
       return null;
-    } finally {
-      setIsGeneratingReport(false);
-    }
+    } finally { setIsGeneratingReport(false); }
   };
 
   const deleteAnalyses = async (ids: string[]) => {
@@ -169,80 +150,50 @@ export const useCryptoAnalysis = () => {
         method: 'POST', headers,
         body: JSON.stringify({ ids, accessCode: getAccessCode() }),
       });
-      if (!resp.ok) throw new Error('Erro ao apagar relatórios');
+      if (!resp.ok) throw new Error('Erro ao apagar');
       toast({ title: 'Apagado!', description: `${ids.length} relatório(s) removido(s).` });
       queryClient.invalidateQueries({ queryKey: ['crypto-analyses'] });
       queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
     } catch (error) {
       toast({ title: 'Erro', description: (error as Error).message, variant: 'destructive' });
-    } finally {
-      setIsDeleting(false);
-    }
+    } finally { setIsDeleting(false); }
   };
 
-  const refreshLists = async (periodType: string = 'weekly') => {
+  const refreshLists = async (period: PeriodType = 'weekly', winIdx = 0) => {
     setIsRefreshingLists(true);
     try {
       const resp = await fetch(`${BASE_URL}?action=refresh-lists`, {
         method: 'POST', headers,
-        body: JSON.stringify({ periodType, accessCode: getAccessCode() }),
+        body: JSON.stringify({ periodType: period, windowIndex: winIdx, accessCode: getAccessCode(), region }),
       });
-      if (resp.status === 429) {
-        toast({ title: 'Limite atingido', description: 'Tente novamente em alguns minutos.', variant: 'destructive' });
-        return null;
-      }
-      if (resp.status === 402) {
-        toast({ title: 'Créditos esgotados', description: 'Adicione créditos para continuar.', variant: 'destructive' });
-        return null;
-      }
+      if (resp.status === 429) { toast({ title: 'Limite atingido', variant: 'destructive' }); return null; }
       if (!resp.ok) throw new Error('Erro ao atualizar listas');
       const data = await resp.json();
-      const total = (data.altaRankings?.length || 0) + (data.baixaRankings?.length || 0);
-      if (total === 0) {
-        toast({
-          title: 'Listas atualizadas (vazias)',
-          description: `Nenhuma menção encontrada na janela ${periodType}. Envie relatórios RA/RB recentes para popular.`,
-        });
-      } else {
-        toast({
-          title: 'Listas atualizadas!',
-          description: `LA: ${data.altaRankings?.length || 0} • LB: ${data.baixaRankings?.length || 0} • IA: ${data.aiModelUsed || 'sem IA'}`,
-        });
-      }
+      const total = data.altaRankings?.length || 0;
+      toast({
+        title: total === 0 ? 'Listas atualizadas (vazias)' : 'Listas atualizadas!',
+        description: total === 0
+          ? 'Nenhuma menção encontrada neste recorte.'
+          : `LA: ${total} criptos • IA: ${data.aiModelUsed || 'sem IA'}`,
+      });
       queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
       queryClient.invalidateQueries({ queryKey: ['periodic-reports'] });
       return data;
     } catch (error) {
       toast({ title: 'Erro', description: (error as Error).message, variant: 'destructive' });
       return null;
-    } finally {
-      setIsRefreshingLists(false);
-    }
+    } finally { setIsRefreshingLists(false); }
   };
 
   return {
-    isAnalyzing,
-    isGeneratingReport,
-    isDeleting,
-    isRefreshingLists,
-    submitAnalysis,
-    generatePeriodicReport,
-    deleteAnalyses,
-    refreshLists,
+    isAnalyzing, isGeneratingReport, isDeleting, isRefreshingLists,
+    submitAnalysis, generatePeriodicReport, deleteAnalyses, refreshLists,
     history: historyQuery.data?.analyses || [],
     isLoadingHistory: historyQuery.isLoading,
-    rankings: rankingsQuery.data?.rankings || [],
     altaRankings: rankingsQuery.data?.altaRankings || [],
-    baixaRankings: rankingsQuery.data?.baixaRankings || [],
+    rankingsWindow: rankingsQuery.data?.window,
     isLoadingRankings: rankingsQuery.isLoading,
     periodicReports: periodicReportsQuery.data?.reports || [],
     isLoadingPeriodicReports: periodicReportsQuery.isLoading,
   };
 };
-
-function getISOWeek(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
