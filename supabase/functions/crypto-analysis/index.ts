@@ -13,92 +13,93 @@ function getISOWeek(date: Date): number {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
-function getWeekBounds(year: number, week: number): { start: string; end: string } {
-  const jan1 = new Date(Date.UTC(year, 0, 1));
-  const dayOfWeek = jan1.getUTCDay() || 7;
-  const firstMonday = new Date(jan1);
-  firstMonday.setUTCDate(jan1.getUTCDate() + (1 - dayOfWeek) + (week - 1) * 7);
-  const sunday = new Date(firstMonday);
-  sunday.setUTCDate(firstMonday.getUTCDate() + 6);
-  return {
-    start: firstMonday.toISOString().split('T')[0],
-    end: sunday.toISOString().split('T')[0],
-  };
+// Returns Monday->Friday window for the ISO week containing `ref`.
+function getMonFriWeek(ref: Date): { start: Date; end: Date } {
+  const d = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()));
+  const dow = d.getUTCDay() || 7; // 1=Mon..7=Sun
+  const monday = new Date(d); monday.setUTCDate(d.getUTCDate() - (dow - 1));
+  const friday = new Date(monday); friday.setUTCDate(monday.getUTCDate() + 4);
+  return { start: monday, end: friday };
 }
 
-const SYSTEM_PROMPT = `Você é o Consolidador CriptoEx Pro, responsável pela extração de dados de relatórios financeiros RA (Alta) e RB (Baixa) na plataforma Fluxo Dos Mercados.
+// Week-of-month index (1..4), based on calendar day, capping a 5th week into 4.
+function weekOfMonth(d: Date): number {
+  return Math.min(4, Math.ceil(d.getUTCDate() / 7));
+}
+
+function fmtDate(d: Date): string { return d.toISOString().split('T')[0]; }
+
+function normalizeRegion(r: any): 'asia' | 'west' {
+  return r === 'asia' ? 'asia' : 'west';
+}
+
+const REGION_LABEL: Record<string,string> = { asia: 'Mercado Asiático', west: 'Mercado Ocidental (Europa + Américas)' };
+
+const SYSTEM_PROMPT = `Você é o Consolidador CriptoEx Pro, responsável pela extração de dados de relatórios financeiros RA (Alta) na plataforma Fluxo Dos Mercados.
+
+## ESCOPO
+- Trate APENAS relatórios de Alta (RA). Não há mais Lista de Baixa (LB).
+- Cada envio pertence a UMA região: Mercado Asiático ou Mercado Ocidental (Europa + Américas).
+- NUNCA misture dados entre regiões. NUNCA misture dados entre semanas distintas. NUNCA misture dados entre meses distintos.
 
 ## PROCESSAMENTO
-- Leia 100% das linhas de cada arquivo enviado. É PROIBIDO ignorar ativos, mesmo que pareçam duplicados ou irrelevantes.
+- Leia 100% das linhas de cada arquivo enviado. É PROIBIDO ignorar ativos.
 - Considere apenas relatórios com data a partir de 06/04/2026.
 
 ## ARITMÉTICA
-- Localize a coluna 'REPETIÇÃO' ou 'CONTAGEM' (aceite variações como "Repeticao", "Count", "Qtd").
-- Realize a SOMA MATEMÁTICA REAL dos valores dessa coluna para cada ativo, somando as ocorrências em todos os arquivos enviados (Ex: Ativo X no Arq1 + Ativo X no Arq2).
-- NUNCA conte apenas o número de linhas — some os valores numéricos da coluna de repetição.
-
-## SEGREGAÇÃO RA / RB
-- Arquivos com "RA" no nome = Relatório de Alta → alimentam a Lista de Alta (LA).
-- Arquivos com "RB" no nome = Relatório de Baixa → alimentam a Lista de Baixa (LB).
-- Mantenha listas RA e RB TOTALMENTE separadas. Nunca misture, nunca cruze, nunca compense.
+- Localize a coluna 'REPETIÇÃO' ou 'CONTAGEM' (variações: "Repeticao", "Count", "Qtd").
+- Realize a SOMA MATEMÁTICA REAL dos valores dessa coluna por ativo, somando ocorrências em todos os arquivos do MESMO período/região.
+- NUNCA conte apenas o número de linhas — some os valores numéricos.
 
 ## RANKING
-- Ordene cada lista pela soma total de repetições (descendente).
-- Em caso de empate, use a data/hora mais recente como critério de desempate.
-- Persistindo o empate, liste ambos na mesma posição.
+- Ordene a Lista de Alta (LA) pela soma total de repetições (descendente).
+- Em caso de empate, use a data/hora mais recente como desempate.
 
-## ACUMULADOS
-- Mantenha contadores claros para Semana Atual, Mês e Ano dentro do resumo.
+## CADÊNCIA ESPERADA
+- Segunda a sexta: 2 envios da região Ásia (A) + 2 envios da região Ocidente (O) por dia.
+- Sábado e domingo não compõem a janela semanal.
 
 ## FORMATO DE SAÍDA (obrigatório)
 Use linguagem técnica e neutra. NÃO use emojis. Use Markdown.
 
 Sempre comece com:
-
 CRYPTOS_DETECTED: BTC,ETH,SOL,...
 
-### Período
-- Intervalo coberto (data inicial → data final)
-- Acumulado: Semana Atual / Mês / Ano
+### Período / Região
+- Região: Ásia | Ocidente
+- Janela: <data inicial> → <data final>
+- Tipo de janela: Dia | Semana N do mês | Mês N
 
 ### Quantidade de Arquivos
-- Total processado, separados por tipo (RA: X | RB: Y)
+- Total processado neste recorte (todos RA).
 
 ### Lista de Alta (LA)
 | Pos | Ativo | Soma Repetições | Última Ocorrência |
 |-----|-------|-----------------|-------------------|
 | 1   | BTC   | 12              | 2026-04-29 14:30  |
-(preencha com dados reais, ordenado por soma descendente)
-
-### Lista de Baixa (LB)
-| Pos | Ativo | Soma Repetições | Última Ocorrência |
-|-----|-------|-----------------|-------------------|
-| 1   | ETH   | 8               | 2026-04-29 09:15  |
-(preencha com dados reais, ordenado por soma descendente)
 
 ### Destaques
-- Ativos com maior soma absoluta
-- Maiores variações entre arquivos
-- Novos ativos que apareceram no período
+- Ativos com maior soma absoluta no recorte.
+- Maiores variações entre arquivos do mesmo recorte.
+- Novos ativos que apareceram.
 
 ### Log de Inconsistências
-- Linhas ilegíveis, colunas ausentes, datas fora do período válido, valores não numéricos
+- Linhas ilegíveis, colunas ausentes, datas fora do período válido, valores não numéricos.
 - Se nada foi encontrado: "Nenhuma inconsistência detectada."
 
 ## RESTRIÇÕES
 - NÃO faça recomendações financeiras.
 - NÃO use emojis.
+- NÃO mencione Lista de Baixa (LB).
 - Linguagem técnica, neutra e organizacional.`;
 
 // ====== AI call abstraction ======
-// Priority: Official Gemini API (GEMINI_API_KEY) -> Lovable AI Gateway fallback
 async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
   if (!GEMINI_API_KEY) return { ok: false, status: 0, content: '', model: 'none', error: 'no key' };
 
   const model = wantsVision ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
 
-  // Convert OpenAI-style messages -> Gemini contents
   let systemInstruction: string | undefined;
   const contents: any[] = [];
   for (const m of messages) {
@@ -160,20 +161,17 @@ async function callLovableGateway(messages: any[], wantsVision: boolean): Promis
 
 async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
   const wantsVision = !!opts.wantsVision;
-  // Try official Gemini first if configured
   const official = await callGeminiOfficial(messages, wantsVision);
   if (official.ok) return official;
-  // If official failed (and key existed) but with quota/rate, fall through to gateway
   if (official.error && official.error !== 'no key') {
     console.log('Falling back to Lovable Gateway after official Gemini error:', official.status);
   }
   return await callLovableGateway(messages, wantsVision);
 }
 
-// In-memory rate limiter for AI-expensive actions (per accessCode + IP).
-// Sliding window: max N requests per WINDOW_MS.
-const RL_WINDOW_MS = 60_000; // 1 minute
-const RL_MAX = 8; // max 8 expensive AI calls per minute per key
+// In-memory rate limiter
+const RL_WINDOW_MS = 60_000;
+const RL_MAX = 8;
 const rlBuckets = new Map<string, number[]>();
 function rateLimit(key: string): { ok: boolean; retryAfter: number } {
   const now = Date.now();
@@ -187,6 +185,34 @@ function rateLimit(key: string): { ok: boolean; retryAfter: number } {
   return { ok: true, retryAfter: 0 };
 }
 
+// Resolve a date window from periodType + windowIndex (relative to "now").
+// periodType: 'daily' | 'weekly' | 'monthly'
+// windowIndex semantics:
+//   daily   : 0 = today, 1 = yesterday, ... up to ~30
+//   weekly  : 0 = current week (Mon-Fri); 1..N = previous weeks (also Mon-Fri)
+//   monthly : 0 = current month; 1..N = previous calendar months
+function resolveWindow(periodType: string, windowIndex: number, now = new Date()): { start: string; end: string; label: string } {
+  const idx = Math.max(0, Math.min(60, Number(windowIndex) || 0));
+  if (periodType === 'daily') {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    d.setUTCDate(d.getUTCDate() - idx);
+    const s = fmtDate(d);
+    return { start: s, end: s, label: idx === 0 ? 'Hoje' : `D-${idx}` };
+  }
+  if (periodType === 'weekly') {
+    const ref = new Date(now); ref.setUTCDate(ref.getUTCDate() - idx * 7);
+    const { start, end } = getMonFriWeek(ref);
+    const wom = weekOfMonth(start);
+    return { start: fmtDate(start), end: fmtDate(end), label: idx === 0 ? `Semana atual (S${wom})` : `Semana ${wom}` };
+  }
+  // monthly
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth() - idx;
+  const start = new Date(Date.UTC(y, m, 1));
+  const end = new Date(Date.UTC(y, m + 1, 0));
+  return { start: fmtDate(start), end: fmtDate(end), label: idx === 0 ? 'Mês atual' : `M-${idx}` };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -198,7 +224,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Parse body once and enforce access code on every action.
     const reqBody = await req.json().catch(() => ({} as any));
     const accessCodeRaw = typeof reqBody.accessCode === 'string' ? reqBody.accessCode.trim() : '';
     if (!accessCodeRaw || accessCodeRaw.length < 4 || accessCodeRaw.length > 64) {
@@ -209,7 +234,6 @@ serve(async (req) => {
     }
     const accessCode = accessCodeRaw;
 
-    // Rate limit AI-expensive actions to prevent credit abuse.
     const expensiveActions = new Set(['analyze', 'generate-periodic', 'refresh-lists']);
     if (expensiveActions.has(action)) {
       const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -222,7 +246,6 @@ serve(async (req) => {
       }
     }
 
-
     // ========== DELETE ANALYSES ==========
     if (action === 'delete') {
       const { ids } = reqBody;
@@ -231,8 +254,6 @@ serve(async (req) => {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-
-      // Scope cascade deletes to rows owned by this access code only.
       const { data: ownedAnalyses } = await supabase
         .from('crypto_analyses')
         .select('id')
@@ -244,7 +265,6 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-
       await supabase.from('crypto_analysis_images').delete().in('analysis_id', ownedIds);
       const { data: subs } = await supabase
         .from('crypto_report_submissions')
@@ -262,8 +282,6 @@ serve(async (req) => {
         .in('id', ownedIds)
         .eq('access_code', accessCode);
       if (error) throw error;
-      const ids_count = ownedIds.length;
-
       return new Response(JSON.stringify({ success: true, deleted: ownedIds.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -271,203 +289,139 @@ serve(async (req) => {
 
     // ========== HISTORY ==========
     if (action === 'history') {
-      const { data: analyses, error } = await supabase
+      const region = reqBody.region ? normalizeRegion(reqBody.region) : null;
+      let q = supabase
         .from('crypto_analyses')
         .select('*, crypto_analysis_images(*)')
         .eq('access_code', accessCode)
         .order('created_at', { ascending: false })
         .limit(50);
+      if (region) q = q.eq('region', region);
+      const { data: analyses, error } = await q;
       if (error) throw error;
       return new Response(JSON.stringify({ analyses }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // ========== REPETITION RANKINGS ==========
+    // ========== RANKINGS (alta only, by region + window) ==========
     if (action === 'rankings') {
-      const { periodType, year, weekNumber } = reqBody;
+      const region = normalizeRegion(reqBody.region);
+      const periodType = (reqBody.periodType || 'weekly') as string;
+      const windowIndex = Number(reqBody.windowIndex || 0);
+      const win = resolveWindow(periodType, windowIndex);
 
-      let query = supabase
+      const { data: mentions, error } = await supabase
         .from('crypto_mentions')
-        .select('symbol, report_type')
-        .eq('access_code', accessCode);
-
-      if (periodType === 'weekly' && weekNumber && year) {
-        query = query.eq('week_number', weekNumber).eq('year', year);
-      }
-
-      const { data: mentions, error } = await query;
+        .select('symbol, report_type, region, report_date')
+        .eq('access_code', accessCode)
+        .eq('region', region)
+        .eq('report_type', 'alta')
+        .gte('report_date', win.start)
+        .lte('report_date', win.end);
       if (error) throw error;
 
-      // Separate into alta and baixa
-      const altaCounts: Record<string, number> = {};
-      const baixaCounts: Record<string, number> = {};
-
+      const counts: Record<string, number> = {};
       for (const m of (mentions || [])) {
-        if (m.report_type === 'alta') {
-          altaCounts[m.symbol] = (altaCounts[m.symbol] || 0) + 1;
-        } else if (m.report_type === 'baixa') {
-          baixaCounts[m.symbol] = (baixaCounts[m.symbol] || 0) + 1;
-        }
+        counts[m.symbol] = (counts[m.symbol] || 0) + 1;
       }
-
-      const altaRankings = Object.entries(altaCounts)
+      const altaRankings = Object.entries(counts)
         .map(([symbol, count]) => ({ symbol, count }))
         .sort((a, b) => b.count - a.count);
 
-      const baixaRankings = Object.entries(baixaCounts)
-        .map(([symbol, count]) => ({ symbol, count }))
-        .sort((a, b) => b.count - a.count);
-
-      // Also compute combined for backward compat
-      const allCounts: Record<string, { total: number; alta: number; baixa: number; volume: number }> = {};
-      for (const m of (mentions || [])) {
-        if (!allCounts[m.symbol]) allCounts[m.symbol] = { total: 0, alta: 0, baixa: 0, volume: 0 };
-        allCounts[m.symbol].total++;
-        if (m.report_type === 'alta') allCounts[m.symbol].alta++;
-        if (m.report_type === 'baixa') allCounts[m.symbol].baixa++;
-        if (m.report_type === 'volume') allCounts[m.symbol].volume++;
-      }
-      const rankings = Object.entries(allCounts)
-        .map(([symbol, c]) => ({ symbol, ...c }))
-        .sort((a, b) => b.total - a.total);
-
-      return new Response(JSON.stringify({ rankings, altaRankings, baixaRankings }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({
+        altaRankings,
+        window: { ...win, periodType, windowIndex, region },
+        totalMentions: mentions?.length || 0,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // ========== PERIODIC REPORTS ==========
+    // ========== PERIODIC REPORTS LIST ==========
     if (action === 'periodic-reports') {
-      const { data, error } = await supabase
+      const region = reqBody.region ? normalizeRegion(reqBody.region) : null;
+      let q = supabase
         .from('crypto_periodic_reports')
         .select('*')
         .eq('access_code', accessCode)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(40);
+      if (region) q = q.eq('region', region);
+      const { data, error } = await q;
       if (error) throw error;
       return new Response(JSON.stringify({ reports: data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // ========== GENERATE PERIODIC REPORT ==========
+    // ========== GENERATE PERIODIC REPORT (alta only, by region + window) ==========
     if (action === 'generate-periodic') {
-      const { periodType } = reqBody;
+      const region = normalizeRegion(reqBody.region);
+      const periodType = (reqBody.periodType || 'weekly') as string;
+      if (!['daily','weekly','monthly'].includes(periodType)) {
+        return new Response(JSON.stringify({ error: 'periodType deve ser daily, weekly ou monthly' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const windowIndex = Number(reqBody.windowIndex || 0);
+      const win = resolveWindow(periodType, windowIndex);
 
-      const now = new Date();
-      const currentWeek = getISOWeek(now);
-      const currentYear = now.getFullYear();
-
-      const periodToDays: Record<string, number> = {
-        three_days: 3, weekly: 7, biweekly: 15, triweekly: 21,
-        monthly: 30, bimonthly: 60, quarterly: 90, semiannual: 180, annual: 365,
-      };
-      const days = periodToDays[periodType];
-      if (!days) throw new Error('Tipo de período inválido');
-
-      const endDate = new Date(now);
-      const startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - (days - 1));
-      const periodStart = startDate.toISOString().split('T')[0];
-      const periodEnd = endDate.toISOString().split('T')[0];
-
-      const mentionsQuery = supabase
+      const { data: mentions, error: mError } = await supabase
         .from('crypto_mentions')
-        .select('symbol, report_type, report_date')
+        .select('symbol, report_type, report_date, region')
         .eq('access_code', accessCode)
-        .gte('report_date', periodStart)
-        .lte('report_date', periodEnd);
-
-      const { data: mentions, error: mError } = await mentionsQuery;
+        .eq('region', region)
+        .eq('report_type', 'alta')
+        .gte('report_date', win.start)
+        .lte('report_date', win.end);
       if (mError) throw mError;
 
-      // Separate LA and LB
-      const altaCounts: Record<string, number> = {};
-      const baixaCounts: Record<string, number> = {};
-
-      for (const m of (mentions || [])) {
-        if (m.report_type === 'alta') {
-          altaCounts[m.symbol] = (altaCounts[m.symbol] || 0) + 1;
-        } else if (m.report_type === 'baixa') {
-          baixaCounts[m.symbol] = (baixaCounts[m.symbol] || 0) + 1;
-        }
-      }
-
-      const altaRankings = Object.entries(altaCounts)
+      const counts: Record<string, number> = {};
+      for (const m of (mentions || [])) counts[m.symbol] = (counts[m.symbol] || 0) + 1;
+      const altaRankings = Object.entries(counts)
         .map(([symbol, count]) => ({ symbol, count }))
         .sort((a, b) => b.count - a.count);
 
-      const baixaRankings = Object.entries(baixaCounts)
-        .map(([symbol, count]) => ({ symbol, count }))
-        .sort((a, b) => b.count - a.count);
-
-      // Combined rankings for storage
-      const allCounts: Record<string, { total: number; alta: number; baixa: number; volume: number }> = {};
-      for (const m of (mentions || [])) {
-        if (!allCounts[m.symbol]) allCounts[m.symbol] = { total: 0, alta: 0, baixa: 0, volume: 0 };
-        allCounts[m.symbol].total++;
-        if (m.report_type === 'alta') allCounts[m.symbol].alta++;
-        if (m.report_type === 'baixa') allCounts[m.symbol].baixa++;
-        if (m.report_type === 'volume') allCounts[m.symbol].volume++;
-      }
-      const rankings = Object.entries(allCounts)
-        .map(([symbol, c]) => ({ symbol, ...c }))
-        .sort((a, b) => b.total - a.total);
+      const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
 
       let aiAnalysis = '';
       let aiModelUsed = 'none';
-
       if (rankings.length > 0) {
-        const periodLabels: Record<string, string> = {
-          three_days: '3 dias', weekly: '7 dias', biweekly: '15 dias', triweekly: '21 dias',
-          monthly: '30 dias', bimonthly: '60 dias', quarterly: '90 dias', semiannual: '180 dias', annual: '365 dias',
-        };
-
-        const laText = altaRankings.length > 0
-          ? `### Lista de Alta (LA)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
-          : '### Lista de Alta (LA)\nNenhum dado de alta no período.';
-
-        const lbText = baixaRankings.length > 0
-          ? `### Lista de Baixa (LB)\n${baixaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
-          : '### Lista de Baixa (LB)\nNenhum dado de baixa no período.';
-
+        const laText = `### Lista de Alta (LA)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Relatório consolidado de ${periodLabels[periodType] || periodType} (${periodStart} a ${periodEnd}).\n\n${laText}\n\n${lbText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de menções no período: ${mentions?.length || 0}\n\nAnalise os padrões, identifique destaques e inconsistências. Separe claramente LA e LB na resposta. Não use emojis.` },
+          { role: 'user', content: `Relatório consolidado.\nRegião: ${REGION_LABEL[region]}.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de menções no recorte: ${mentions?.length || 0}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Apenas LA. Não use emojis.` },
         ]);
-        if (aiResult.ok) {
-          aiAnalysis = aiResult.content;
-          aiModelUsed = aiResult.model;
-        }
+        if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
       }
 
       const { data: report, error: insertErr } = await supabase
         .from('crypto_periodic_reports')
         .insert({
           period_type: periodType,
-          period_start: periodStart!,
-          period_end: periodEnd,
-          year: currentYear,
-          week_number: currentWeek,
+          period_start: win.start,
+          period_end: win.end,
+          year: new Date().getFullYear(),
+          week_number: getISOWeek(new Date(win.start)),
           rankings: rankings as any,
-          summary: `LA: ${altaRankings.length} criptos | LB: ${baixaRankings.length} criptos`,
+          summary: `[${REGION_LABEL[region]}] ${win.label} — LA: ${altaRankings.length} criptos`,
           ai_analysis: aiAnalysis,
           access_code: accessCode || null,
+          region,
         })
         .select()
         .single();
-
       if (insertErr) throw insertErr;
 
-      return new Response(JSON.stringify({ report }), {
+      return new Response(JSON.stringify({ report, aiModelUsed }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // ========== ANALYZE (main) ==========
+    // ========== ANALYZE (main upload) ==========
     if (action === 'analyze') {
-      const { images, cryptoSymbols, title, reportType, sessionTime } = reqBody;
+      const region = normalizeRegion(reqBody.region);
+      const { images, cryptoSymbols, title, sessionTime } = reqBody;
+      // Force report type to 'alta' (RA) — RB removed.
+      const reportType = 'alta';
 
       if (!images || !Array.isArray(images) || images.length === 0) {
         return new Response(JSON.stringify({ error: 'Nenhuma imagem fornecida' }), {
@@ -481,7 +435,7 @@ serve(async (req) => {
       }
 
       if (!Deno.env.get('GEMINI_API_KEY') && !Deno.env.get('LOVABLE_API_KEY')) {
-        throw new Error('Nenhum provedor de IA configurado (GEMINI_API_KEY ou LOVABLE_API_KEY).');
+        throw new Error('Nenhum provedor de IA configurado.');
       }
 
       const uploadedImages: { url: string; name: string; base64: string }[] = [];
@@ -496,26 +450,23 @@ serve(async (req) => {
         uploadedImages.push({ url: urlData.publicUrl, name: img.name, base64: img.base64 });
       }
 
-      const reportTypeLabel = reportType === 'alta' ? 'RA (Relatório de Alta)' : reportType === 'baixa' ? 'RB (Relatório de Baixa)' : 'GERAL';
-
       const userContent: any[] = [
         {
           type: 'text',
-          text: `Analise os seguintes relatórios do CriptoEx. Este envio é do tipo: ${reportTypeLabel}.
-
-Os arquivos enviados são ${reportType === 'alta' ? 'Relatórios de Alta (RA)' : reportType === 'baixa' ? 'Relatórios de Baixa (RB)' : 'relatórios gerais'}.
+          text: `Analise os seguintes Relatórios de Alta (RA).
+Região deste envio: ${REGION_LABEL[region]}.
 
 Instruções:
-1. Identifique TODAS as criptomoedas presentes nos relatórios
+1. Identifique TODAS as criptomoedas presentes
 2. Conte as repetições de cada cripto
 3. Ordene por número de repetições (descendente)
-4. Gere a ${reportType === 'alta' ? 'Lista de Alta (LA)' : reportType === 'baixa' ? 'Lista de Baixa (LB)' : 'lista correspondente'}
+4. Gere a Lista de Alta (LA) deste envio
 5. Identifique destaques e inconsistências
 
 No INÍCIO da resposta, inclua:
 CRYPTOS_DETECTED: BTC,ETH,SOL,...
 
-Formato Markdown. Não use emojis.`,
+Formato Markdown. Não use emojis. Não cite Lista de Baixa.`,
         },
       ];
 
@@ -561,8 +512,7 @@ Formato Markdown. Não use emojis.`,
 
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const reportNames: Record<string, string> = { alta: 'Relatório de Alta (RA)', baixa: 'Relatório de Baixa (RB)', volume: 'Relatório de Alta de Volume' };
-      const standardTitle = title || `${dateStr} - ${reportNames[reportType] || 'Análise Geral'}`;
+      const standardTitle = title || `${dateStr} - RA ${region === 'asia' ? 'Ásia' : 'Ocidente'}`;
 
       const { data: analysis, error: insertError } = await supabase
         .from('crypto_analyses')
@@ -573,10 +523,10 @@ Formato Markdown. Não use emojis.`,
           crypto_symbols: allCryptos,
           ai_model_used: aiModelUsed,
           access_code: accessCode || null,
+          region,
         })
         .select()
         .single();
-
       if (insertError) throw insertError;
 
       for (const img of uploadedImages) {
@@ -587,103 +537,75 @@ Formato Markdown. Não use emojis.`,
         });
       }
 
-      if (reportType) {
-        const weekNumber = getISOWeek(now);
-        const year = now.getFullYear();
-        const reportDate = now.toISOString().split('T')[0];
+      const weekNumber = getISOWeek(now);
+      const year = now.getFullYear();
+      const reportDate = now.toISOString().split('T')[0];
 
-        const { data: submission } = await supabase
-          .from('crypto_report_submissions')
-          .insert({
-            analysis_id: analysis.id,
-            report_type: reportType,
-            report_date: reportDate,
-            session_time: sessionTime || (now.getHours() < 14 ? 'morning' : 'night'),
-            access_code: accessCode || null,
-          })
-          .select()
-          .single();
+      const { data: submission } = await supabase
+        .from('crypto_report_submissions')
+        .insert({
+          analysis_id: analysis.id,
+          report_type: reportType,
+          report_date: reportDate,
+          session_time: sessionTime || (now.getHours() < 14 ? 'morning' : 'night'),
+          access_code: accessCode || null,
+          region,
+        })
+        .select()
+        .single();
 
-        if (submission && allCryptos.length > 0) {
-          const mentionRows = allCryptos.map(symbol => ({
-            submission_id: submission.id,
-            symbol,
-            report_type: reportType,
-            report_date: reportDate,
-            week_number: weekNumber,
-            year,
-            access_code: accessCode || null,
-          }));
-          await supabase.from('crypto_mentions').insert(mentionRows);
-        }
+      if (submission && allCryptos.length > 0) {
+        const mentionRows = allCryptos.map(symbol => ({
+          submission_id: submission.id,
+          symbol,
+          report_type: reportType,
+          report_date: reportDate,
+          week_number: weekNumber,
+          year,
+          access_code: accessCode || null,
+          region,
+        }));
+        await supabase.from('crypto_mentions').insert(mentionRows);
       }
 
       return new Response(JSON.stringify({
         analysis: { ...analysis, images: uploadedImages, detectedCryptos: allCryptos },
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // ========== REFRESH LISTS (reprocess + AI consolidation for current week) ==========
+    // ========== REFRESH LISTS (region + window aware) ==========
     if (action === 'refresh-lists') {
-      const { periodType } = reqBody;
-      const targetPeriod = periodType || 'weekly';
+      const region = normalizeRegion(reqBody.region);
+      const periodType = (reqBody.periodType || 'weekly') as string;
+      if (!['daily','weekly','monthly'].includes(periodType)) {
+        return new Response(JSON.stringify({ error: 'periodType deve ser daily, weekly ou monthly' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const windowIndex = Number(reqBody.windowIndex || 0);
+      const win = resolveWindow(periodType, windowIndex);
 
-      const periodToDays: Record<string, number> = {
-        three_days: 3, weekly: 7, biweekly: 15, triweekly: 21,
-        monthly: 30, bimonthly: 60, quarterly: 90, semiannual: 180, annual: 365,
-      };
-      const days = periodToDays[targetPeriod] || 7;
-      const now = new Date();
-      const endDate = new Date(now);
-      const startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - (days - 1));
-      const periodStart = startDate.toISOString().split('T')[0];
-      const periodEnd = endDate.toISOString().split('T')[0];
-
-      const mentionsQuery = supabase
+      const { data: mentions, error: mErr } = await supabase
         .from('crypto_mentions')
-        .select('symbol, report_type, report_date')
+        .select('symbol, report_type, report_date, region')
         .eq('access_code', accessCode)
-        .gte('report_date', periodStart)
-        .lte('report_date', periodEnd);
-
-      const { data: mentions, error: mErr } = await mentionsQuery;
+        .eq('region', region)
+        .eq('report_type', 'alta')
+        .gte('report_date', win.start)
+        .lte('report_date', win.end);
       if (mErr) throw mErr;
 
-      const altaCounts: Record<string, number> = {};
-      const baixaCounts: Record<string, number> = {};
-      for (const m of (mentions || [])) {
-        if (m.report_type === 'alta') altaCounts[m.symbol] = (altaCounts[m.symbol] || 0) + 1;
-        else if (m.report_type === 'baixa') baixaCounts[m.symbol] = (baixaCounts[m.symbol] || 0) + 1;
-      }
-      const altaRankings = Object.entries(altaCounts).map(([symbol, count]) => ({ symbol, count })).sort((a, b) => b.count - a.count);
-      const baixaRankings = Object.entries(baixaCounts).map(([symbol, count]) => ({ symbol, count })).sort((a, b) => b.count - a.count);
-
-      const allCounts: Record<string, { total: number; alta: number; baixa: number; volume: number }> = {};
-      for (const m of (mentions || [])) {
-        if (!allCounts[m.symbol]) allCounts[m.symbol] = { total: 0, alta: 0, baixa: 0, volume: 0 };
-        allCounts[m.symbol].total++;
-        if (m.report_type === 'alta') allCounts[m.symbol].alta++;
-        if (m.report_type === 'baixa') allCounts[m.symbol].baixa++;
-        if (m.report_type === 'volume') allCounts[m.symbol].volume++;
-      }
-      const rankings = Object.entries(allCounts).map(([symbol, c]) => ({ symbol, ...c })).sort((a, b) => b.total - a.total);
+      const counts: Record<string, number> = {};
+      for (const m of (mentions || [])) counts[m.symbol] = (counts[m.symbol] || 0) + 1;
+      const altaRankings = Object.entries(counts).map(([symbol, count]) => ({ symbol, count })).sort((a, b) => b.count - a.count);
+      const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
 
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
-        const laText = altaRankings.length > 0
-          ? `### Lista de Alta (LA)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
-          : '### Lista de Alta (LA)\nNenhum dado de alta no período.';
-        const lbText = baixaRankings.length > 0
-          ? `### Lista de Baixa (LB)\n${baixaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`
-          : '### Lista de Baixa (LB)\nNenhum dado de baixa no período.';
-
+        const laText = `### Lista de Alta (LA)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Atualização solicitada das listas (${periodStart} a ${periodEnd}).\n\n${laText}\n\n${lbText}\n\nTotal de criptos: ${rankings.length}\nTotal de menções: ${mentions?.length || 0}\n\nReanalise os padrões atuais, identifique mudanças e destaques. Separe LA e LB. Não use emojis.` },
+          { role: 'user', content: `Atualização de listas.\nRegião: ${REGION_LABEL[region]}.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos: ${rankings.length}\nTotal de menções: ${mentions?.length || 0}\n\nReanalise os padrões atuais deste recorte isolado. Apenas LA. Não use emojis.` },
         ]);
         if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
       }
@@ -691,24 +613,24 @@ Formato Markdown. Não use emojis.`,
       const { data: report, error: insertErr } = await supabase
         .from('crypto_periodic_reports')
         .insert({
-          period_type: targetPeriod,
-          period_start: periodStart,
-          period_end: periodEnd,
-          year: now.getFullYear(),
-          week_number: getISOWeek(now),
+          period_type: periodType,
+          period_start: win.start,
+          period_end: win.end,
+          year: new Date().getFullYear(),
+          week_number: getISOWeek(new Date(win.start)),
           rankings: rankings as any,
-          summary: `[ATUALIZAÇÃO MANUAL] LA: ${altaRankings.length} criptos | LB: ${baixaRankings.length} criptos`,
+          summary: `[ATUALIZAÇÃO] [${REGION_LABEL[region]}] ${win.label} — LA: ${altaRankings.length} criptos`,
           ai_analysis: aiAnalysis,
           access_code: accessCode || null,
+          region,
         })
         .select()
         .single();
       if (insertErr) throw insertErr;
 
       return new Response(JSON.stringify({
-        success: true,
-        rankings, altaRankings, baixaRankings,
-        report, aiModelUsed,
+        success: true, altaRankings, report, aiModelUsed,
+        window: { ...win, periodType, windowIndex, region },
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
