@@ -22,6 +22,7 @@ export type Database = {
           crypto_symbols: string[] | null
           id: string
           period_type: string
+          region: string | null
           summary: string | null
           title: string
           user_id: string | null
@@ -33,6 +34,7 @@ export type Database = {
           crypto_symbols?: string[] | null
           id?: string
           period_type?: string
+          region?: string | null
           summary?: string | null
           title: string
           user_id?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           crypto_symbols?: string[] | null
           id?: string
           period_type?: string
+          region?: string | null
           summary?: string | null
           title?: string
           user_id?: string | null
@@ -90,6 +93,7 @@ export type Database = {
           access_code: string | null
           created_at: string
           id: string
+          region: string
           report_date: string
           report_type: string
           submission_id: string | null
@@ -102,6 +106,7 @@ export type Database = {
           access_code?: string | null
           created_at?: string
           id?: string
+          region?: string
           report_date: string
           report_type: string
           submission_id?: string | null
@@ -114,6 +119,7 @@ export type Database = {
           access_code?: string | null
           created_at?: string
           id?: string
+          region?: string
           report_date?: string
           report_type?: string
           submission_id?: string | null
@@ -142,6 +148,7 @@ export type Database = {
           period_start: string
           period_type: string
           rankings: Json
+          region: string
           summary: string | null
           user_id: string | null
           week_number: number | null
@@ -156,6 +163,7 @@ export type Database = {
           period_start: string
           period_type: string
           rankings?: Json
+          region?: string
           summary?: string | null
           user_id?: string | null
           week_number?: number | null
@@ -170,6 +178,7 @@ export type Database = {
           period_start?: string
           period_type?: string
           rankings?: Json
+          region?: string
           summary?: string | null
           user_id?: string | null
           week_number?: number | null
@@ -183,6 +192,7 @@ export type Database = {
           analysis_id: string | null
           created_at: string
           id: string
+          region: string
           report_date: string
           report_type: string
           session_time: string
@@ -193,6 +203,7 @@ export type Database = {
           analysis_id?: string | null
           created_at?: string
           id?: string
+          region?: string
           report_date?: string
           report_type: string
           session_time?: string
@@ -203,6 +214,7 @@ export type Database = {
           analysis_id?: string | null
           created_at?: string
           id?: string
+          region?: string
           report_date?: string
           report_type?: string
           session_time?: string
