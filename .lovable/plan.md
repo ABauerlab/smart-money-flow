@@ -1,61 +1,96 @@
-## Plano
+## Objetivo
 
-### 1. Reconfigurar mercados exibidos no dashboard
+Reestruturar a Análise IA em duas trilhas regionais independentes (Ásia e Ocidente), com visões Diária, Semanal e Mensal que mantêm somatórios separados por dia / semana 1-4 / mês 1-4 — sem nunca somar entre semanas ou entre meses. Remover todo o fluxo de Lista de Baixa (RB / LB) — passamos a tratar somente Alta.
 
-**Lista final (12 mercados):**
-- Ibovespa (BR) — já existe (Brapi proxy)
-- Petrobras PN (PETR4) — já existe (Brapi)
-- Bitcoin (BTC) — já existe (CoinMarketCap)
-- S&P 500 (SPY) — já existe (Alpha Vantage)
-- Nasdaq 100 (QQQ) — já existe (Alpha Vantage)
-- Nikkei 225 ETF (EWJ) — já existe (Alpha Vantage)
-- Mercado Europeu (VGK) — já existe (Alpha Vantage)
-- Petróleo Brent — já existe (Alpha Vantage commodity)
-- **DAX 40 (EWG ETF)** — novo, via Alpha Vantage
-- **NYSE Composite (NYA)** — novo, via Alpha Vantage (ETF VTI como proxy se NYA falhar)
-- **KOSPI (EWY ETF)** — novo, via Alpha Vantage (ETF iShares MSCI South Korea, proxy do KOSPI)
-- **BSE/Sensex (INDA ETF)** — novo, via Alpha Vantage (ETF iShares MSCI India, proxy do Sensex/BSE)
+## Modelo conceitual
 
-**Por que ETFs para os índices internacionais:** Alpha Vantage não retorna volume confiável para índices nativos como `^GDAXI`, `^KS11` ou `^BSESN` (mesmo motivo pelo qual hoje usamos EWJ para Nikkei e VGK para Europa). ETFs americanos do mesmo país têm volume real diário e são a melhor proxy de fluxo institucional disponível na cota gratuita.
+Cada relatório enviado passa a ter dois atributos novos:
 
-**Remover:** Tudo que não está na lista — Forex (USD-BRL, EUR-BRL), Ouro Spot (XAU-USD), e as criptos extras (ETH, SOL, XRP, BNB, ADA, DOGE). Manter apenas BTC.
+- **region**: `asia` | `west` (Ocidente = Europa + Américas)
+- **report_type**: fixado em `alta` (sem mais `baixa` nem `volume` no fluxo)
 
-### 2. Renomear "Smart Money" → "Fluxo dos Mercados"
+Cadência de envio esperada (segunda a sexta):
+- 2 relatórios Asiáticos (A) + 2 relatórios Ocidentais (O) por dia
+- Sábado/domingo não contam para a janela semanal
 
-Substituir em:
-- `src/index.css` (comentário do tema)
-- `src/pages/Glossary.tsx` (subtítulo)
-- `src/lib/glossaryData.ts` (definições "Volume Relativo", "Conviction Score", e o termo "Dinheiro Grosso (Smart Money)" → "Dinheiro Grosso (Fluxo dos Mercados)")
-- `src/components/dashboard/NewsPanel.tsx` (corrigir também o typo "Smart Nelson")
-- `src/hooks/useNotifications.ts` (chaves localStorage `smartmoney_sound` e `smartmoney_notifications` → `fluxomercados_sound` / `fluxomercados_notifications`, com migração: ler valor antigo na primeira execução e copiar para a nova chave para não perder a preferência do usuário)
+## Fluxo de navegação
 
-### 3. Edge function `market-data`
+```text
+/analise-ia
+  └── Escolher Região  ──►  [ Mercado Asiático ]   [ Mercado Ocidental ]
+                                     │                       │
+                                     ▼                       ▼
+                              Tabs por região:  Diária | Semanal | Mensal
+```
 
-- Adicionar 4 novos targets em `avTargets`: EWG (DAX), NYA (NYSE), EWY (KOSPI), INDA (BSE).
-- Remover chamadas a `fetchForex` (USD-BRL, EUR-BRL, XAU-USD).
-- Reduzir `CRYPTO_SPECS` para apenas BTC.
-- Limpar entradas obsoletas do cache `market_data_cache` (USDBRL, EURBRL, XAUUSD, ETH, SOL, XRP, BNB, ADA, DOGE) via migração SQL.
-- Atualizar `ASSET_KEYWORDS` (NewsAPI): remover Dólar/Real, Euro/Real, Ouro, ETH, SOL, XRP, BNB, ADA, DOGE; adicionar entradas para DAX, NYSE, KOSPI/Coréia, BSE/Sensex/Índia.
-- Como vamos passar de 4 para 8 chamadas Alpha Vantage por refresh (limite 25/dia, 5/min) o cache TTL de 6h continua confortável (4 refreshes/dia × 8 = 32 — ajustar TTL para 8h para ficar dentro da cota com folga, ou manter 6h aceitando que ocasionalmente algum índice volta do cache via merge stale, que já é o comportamento atual).
-- Manter delay de 1.5s entre chamadas AV (já implementado).
+### Visão Diária
+- Mostra o dia atual + lista de dias anteriores (cada dia abre/fecha individualmente)
+- Cada card de dia exibe a soma de menções daquele dia, isolada
 
-### 4. Mock data e notas
+### Visão Semanal
+- Cabeçalho: "Semana atual" (segunda → sexta corrente) com soma própria
+- Abaixo: cards "Semana 1", "Semana 2", "Semana 3", "Semana 4" do mês corrente
+- Cada semana é um acordeão independente — nada é somado entre semanas
+- "Semana 1" = primeira semana ISO do mês, e assim por diante
 
-- Atualizar `src/lib/mockData.ts` para refletir a nova lista (fallback quando API falha) e remover entradas que não existem mais.
+### Visão Mensal
+- Cabeçalho: "Mês atual" com a soma das semanas 1–4 do mês corrente
+- Abaixo: cards "Mês 1", "Mês 2", "Mês 3", "Mês 4" (últimos 4 meses, isolados)
+- Cada mês abre e mostra o ranking consolidado **apenas daquele mês**
 
-### Detalhes técnicos
+## Mudanças no schema (Lovable Cloud)
 
-- `BDR_FALLBACKS` continua cobrindo SPY/QQQ via IVVB11/NASD11. Não há BDRs diretos para DAX/NYSE/KOSPI/BSE no Brasil com liquidez relevante via Brapi free, então se Alpha Vantage falhar esses ficarão temporariamente do cache stale (comportamento atual já faz merge).
-- Migração SQL: `DELETE FROM market_data_cache WHERE id IN ('usdbrl','eurbrl','xauusd','eth','sol','xrp','bnb','ada','doge');`
-- A renomeação de chaves localStorage inclui código de migração one-shot em `useNotifications.ts` para preservar preferências.
+- `crypto_mentions`: adicionar `region text not null default 'west'` e índice em `(access_code, region, report_date)`
+- `crypto_report_submissions`: adicionar `region text not null default 'west'`
+- `crypto_analyses`: adicionar `region text` (nullable, para histórico)
+- `crypto_periodic_reports`: adicionar `region text not null default 'west'`; índice em `(access_code, region, period_type, period_start)`
+- Backfill: registros existentes recebem `region = 'west'` (podem ser revisados depois pelo usuário)
+- Remover do fluxo: nenhum drop de coluna `report_type`, mas a aplicação passa a ignorar/recusar valores != 'alta'
 
-### Arquivos a editar
+## Mudanças na Edge Function `crypto-analysis`
 
-- `supabase/functions/market-data/index.ts`
-- `src/lib/mockData.ts`
-- `src/index.css`
-- `src/pages/Glossary.tsx`
-- `src/lib/glossaryData.ts`
-- `src/components/dashboard/NewsPanel.tsx`
-- `src/hooks/useNotifications.ts`
-- nova migração SQL para limpar cache
+- `analyze` e `refresh-lists`: passam a aceitar e exigir `region`
+- `rankings`: novo parâmetro `region`; retorna apenas `altaRankings` (LB removido)
+- `generate-periodic`: aceita `region` + `periodType` ∈ `daily | weekly | monthly`; salva relatório periódico isolado por janela (dia / semana N do mês / mês N)
+- Novo endpoint conceitual (ou parâmetro): `windowIndex` para identificar Semana 1-4 e Mês 1-4
+- System Prompt do Consolidador CriptoEx Pro: remover toda menção a RB/LB, manter apenas RA/LA; instrução adicional para respeitar `region` e nunca misturar Ásia ↔ Ocidente
+- Saída do prompt: remove tabela LB, mantém só LA
+
+## Mudanças no frontend
+
+- `src/pages/CryptoAnalysis.tsx`
+  - Nova tela inicial: seletor de região (2 cards grandes: Ásia / Ocidente)
+  - Após escolher, abre painel da região com Tabs `Diária | Semanal | Mensal`
+  - Aba "Enviar" passa a exigir seleção de região antes do envio
+  - Remover botões de tipo "Baixa" e "Volume" (manter só Alta, ou remover o seletor inteiro já que é único)
+- `src/hooks/useCryptoAnalysis.ts`
+  - Adicionar `region` em todas as chamadas (`submitAnalysis`, `rankings`, `refreshLists`, `generatePeriodicReport`)
+  - Remover `baixaRankings` do retorno
+- Componentes:
+  - `RepetitionDashboard.tsx`: remover Tab "Lista de Baixa", manter só LA; renomear para refletir período (diário/semanal/mensal)
+  - Criar `DailyView`, `WeeklyView`, `MonthlyView` (acordeões por janela isolada)
+  - `PeriodicReportsView.tsx`: simplificar — apenas 3 períodos (Diário/Semanal/Mensal) e remover renderização de LB
+  - `AnalysisHistory.tsx`: exibir badge da região
+- Remover constantes/labels de "Baixa" e "RB" em todos os componentes e tooltips
+
+## Tooltips e textos
+
+- Atualizar todos os textos explicativos para refletir: 2 envios A + 2 envios O por dia útil, somatórios isolados por dia/semana/mês, foco exclusivo em Alta
+- Glossário (`src/lib/glossaryData.ts`): remover entradas de RB/LB se existirem; adicionar entradas para "Mercado Asiático", "Mercado Ocidental", "Semana isolada", "Mês isolado"
+
+## Detalhes técnicos
+
+- Cálculo de "Semana N do mês": usar `Math.ceil(dayOfMonth / 7)` limitado a 1–4 (5ª semana parcial agrega na 4)
+- Cálculo de "Mês N": índice 1–4 dos últimos 4 meses calendário a partir do mês atual (Mês 1 = mais antigo, Mês 4 = mais recente — confirmar com o usuário se preferir invertido)
+- Janela semanal: segunda 00:00 → sexta 23:59 do fuso `America/Sao_Paulo`
+- Cache de rankings invalidado por `[region, periodType, windowIndex]`
+
+## Pontos a confirmar antes de implementar
+
+1. "Mês 1, Mês 2, Mês 3, Mês 4" é **dentro do ano corrente** (Jan/Fev/Mar/Abr) ou são os **últimos 4 meses corridos** (deslizante)?
+2. O usuário quer que envios já existentes sejam tratados como `region = 'west'` por padrão, ou prefere uma tela única de revisão para reclassificar?
+3. Devemos remover fisicamente do banco os registros antigos com `report_type = 'baixa'`, ou apenas escondê-los da UI?
+
+## Entregável
+
+Após aprovação: migrações + edge function atualizada + refatoração da página `CryptoAnalysis` + componentes de visão Diária/Semanal/Mensal por região, com todo o fluxo de Baixa removido da UI.
