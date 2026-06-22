@@ -50,6 +50,8 @@ const Glossary = () => {
           Entenda os termos técnicos e métricas utilizadas para rastrear o fluxo de dinheiro institucional (Fluxo dos Mercados) nos mercados globais.
         </motion.p>
 
+        <h2 className="text-xl font-semibold text-foreground mb-6">Termos e Métricas</h2>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {glossaryData.map((entry, index) => (
             <GlossaryItem key={index} entry={entry} />
