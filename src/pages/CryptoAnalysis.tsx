@@ -1,26 +1,16 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BrainCircuit, Loader2, Send, Sun, Moon, LogOut, ImagePlus, Globe2, Building2 } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, Loader2, Send, LogOut, FileSpreadsheet, CalendarDays } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { ImageUploader } from '@/components/analysis/ImageUploader';
+import { CsvUploader, type ParsedCsvFile } from '@/components/analysis/CsvUploader';
 import { AnalysisReport } from '@/components/analysis/AnalysisReport';
 import { AnalysisHistory } from '@/components/analysis/AnalysisHistory';
 import { WindowAccordion } from '@/components/analysis/WindowAccordion';
-import { useCryptoAnalysis, type Region, type PeriodType } from '@/hooks/useCryptoAnalysis';
+import { useCryptoAnalysis, type PeriodType } from '@/hooks/useCryptoAnalysis';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { InfoTooltip } from '@/components/ui/info-tooltip';
-
-interface UploadedImage { name: string; base64: string; type: string; preview: string; }
-
-const POPULAR_CRYPTOS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'AVAX', 'DOT', 'MATIC'];
-
-const REGIONS: { value: Region; label: string; subtitle: string; icon: any }[] = [
-  { value: 'asia', label: 'Mercado Asiático', subtitle: 'Relatórios da Ásia (A)', icon: Globe2 },
-  { value: 'west', label: 'Mercado Ocidental', subtitle: 'Europa + Américas (O)', icon: Building2 },
-];
 
 const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
   const [code, setCode] = useState('');
@@ -38,38 +28,12 @@ const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
   );
 };
 
-const RegionPicker = ({ onPick }: { onPick: (r: Region) => void }) => (
-  <div className="container py-10 max-w-3xl">
-    <div className="text-center mb-6">
-      <h2 className="text-xl font-bold gradient-text mb-1">Escolha a região</h2>
-      <p className="text-sm text-muted-foreground">Os relatórios da Ásia e do Ocidente são analisados separadamente.</p>
-    </div>
-    <div className="grid sm:grid-cols-2 gap-4">
-      {REGIONS.map(r => {
-        const Icon = r.icon;
-        return (
-          <button
-            key={r.value}
-            onClick={() => onPick(r.value)}
-            className="group relative p-6 rounded-2xl border-2 border-border/50 bg-card hover:border-primary hover:bg-primary/5 transition-all text-left"
-          >
-            <Icon className="w-10 h-10 text-primary mb-3" />
-            <h3 className="text-lg font-bold text-foreground">{r.label}</h3>
-            <p className="text-xs text-muted-foreground mt-1">{r.subtitle}</p>
-            <span className="absolute top-3 right-3 text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-              {r.value === 'asia' ? 'A' : 'O'}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  </div>
-);
+const MONTHS_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 
 // Build window list per period type
 function buildWindows(periodType: PeriodType): { index: number; label: string }[] {
+  const now = new Date();
   if (periodType === 'daily') {
-    // Today + last 6 days
     const out = [{ index: 0, label: 'Hoje' }];
     for (let i = 1; i <= 6; i++) {
       const d = new Date(); d.setDate(d.getDate() - i);
@@ -79,50 +43,43 @@ function buildWindows(periodType: PeriodType): { index: number; label: string }[
     return out;
   }
   if (periodType === 'weekly') {
-    return [
-      { index: 0, label: 'Semana atual' },
-      { index: 1, label: 'Semana anterior' },
-      { index: 2, label: 'Semana -2' },
-      { index: 3, label: 'Semana -3' },
-    ];
+    const out: { index: number; label: string }[] = [];
+    for (let i = 0; i < 6; i++) {
+      const ref = new Date(now); ref.setDate(ref.getDate() - i * 7);
+      const dow = ref.getDay() || 7;
+      const monday = new Date(ref); monday.setDate(ref.getDate() - (dow - 1));
+      const wom = Math.min(4, Math.ceil(monday.getDate() / 7));
+      out.push({ index: i, label: `SEMANA ${wom} - ${MONTHS_PT[monday.getMonth()]}` });
+    }
+    return out;
   }
   // monthly
-  return [
-    { index: 0, label: 'Mês atual' },
-    { index: 1, label: 'Mês anterior' },
-    { index: 2, label: 'Mês -2' },
-    { index: 3, label: 'Mês -3' },
-  ];
+  const out: { index: number; label: string }[] = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push({ index: i, label: `${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}` });
+  }
+  return out;
 }
 
-const RegionPanel = ({ region, onBack, accessCode, onLogout }: { region: Region; onBack: () => void; accessCode: string; onLogout: () => void }) => {
-  const [images, setImages] = useState<UploadedImage[]>([]);
-  const [selectedCryptos, setSelectedCryptos] = useState<string[]>([]);
-  const [customCrypto, setCustomCrypto] = useState('');
+const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout: () => void }) => {
+  const [files, setFiles] = useState<ParsedCsvFile[]>([]);
   const [title, setTitle] = useState('');
-  const [sessionTime, setSessionTime] = useState<string>(new Date().getHours() < 14 ? 'morning' : 'night');
+  const [reportDate, setReportDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [currentReport, setCurrentReport] = useState<any>(null);
-  const [periodType, setPeriodType] = useState<PeriodType>('daily');
+  const [periodType, setPeriodType] = useState<PeriodType>('weekly');
 
-  const {
-    isAnalyzing, submitAnalysis, history, isLoadingHistory,
-    deleteAnalyses, isDeleting,
-  } = useCryptoAnalysis({ region });
+  const { isAnalyzing, submitCsv, history, isLoadingHistory, deleteAnalyses, isDeleting } = useCryptoAnalysis();
 
   const windows = useMemo(() => buildWindows(periodType), [periodType]);
+  const totalRows = files.reduce((s, f) => s + f.rows.length, 0);
 
-  const toggleCrypto = (s: string) => setSelectedCryptos(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
-  const addCustomCrypto = () => {
-    const v = customCrypto.trim().toUpperCase();
-    if (v && !selectedCryptos.includes(v)) { setSelectedCryptos(p => [...p, v]); setCustomCrypto(''); }
-  };
   const handleSubmit = async () => {
-    if (images.length === 0) return;
-    const r = await submitAnalysis(images, selectedCryptos, title, sessionTime);
-    if (r) { setCurrentReport(r); setImages([]); }
+    if (files.length === 0) return;
+    const rows = files.flatMap(f => f.rows);
+    const r = await submitCsv(rows, reportDate, title, files.length);
+    if (r) { setCurrentReport(r); setFiles([]); setTitle(''); }
   };
-
-  const regionLabel = region === 'asia' ? 'Mercado Asiático' : 'Mercado Ocidental';
 
   return (
     <div className="min-h-screen bg-background">
@@ -134,14 +91,11 @@ const RegionPanel = ({ region, onBack, accessCode, onLogout }: { region: Region;
           </Link>
           <Logo />
           <div>
-            <h1 className="text-lg font-bold">
-              <span className="gradient-text">{regionLabel}</span>
-            </h1>
-            <p className="text-xs text-muted-foreground">Apenas Lista de Alta (LA) • RA</p>
+            <h1 className="text-lg font-bold gradient-text">Análise IA</h1>
+            <p className="text-xs text-muted-foreground">Consolidador CriptoEx — mercado geral de cripto</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={onBack} className="h-7 gap-1 text-xs">Trocar região</Button>
           <span className="text-xs text-muted-foreground hidden sm:inline">Código: {accessCode.slice(0, 2)}***</span>
           <Button size="sm" variant="ghost" onClick={onLogout} className="h-7 gap-1 text-xs">
             <LogOut className="w-3 h-3" /> Sair
@@ -153,7 +107,7 @@ const RegionPanel = ({ region, onBack, accessCode, onLogout }: { region: Region;
         <Tabs defaultValue="dashboard" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 bg-card/50">
             <TabsTrigger value="dashboard">📊 Listas</TabsTrigger>
-            <TabsTrigger value="upload">📤 Enviar RA</TabsTrigger>
+            <TabsTrigger value="upload">📤 Enviar</TabsTrigger>
             <TabsTrigger value="history">📋 Histórico</TabsTrigger>
           </TabsList>
 
@@ -161,8 +115,8 @@ const RegionPanel = ({ region, onBack, accessCode, onLogout }: { region: Region;
           <TabsContent value="dashboard" className="space-y-4">
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground space-y-1">
               <p className="font-semibold text-foreground">Como funciona</p>
-              <p>Cadência esperada: <strong>2 envios da Ásia + 2 envios do Ocidente</strong> por dia útil (seg-sex).</p>
-              <p>Cada recorte (dia, semana, mês) é <strong>isolado</strong> — não somamos resultados entre semanas nem entre meses.</p>
+              <p>Cadência: <strong>4 relatórios/dia</strong> — 05:00 Londres, 10:30 América, 13:30 América, 21:00 Ásia (consolidados ~22h).</p>
+              <p>A semana vai de <strong>segunda a sexta</strong>; na sexta o somatório fecha e na segunda recomeça do zero.</p>
             </div>
 
             <div className="flex gap-2">
@@ -180,33 +134,23 @@ const RegionPanel = ({ region, onBack, accessCode, onLogout }: { region: Region;
               ))}
             </div>
 
-            <WindowAccordion region={region} periodType={periodType} windows={windows} />
+            <WindowAccordion periodType={periodType} windows={windows} />
           </TabsContent>
 
           {/* UPLOAD */}
           <TabsContent value="upload" className="space-y-4">
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground space-y-1">
-              <p className="font-semibold text-foreground">Envio de Relatório de Alta (RA)</p>
-              <p>Este envio será classificado como <strong>{regionLabel}</strong>. Para enviar para a outra região, troque no topo.</p>
+              <p className="font-semibold text-foreground">Envio de relatórios (.CSV)</p>
+              <p>O sistema soma a coluna <strong>REPETIÇÃO</strong> de cada cripto, sem alterar valores. Colunas: CRIPTO, REPETIÇÃO, DATA, HORA, RANK.</p>
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground font-medium flex items-center">
-                Período do envio:
-                <InfoTooltip text="Manhã = antes das 14h. Noite = após 14h. Ajuda a rastrear padrões entre sessões." />
-              </p>
-              <div className="flex gap-2">
-                <button onClick={() => setSessionTime('morning')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1
-                    ${sessionTime === 'morning' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card/50 text-muted-foreground border-border/30 hover:border-primary/50'}`}>
-                  <Sun className="w-3 h-3" /> Manhã
-                </button>
-                <button onClick={() => setSessionTime('night')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1
-                    ${sessionTime === 'night' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card/50 text-muted-foreground border-border/30 hover:border-primary/50'}`}>
-                  <Moon className="w-3 h-3" /> Noite
-                </button>
-              </div>
+              <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                <CalendarDays className="w-3.5 h-3.5" /> Data dos relatórios deste envio:
+              </label>
+              <Input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)}
+                className="bg-card border-border/50 w-full sm:w-56" />
+              <p className="text-[11px] text-muted-foreground/70">Usada quando a coluna DATA do CSV estiver vazia.</p>
             </div>
 
             <Input placeholder="Título (opcional — gerado automaticamente)" value={title} onChange={e => setTitle(e.target.value)} className="bg-card border-border/50" />
@@ -214,40 +158,22 @@ const RegionPanel = ({ region, onBack, accessCode, onLogout }: { region: Region;
             <div className="rounded-xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 space-y-3 shadow-lg shadow-primary/10">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-primary/20"><ImagePlus className="w-5 h-5 text-primary" /></div>
+                  <div className="p-2 rounded-lg bg-primary/20"><FileSpreadsheet className="w-5 h-5 text-primary" /></div>
                   <div>
-                    <h3 className="text-sm font-bold text-foreground">Imagens da Análise</h3>
-                    <p className="text-[11px] text-muted-foreground">Anexe os prints do Relatório de Alta (RA)</p>
+                    <h3 className="text-sm font-bold text-foreground">Arquivos CSV</h3>
+                    <p className="text-[11px] text-muted-foreground">Anexe um ou mais relatórios .CSV</p>
                   </div>
                 </div>
                 <span className="text-xs font-mono px-2 py-1 rounded-md bg-primary/15 text-primary">
-                  {images.length} {images.length === 1 ? 'imagem' : 'imagens'}
+                  {files.length} arquivo(s) • {totalRows} linha(s)
                 </span>
               </div>
-              <ImageUploader images={images} onImagesChange={setImages} disabled={isAnalyzing} />
+              <CsvUploader files={files} onFilesChange={setFiles} disabled={isAnalyzing} />
             </div>
 
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Criptos em foco (opcional — IA detecta automaticamente):</p>
-              <div className="flex flex-wrap gap-2">
-                {POPULAR_CRYPTOS.map(c => (
-                  <button key={c} onClick={() => toggleCrypto(c)}
-                    className={`px-3 py-1 rounded-full text-xs font-mono transition-colors
-                      ${selectedCryptos.includes(c) ? 'bg-primary text-primary-foreground' : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'}`}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Input placeholder="Adicionar outra cripto..." value={customCrypto} onChange={e => setCustomCrypto(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addCustomCrypto()} className="bg-card border-border/50 text-sm h-8" />
-                <Button size="sm" variant="outline" onClick={addCustomCrypto} className="h-8">+</Button>
-              </div>
-            </div>
-
-            <Button onClick={handleSubmit} disabled={images.length === 0 || isAnalyzing} className="w-full gap-2">
-              {isAnalyzing ? <><Loader2 className="w-4 h-4 animate-spin" /> Analisando com IA...</>
-                : <><Send className="w-4 h-4" /> Enviar RA — {regionLabel} ({images.length} {images.length === 1 ? 'imagem' : 'imagens'})</>}
+            <Button onClick={handleSubmit} disabled={files.length === 0 || isAnalyzing} className="w-full gap-2">
+              {isAnalyzing ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
+                : <><Send className="w-4 h-4" /> Enviar ({totalRows} linha{totalRows === 1 ? '' : 's'})</>}
             </Button>
 
             {currentReport && (
@@ -257,7 +183,6 @@ const RegionPanel = ({ region, onBack, accessCode, onLogout }: { region: Region;
                   summary={currentReport.summary}
                   createdAt={currentReport.created_at}
                   cryptoSymbols={currentReport.crypto_symbols || currentReport.detectedCryptos || []}
-                  images={currentReport.images?.map((i: any) => ({ image_url: i.url, image_name: i.name }))}
                 />
               </motion.div>
             )}
@@ -275,10 +200,6 @@ const RegionPanel = ({ region, onBack, accessCode, onLogout }: { region: Region;
 
 const CryptoAnalysis = () => {
   const [accessCode, setAccessCode] = useState(() => localStorage.getItem('crypto_access_code') || '');
-  const [region, setRegion] = useState<Region | null>(() => {
-    const r = localStorage.getItem('crypto_region');
-    return r === 'asia' || r === 'west' ? r : null;
-  });
 
   if (!accessCode) {
     return <AccessCodeGate onAccess={code => { localStorage.setItem('crypto_access_code', code); setAccessCode(code); }} />;
@@ -286,35 +207,10 @@ const CryptoAnalysis = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('crypto_access_code');
-    localStorage.removeItem('crypto_region');
-    setAccessCode(''); setRegion(null);
+    setAccessCode('');
   };
 
-  if (!region) {
-    return (
-      <div className="min-h-screen bg-background">
-        <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-50">
-          <div className="flex items-center gap-3">
-            <Link to="/dashboard" className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
-              <ArrowLeft className="w-4 h-4 text-muted-foreground" />
-            </Link>
-            <Logo />
-            <div>
-              <h1 className="text-lg font-bold gradient-text">Análise IA</h1>
-              <p className="text-xs text-muted-foreground">Consolidador CriptoEx</p>
-            </div>
-          </div>
-          <Button size="sm" variant="ghost" onClick={handleLogout} className="h-7 gap-1 text-xs">
-            <LogOut className="w-3 h-3" /> Sair
-          </Button>
-        </motion.header>
-        <RegionPicker onPick={r => { localStorage.setItem('crypto_region', r); setRegion(r); }} />
-      </div>
-    );
-  }
-
-  return <RegionPanel region={region} onBack={() => { localStorage.removeItem('crypto_region'); setRegion(null); }} accessCode={accessCode} onLogout={handleLogout} />;
+  return <AnalysisPanel accessCode={accessCode} onLogout={handleLogout} />;
 };
 
 export default CryptoAnalysis;
