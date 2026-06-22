@@ -35,6 +35,8 @@ function normalizeRegion(r: any): 'asia' | 'west' {
 
 const REGION_LABEL: Record<string,string> = { asia: 'Mercado Asiático', west: 'Mercado Ocidental (Europa + Américas)' };
 
+const MONTHS_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+
 const SYSTEM_PROMPT = `Você é o Consolidador CriptoEx Pro, responsável pela consolidação de relatórios de criptoativos da plataforma Fluxo Dos Mercados.
 
 ## ESCOPO
