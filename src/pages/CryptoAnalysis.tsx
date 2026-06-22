@@ -228,7 +228,7 @@ const CryptoAnalysis = () => {
     setAccessCode('');
   };
 
-  return <AnalysisPanel accessCode={accessCode} onLogout={handleLogout} />;
+  return <>{seo}<AnalysisPanel accessCode={accessCode} onLogout={handleLogout} /></>;
 };
 
 export default CryptoAnalysis;
