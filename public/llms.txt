@@ -1,0 +1,12 @@
+# Fluxo Dos Mercados
+
+> Plataforma de análise de fluxo institucional em tempo real para os mercados Cripto, EUA (S&P 500, NASDAQ) e Bovespa, com detecção de anomalias de volume (Smart Money) e análise de IA.
+
+Fluxo Dos Mercados rastreia o posicionamento institucional ("dinheiro inteligente") através de anomalias de volume, classificando movimentos como Acumulação, Distribuição, Exaustão, Risk-On e Risk-Off.
+
+## Pages
+
+- [Início](/): Visão geral da plataforma e seus recursos de análise de fluxo institucional.
+- [Dashboard](/dashboard): Painel em tempo real com fluxo de mercado, anomalias de volume e classificações Smart Money.
+- [Glossário](/glossario): Definições dos termos técnicos e métricas usadas para rastrear o fluxo de dinheiro institucional.
+- [Análise IA](/analise-ia): Ferramenta de análise de criptomoedas baseada em IA com relatórios diários, semanais e mensais.
