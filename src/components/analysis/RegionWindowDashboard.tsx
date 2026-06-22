@@ -48,7 +48,7 @@ export const RegionWindowDashboard = ({
         <div className="text-center py-8 text-muted-foreground">
           <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-40" />
           <p className="text-sm">Nenhum dado neste recorte</p>
-          <p className="text-xs mt-1">Envie relatórios RA na aba "Enviar"</p>
+          <p className="text-xs mt-1">Envie arquivos .CSV na aba "Enviar"</p>
         </div>
       ) : (
         <div className="space-y-1.5">
