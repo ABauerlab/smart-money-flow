@@ -3,10 +3,27 @@ import { BookOpenText, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { GlossaryItem } from '@/components/GlossaryItem';
 import { glossaryData } from '@/lib/glossaryData';
+import { Seo } from '@/components/Seo';
 
 const Glossary = () => {
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: glossaryData.map((entry) => ({
+      "@type": "Question",
+      name: entry.term,
+      acceptedAnswer: { "@type": "Answer", text: entry.definition },
+    })),
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title="Glossário | Fluxo Dos Mercados"
+        description="Definições dos termos técnicos e métricas usadas para rastrear o fluxo de dinheiro institucional: Volume Relativo, Z-Score, Acumulação, Distribuição e mais."
+        path="/glossario"
+        jsonLd={faqJsonLd}
+      />
       <header className="border-b border-border/50 px-6 py-4">
         <div className="container flex items-center justify-between">
           <div className="flex items-center gap-3">
