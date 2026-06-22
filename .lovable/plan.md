@@ -1,96 +1,47 @@
-## Objetivo
+# Reformulação da Análise IA
 
-Reestruturar a Análise IA em duas trilhas regionais independentes (Ásia e Ocidente), com visões Diária, Semanal e Mensal que mantêm somatórios separados por dia / semana 1-4 / mês 1-4 — sem nunca somar entre semanas ou entre meses. Remover todo o fluxo de Lista de Baixa (RB / LB) — passamos a tratar somente Alta.
+Objetivo: um único mercado geral de cripto (sem escolher região), ingestão por arquivos **.CSV**, somatório real da coluna REPETIÇÃO, semanas seg→sex que zeram toda segunda, e relatório mensal automático.
 
-## Modelo conceitual
-
-Cada relatório enviado passa a ter dois atributos novos:
-
-- **region**: `asia` | `west` (Ocidente = Europa + Américas)
-- **report_type**: fixado em `alta` (sem mais `baixa` nem `volume` no fluxo)
-
-Cadência de envio esperada (segunda a sexta):
-- 2 relatórios Asiáticos (A) + 2 relatórios Ocidentais (O) por dia
-- Sábado/domingo não contam para a janela semanal
-
-## Fluxo de navegação
+## Formato do CSV enviado
+Cada arquivo terá sempre estas colunas:
 
 ```text
-/analise-ia
-  └── Escolher Região  ──►  [ Mercado Asiático ]   [ Mercado Ocidental ]
-                                     │                       │
-                                     ▼                       ▼
-                              Tabs por região:  Diária | Semanal | Mensal
+A: CRIPTO   B: REPETIÇÃO   C: DATA   D: HORA   E: RANK
 ```
 
-### Visão Diária
-- Mostra o dia atual + lista de dias anteriores (cada dia abre/fecha individualmente)
-- Cada card de dia exibe a soma de menções daquele dia, isolada
+O sistema lê 100% das linhas e soma os valores da coluna B (REPETIÇÃO) por cripto, sem alterar nada — exatamente como o prompt pede: "Ordene os ativos... conforme o número total de repetições e a soma das repetições da coluna 2".
 
-### Visão Semanal
-- Cabeçalho: "Semana atual" (segunda → sexta corrente) com soma própria
-- Abaixo: cards "Semana 1", "Semana 2", "Semana 3", "Semana 4" do mês corrente
-- Cada semana é um acordeão independente — nada é somado entre semanas
-- "Semana 1" = primeira semana ISO do mês, e assim por diante
+## 1. Remover região
+- Tira a tela de escolha (RegionPicker) e o cabeçalho "Mercado Asiático/Ocidental".
+- Hook e edge function param de enviar/filtrar `region` (coluna fica no banco, ignorada).
+- Abre direto no painel único com as abas: **Listas** e **Enviar** e **Histórico**.
 
-### Visão Mensal
-- Cabeçalho: "Mês atual" com a soma das semanas 1–4 do mês corrente
-- Abaixo: cards "Mês 1", "Mês 2", "Mês 3", "Mês 4" (últimos 4 meses, isolados)
-- Cada mês abre e mostra o ranking consolidado **apenas daquele mês**
+## 2. Aba Enviar (antes "ENVIAR RA" → agora "ENVIAR")
+- Novo `CsvUploader` (substitui o uploader de imagens): aceita `.csv` (vários).
+- Parse no cliente das colunas A–E.
+- Campo de **data do relatório** (date picker, padrão hoje) para marcar a que dia aquele lote se refere; se a coluna C tiver data válida, ela é usada por linha, senão usa a data escolhida.
+- Botão **ENVIAR**: manda as linhas parseadas para a edge function que grava as menções com `repetition` somável.
+- Cadência informativa exibida: 05:00 Londres, 10:30 América, 13:30 América, 21:00 Ásia (4 relatórios/dia, consolidados ~22h).
 
-## Mudanças no schema (Lovable Cloud)
+## 3. Aba Listas (foco: semanal)
+- Padrão: **Semanal**. Semana = segunda a sexta. Sexta encerra; segunda recomeça do zero.
+- Seletor de semanas passadas rotuladas tipo **"SEMANA 1 - JUNHO"**, fáceis de acessar.
+- Também há recorte **Diário** (somatório do dia) e **Mensal**.
+- Cada recorte mostra o ranking somado pela coluna REPETIÇÃO (descendente; empate = data/hora mais recente).
+- Opção de escolher intervalo de datas para o somatório.
 
-- `crypto_mentions`: adicionar `region text not null default 'west'` e índice em `(access_code, region, report_date)`
-- `crypto_report_submissions`: adicionar `region text not null default 'west'`
-- `crypto_analyses`: adicionar `region text` (nullable, para histórico)
-- `crypto_periodic_reports`: adicionar `region text not null default 'west'`; índice em `(access_code, region, period_type, period_start)`
-- Backfill: registros existentes recebem `region = 'west'` (podem ser revisados depois pelo usuário)
-- Remover do fluxo: nenhum drop de coluna `report_type`, mas a aplicação passa a ignorar/recusar valores != 'alta'
-
-## Mudanças na Edge Function `crypto-analysis`
-
-- `analyze` e `refresh-lists`: passam a aceitar e exigir `region`
-- `rankings`: novo parâmetro `region`; retorna apenas `altaRankings` (LB removido)
-- `generate-periodic`: aceita `region` + `periodType` ∈ `daily | weekly | monthly`; salva relatório periódico isolado por janela (dia / semana N do mês / mês N)
-- Novo endpoint conceitual (ou parâmetro): `windowIndex` para identificar Semana 1-4 e Mês 1-4
-- System Prompt do Consolidador CriptoEx Pro: remover toda menção a RB/LB, manter apenas RA/LA; instrução adicional para respeitar `region` e nunca misturar Ásia ↔ Ocidente
-- Saída do prompt: remove tabela LB, mantém só LA
-
-## Mudanças no frontend
-
-- `src/pages/CryptoAnalysis.tsx`
-  - Nova tela inicial: seletor de região (2 cards grandes: Ásia / Ocidente)
-  - Após escolher, abre painel da região com Tabs `Diária | Semanal | Mensal`
-  - Aba "Enviar" passa a exigir seleção de região antes do envio
-  - Remover botões de tipo "Baixa" e "Volume" (manter só Alta, ou remover o seletor inteiro já que é único)
-- `src/hooks/useCryptoAnalysis.ts`
-  - Adicionar `region` em todas as chamadas (`submitAnalysis`, `rankings`, `refreshLists`, `generatePeriodicReport`)
-  - Remover `baixaRankings` do retorno
-- Componentes:
-  - `RepetitionDashboard.tsx`: remover Tab "Lista de Baixa", manter só LA; renomear para refletir período (diário/semanal/mensal)
-  - Criar `DailyView`, `WeeklyView`, `MonthlyView` (acordeões por janela isolada)
-  - `PeriodicReportsView.tsx`: simplificar — apenas 3 períodos (Diário/Semanal/Mensal) e remover renderização de LB
-  - `AnalysisHistory.tsx`: exibir badge da região
-- Remover constantes/labels de "Baixa" e "RB" em todos os componentes e tooltips
-
-## Tooltips e textos
-
-- Atualizar todos os textos explicativos para refletir: 2 envios A + 2 envios O por dia útil, somatórios isolados por dia/semana/mês, foco exclusivo em Alta
-- Glossário (`src/lib/glossaryData.ts`): remover entradas de RB/LB se existirem; adicionar entradas para "Mercado Asiático", "Mercado Ocidental", "Semana isolada", "Mês isolado"
+## 4. Relatório mensal automático
+- Ao completar um mês de somatórios, gera um relatório mensal consolidando os somatórios das semanas daquele mês (mantém cada semana visível separadamente).
 
 ## Detalhes técnicos
+- **Migração DB**: adicionar `repetition integer not null default 1` em `crypto_mentions` e `rank integer`/`report_time text` (opcionais) para guardar coluna D/E.
+- **Edge function** `crypto-analysis`:
+  - Nova ação `analyze-csv` (ou `analyze` aceitando `rows`): grava menções com `repetition`.
+  - `rankings`/`generate-periodic`/`refresh-lists`: somar `repetition` (em vez de contar linhas) e parar de exigir `region`.
+  - Rótulo de janela semanal `SEMANA N - <MÊS>`.
+  - SYSTEM_PROMPT atualizado: mercado único, ordenar por soma da coluna 2, sem região.
+- **Frontend**: `CryptoAnalysis.tsx` simplificado; novo `CsvUploader.tsx`; `WindowAccordion`/`RegionWindowDashboard` sem `region`; hook sem `region`.
 
-- Cálculo de "Semana N do mês": usar `Math.ceil(dayOfMonth / 7)` limitado a 1–4 (5ª semana parcial agrega na 4)
-- Cálculo de "Mês N": índice 1–4 dos últimos 4 meses calendário a partir do mês atual (Mês 1 = mais antigo, Mês 4 = mais recente — confirmar com o usuário se preferir invertido)
-- Janela semanal: segunda 00:00 → sexta 23:59 do fuso `America/Sao_Paulo`
-- Cache de rankings invalidado por `[region, periodType, windowIndex]`
-
-## Pontos a confirmar antes de implementar
-
-1. "Mês 1, Mês 2, Mês 3, Mês 4" é **dentro do ano corrente** (Jan/Fev/Mar/Abr) ou são os **últimos 4 meses corridos** (deslizante)?
-2. O usuário quer que envios já existentes sejam tratados como `region = 'west'` por padrão, ou prefere uma tela única de revisão para reclassificar?
-3. Devemos remover fisicamente do banco os registros antigos com `report_type = 'baixa'`, ou apenas escondê-los da UI?
-
-## Entregável
-
-Após aprovação: migrações + edge function atualizada + refatoração da página `CryptoAnalysis` + componentes de visão Diária/Semanal/Mensal por região, com todo o fluxo de Baixa removido da UI.
+## Itens a confirmar
+1. O envio dos 4 relatórios é **manual** (você sobe os CSVs), certo? Não há busca automática externa.
+2. "SEMANA 1 - JUNHO" = contagem da semana dentro do mês corrente (1ª a 5ª semana), correto?

@@ -93,8 +93,11 @@ export type Database = {
           access_code: string | null
           created_at: string
           id: string
+          rank: number | null
           region: string
+          repetition: number
           report_date: string
+          report_time: string | null
           report_type: string
           submission_id: string | null
           symbol: string
@@ -106,8 +109,11 @@ export type Database = {
           access_code?: string | null
           created_at?: string
           id?: string
+          rank?: number | null
           region?: string
+          repetition?: number
           report_date: string
+          report_time?: string | null
           report_type: string
           submission_id?: string | null
           symbol: string
@@ -119,8 +125,11 @@ export type Database = {
           access_code?: string | null
           created_at?: string
           id?: string
+          rank?: number | null
           region?: string
+          repetition?: number
           report_date?: string
+          report_time?: string | null
           report_type?: string
           submission_id?: string | null
           symbol?: string

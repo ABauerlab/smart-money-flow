@@ -27,7 +27,7 @@ export const RegionWindowDashboard = ({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Trophy className="w-4 h-4 text-yellow-500" />
-          Lista de Alta (LA)
+          Lista Geral (somatório)
           {windowLabel && <span className="text-xs text-muted-foreground">— {windowLabel}</span>}
         </h3>
         {onRefresh && (
@@ -48,7 +48,7 @@ export const RegionWindowDashboard = ({
         <div className="text-center py-8 text-muted-foreground">
           <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-40" />
           <p className="text-sm">Nenhum dado neste recorte</p>
-          <p className="text-xs mt-1">Envie relatórios RA na aba "Enviar"</p>
+          <p className="text-xs mt-1">Envie arquivos .CSV na aba "Enviar"</p>
         </div>
       ) : (
         <div className="space-y-1.5">

@@ -29,35 +29,71 @@ function weekOfMonth(d: Date): number {
 
 function fmtDate(d: Date): string { return d.toISOString().split('T')[0]; }
 
+// Parse a date string in DD/MM/YYYY, YYYY-MM-DD or DD-MM-YYYY -> 'YYYY-MM-DD' (or null).
+function parseDate(input: any): string | null {
+  if (!input || typeof input !== 'string') return null;
+  const s = input.trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (y.length === 2) y = '20' + y;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  return null;
+}
+
 function normalizeRegion(r: any): 'asia' | 'west' {
   return r === 'asia' ? 'asia' : 'west';
 }
 
 const REGION_LABEL: Record<string,string> = { asia: 'Mercado Asiático', west: 'Mercado Ocidental (Europa + Américas)' };
 
-const SYSTEM_PROMPT = `Você é o Consolidador CriptoEx Pro, responsável pela extração de dados de relatórios financeiros RA (Alta) na plataforma Fluxo Dos Mercados.
+const MONTHS_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+
+// Sum the REPETIÇÃO column per symbol; tie-break by most recent date/time.
+function sumMentions(mentions: any[]): { symbol: string; count: number }[] {
+  const agg: Record<string, { count: number; last: string }> = {};
+  for (const m of mentions) {
+    const sym = String(m.symbol || '').toUpperCase();
+    if (!sym) continue;
+    const rep = Number(m.repetition);
+    const value = Number.isFinite(rep) && rep > 0 ? rep : 1;
+    const stamp = `${m.report_date || ''} ${m.report_time || ''}`.trim();
+    if (!agg[sym]) agg[sym] = { count: 0, last: '' };
+    agg[sym].count += value;
+    if (stamp > agg[sym].last) agg[sym].last = stamp;
+  }
+  return Object.entries(agg)
+    .map(([symbol, v]) => ({ symbol, count: v.count, last: v.last }))
+    .sort((a, b) => (b.count - a.count) || (b.last > a.last ? 1 : -1))
+    .map(({ symbol, count }) => ({ symbol, count }));
+}
+
+const SYSTEM_PROMPT = `Você é o Consolidador CriptoEx Pro, responsável pela consolidação de relatórios de criptoativos da plataforma Fluxo Dos Mercados.
 
 ## ESCOPO
-- Trate APENAS relatórios de Alta (RA). Não há mais Lista de Baixa (LB).
-- Cada envio pertence a UMA região: Mercado Asiático ou Mercado Ocidental (Europa + Américas).
-- NUNCA misture dados entre regiões. NUNCA misture dados entre semanas distintas. NUNCA misture dados entre meses distintos.
+- Mercado único e geral de cripto. NÃO existe separação por região.
+- Trate apenas listas de Alta. Não há Lista de Baixa.
+- NUNCA misture dados entre semanas distintas. NUNCA misture dados entre meses distintos.
 
 ## PROCESSAMENTO
-- Leia 100% das linhas de cada arquivo enviado. É PROIBIDO ignorar ativos.
-- Considere apenas relatórios com data a partir de 06/04/2026.
+- Os relatórios chegam em arquivos .CSV com as colunas: CRIPTO (coluna 1), REPETIÇÃO (coluna 2), DATA (coluna 3), HORA (coluna 4), RANK (coluna 5).
+- Leia 100% das linhas de cada arquivo. É PROIBIDO ignorar ativos.
 
-## ARITMÉTICA
-- Localize a coluna 'REPETIÇÃO' ou 'CONTAGEM' (variações: "Repeticao", "Count", "Qtd").
-- Realize a SOMA MATEMÁTICA REAL dos valores dessa coluna por ativo, somando ocorrências em todos os arquivos do MESMO período/região.
-- NUNCA conte apenas o número de linhas — some os valores numéricos.
+## ARITMÉTICA (regra principal)
+- Ordene os ativos listados em todas as listas anexas em uma lista única e geral, conforme o número total de repetições de cada ativo e conforme a SOMA das suas repetições dispostas na coluna 2 (REPETIÇÃO) das planilhas.
+- Realize a SOMA MATEMÁTICA REAL dos valores da coluna REPETIÇÃO por ativo, somando as ocorrências em todos os arquivos do MESMO recorte (dia/semana/mês). NÃO altere nenhum valor.
+- NUNCA conte apenas o número de linhas — some os valores numéricos da coluna 2.
 
 ## RANKING
-- Ordene a Lista de Alta (LA) pela soma total de repetições (descendente).
+- Ordene a lista geral pela soma total de repetições (descendente).
 - Em caso de empate, use a data/hora mais recente como desempate.
 
-## CADÊNCIA ESPERADA
-- Segunda a sexta: 2 envios da região Ásia (A) + 2 envios da região Ocidente (O) por dia.
-- Sábado e domingo não compõem a janela semanal.
+## JANELAS DE TEMPO
+- A semana vai de segunda a sexta-feira. Ao final da sexta a semana fecha; na segunda começa um novo somatório do zero.
+- Ao completar um mês de somatórios, consolida-se um relatório mensal das semanas daquele mês (cada semana permanece visível separadamente).
 
 ## FORMATO DE SAÍDA (obrigatório)
 Use linguagem técnica e neutra. NÃO use emojis. Use Markdown.
@@ -65,32 +101,29 @@ Use linguagem técnica e neutra. NÃO use emojis. Use Markdown.
 Sempre comece com:
 CRYPTOS_DETECTED: BTC,ETH,SOL,...
 
-### Período / Região
-- Região: Ásia | Ocidente
+### Período
 - Janela: <data inicial> → <data final>
-- Tipo de janela: Dia | Semana N do mês | Mês N
+- Tipo de janela: Dia | Semana N do mês | Mês
 
 ### Quantidade de Arquivos
-- Total processado neste recorte (todos RA).
+- Total de arquivos/relatórios processados neste recorte.
 
-### Lista de Alta (LA)
+### Lista Geral (somatório)
 | Pos | Ativo | Soma Repetições | Última Ocorrência |
 |-----|-------|-----------------|-------------------|
 | 1   | BTC   | 12              | 2026-04-29 14:30  |
 
 ### Destaques
 - Ativos com maior soma absoluta no recorte.
-- Maiores variações entre arquivos do mesmo recorte.
 - Novos ativos que apareceram.
 
 ### Log de Inconsistências
-- Linhas ilegíveis, colunas ausentes, datas fora do período válido, valores não numéricos.
+- Linhas ilegíveis, colunas ausentes, valores não numéricos.
 - Se nada foi encontrado: "Nenhuma inconsistência detectada."
 
 ## RESTRIÇÕES
 - NÃO faça recomendações financeiras.
 - NÃO use emojis.
-- NÃO mencione Lista de Baixa (LB).
 - Linguagem técnica, neutra e organizacional.`;
 
 // ====== AI call abstraction ======
@@ -203,14 +236,15 @@ function resolveWindow(periodType: string, windowIndex: number, now = new Date()
     const ref = new Date(now); ref.setUTCDate(ref.getUTCDate() - idx * 7);
     const { start, end } = getMonFriWeek(ref);
     const wom = weekOfMonth(start);
-    return { start: fmtDate(start), end: fmtDate(end), label: idx === 0 ? `Semana atual (S${wom})` : `Semana ${wom}` };
+    const label = `SEMANA ${wom} - ${MONTHS_PT[start.getUTCMonth()]}`;
+    return { start: fmtDate(start), end: fmtDate(end), label };
   }
   // monthly
   const y = now.getUTCFullYear();
   const m = now.getUTCMonth() - idx;
   const start = new Date(Date.UTC(y, m, 1));
   const end = new Date(Date.UTC(y, m + 1, 0));
-  return { start: fmtDate(start), end: fmtDate(end), label: idx === 0 ? 'Mês atual' : `M-${idx}` };
+  return { start: fmtDate(start), end: fmtDate(end), label: `${MONTHS_PT[start.getUTCMonth()]} ${start.getUTCFullYear()}` };
 }
 
 serve(async (req) => {
@@ -304,35 +338,26 @@ serve(async (req) => {
       });
     }
 
-    // ========== RANKINGS (alta only, by region + window) ==========
+    // ========== RANKINGS (single market, summed by repetition + window) ==========
     if (action === 'rankings') {
-      const region = normalizeRegion(reqBody.region);
       const periodType = (reqBody.periodType || 'weekly') as string;
       const windowIndex = Number(reqBody.windowIndex || 0);
       const win = resolveWindow(periodType, windowIndex);
 
       const { data: mentions, error } = await supabase
         .from('crypto_mentions')
-        .select('symbol, report_type, region, report_date')
+        .select('symbol, repetition, report_date, report_time')
         .eq('access_code', accessCode)
-        .eq('region', region)
-        .eq('report_type', 'alta')
         .gte('report_date', win.start)
         .lte('report_date', win.end);
       if (error) throw error;
 
-      const counts: Record<string, number> = {};
-      for (const m of (mentions || [])) {
-        counts[m.symbol] = (counts[m.symbol] || 0) + 1;
-      }
-      const altaRankings = Object.entries(counts)
-        .map(([symbol, count]) => ({ symbol, count }))
-        .sort((a, b) => b.count - a.count);
+      const altaRankings = sumMentions(mentions || []);
 
       return new Response(JSON.stringify({
         altaRankings,
-        window: { ...win, periodType, windowIndex, region },
-        totalMentions: mentions?.length || 0,
+        window: { ...win, periodType, windowIndex },
+        totalMentions: (mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0),
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -355,7 +380,6 @@ serve(async (req) => {
 
     // ========== GENERATE PERIODIC REPORT (alta only, by region + window) ==========
     if (action === 'generate-periodic') {
-      const region = normalizeRegion(reqBody.region);
       const periodType = (reqBody.periodType || 'weekly') as string;
       if (!['daily','weekly','monthly'].includes(periodType)) {
         return new Response(JSON.stringify({ error: 'periodType deve ser daily, weekly ou monthly' }),
@@ -366,29 +390,22 @@ serve(async (req) => {
 
       const { data: mentions, error: mError } = await supabase
         .from('crypto_mentions')
-        .select('symbol, report_type, report_date, region')
+        .select('symbol, repetition, report_date, report_time')
         .eq('access_code', accessCode)
-        .eq('region', region)
-        .eq('report_type', 'alta')
         .gte('report_date', win.start)
         .lte('report_date', win.end);
       if (mError) throw mError;
 
-      const counts: Record<string, number> = {};
-      for (const m of (mentions || [])) counts[m.symbol] = (counts[m.symbol] || 0) + 1;
-      const altaRankings = Object.entries(counts)
-        .map(([symbol, count]) => ({ symbol, count }))
-        .sort((a, b) => b.count - a.count);
-
+      const altaRankings = sumMentions(mentions || []);
       const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
 
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
-        const laText = `### Lista de Alta (LA)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
+        const laText = `### Lista Geral (somatório)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Relatório consolidado.\nRegião: ${REGION_LABEL[region]}.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de menções no recorte: ${mentions?.length || 0}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Apenas LA. Não use emojis.` },
+          { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
         ]);
         if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
       }
@@ -402,10 +419,9 @@ serve(async (req) => {
           year: new Date().getFullYear(),
           week_number: getISOWeek(new Date(win.start)),
           rankings: rankings as any,
-          summary: `[${REGION_LABEL[region]}] ${win.label} — LA: ${altaRankings.length} criptos`,
+          summary: `${win.label} — ${altaRankings.length} criptos`,
           ai_analysis: aiAnalysis,
           access_code: accessCode || null,
-          region,
         })
         .select()
         .single();
@@ -416,103 +432,72 @@ serve(async (req) => {
       });
     }
 
-    // ========== ANALYZE (main upload) ==========
-    if (action === 'analyze') {
-      const region = normalizeRegion(reqBody.region);
-      const { images, cryptoSymbols, title, sessionTime } = reqBody;
-      // Force report type to 'alta' (RA) — RB removed.
-      const reportType = 'alta';
+    // ========== ANALYZE CSV (main upload — single market) ==========
+    if (action === 'analyze' || action === 'analyze-csv') {
+      const { rows, title, reportDate: fallbackDate, fileCount } = reqBody;
 
-      if (!images || !Array.isArray(images) || images.length === 0) {
-        return new Response(JSON.stringify({ error: 'Nenhuma imagem fornecida' }), {
+      if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        return new Response(JSON.stringify({ error: 'Nenhuma linha de CSV fornecida.' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (images.length > 20) {
-        return new Response(JSON.stringify({ error: 'Máximo de 20 imagens por requisição.' }), {
+      if (rows.length > 5000) {
+        return new Response(JSON.stringify({ error: 'Máximo de 5000 linhas por envio.' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      if (!Deno.env.get('GEMINI_API_KEY') && !Deno.env.get('LOVABLE_API_KEY')) {
-        throw new Error('Nenhum provedor de IA configurado.');
-      }
+      const defaultDate = parseDate(fallbackDate) || fmtDate(new Date());
 
-      const uploadedImages: { url: string; name: string; base64: string }[] = [];
-      for (const img of images) {
-        const fileName = `${crypto.randomUUID()}-${img.name}`;
-        const buffer = Uint8Array.from(atob(img.base64), c => c.charCodeAt(0));
-        const { error: uploadError } = await supabase.storage
-          .from('crypto-images')
-          .upload(fileName, buffer, { contentType: img.type || 'image/png' });
-        if (uploadError) { console.error('Upload error:', uploadError); continue; }
-        const { data: urlData } = supabase.storage.from('crypto-images').getPublicUrl(fileName);
-        uploadedImages.push({ url: urlData.publicUrl, name: img.name, base64: img.base64 });
-      }
-
-      const userContent: any[] = [
-        {
-          type: 'text',
-          text: `Analise os seguintes Relatórios de Alta (RA).
-Região deste envio: ${REGION_LABEL[region]}.
-
-Instruções:
-1. Identifique TODAS as criptomoedas presentes
-2. Conte as repetições de cada cripto
-3. Ordene por número de repetições (descendente)
-4. Gere a Lista de Alta (LA) deste envio
-5. Identifique destaques e inconsistências
-
-No INÍCIO da resposta, inclua:
-CRYPTOS_DETECTED: BTC,ETH,SOL,...
-
-Formato Markdown. Não use emojis. Não cite Lista de Baixa.`,
-        },
-      ];
-
-      for (const img of uploadedImages) {
-        userContent.push({
-          type: 'image_url',
-          image_url: { url: `data:image/png;base64,${img.base64}` },
+      const mentionRows: any[] = [];
+      let skipped = 0;
+      for (const r of rows) {
+        const symbol = String(r.symbol ?? r.crypto ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (!symbol || symbol.length > 12) { skipped++; continue; }
+        const repRaw = Number(String(r.repetition ?? r.rep ?? '1').replace(',', '.'));
+        const repetition = Number.isFinite(repRaw) && repRaw > 0 ? Math.round(repRaw) : 1;
+        const reportDate = parseDate(r.date) || defaultDate;
+        const time = typeof r.time === 'string' ? r.time.trim().slice(0, 8) : null;
+        const rankRaw = Number(r.rank);
+        const rank = Number.isFinite(rankRaw) ? Math.round(rankRaw) : null;
+        const d = new Date(reportDate + 'T00:00:00Z');
+        mentionRows.push({
+          symbol,
+          repetition,
+          report_type: 'alta',
+          report_date: reportDate,
+          report_time: time,
+          rank,
+          week_number: getISOWeek(d),
+          year: d.getUTCFullYear(),
+          access_code: accessCode || null,
         });
       }
 
-      const aiResult = await callAI([
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userContent },
-      ], { wantsVision: true });
-
-      if (!aiResult.ok) {
-        console.error('AI error:', aiResult.status, aiResult.error);
-        if (aiResult.status === 429) {
-          return new Response(JSON.stringify({ error: 'Limite de requisições atingido.' }), {
-            status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        if (aiResult.status === 402) {
-          return new Response(JSON.stringify({ error: 'Créditos de IA esgotados.' }), {
-            status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        throw new Error(`AI error: ${aiResult.status}`);
+      if (mentionRows.length === 0) {
+        return new Response(JSON.stringify({ error: 'Nenhuma linha válida encontrada no CSV.' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
-      const summary = aiResult.content || 'Análise não disponível.';
-      const aiModelUsed = aiResult.model;
-
-      const cryptoMatch = summary.match(/CRYPTOS_DETECTED:\s*([^\n]+)/i);
-      let detectedCryptos: string[] = [];
-      if (cryptoMatch) {
-        detectedCryptos = cryptoMatch[1]
-          .split(',')
-          .map((s: string) => s.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
-          .filter((s: string) => s.length > 0 && s.length <= 10);
-      }
-      const allCryptos = [...new Set([...detectedCryptos, ...(cryptoSymbols || []).map((s: string) => s.toUpperCase())])];
+      // Summed view of this upload (single market).
+      const ranking = sumMentions(mentionRows);
+      const allCryptos = ranking.map(r => r.symbol);
+      const datesInUpload = [...new Set(mentionRows.map(m => m.report_date))].sort();
 
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const standardTitle = title || `${dateStr} - RA ${region === 'asia' ? 'Ásia' : 'Ocidente'}`;
+      const standardTitle = (title && String(title).trim()) || `${dateStr} - Envio (${mentionRows.length} linhas)`;
+
+      const summary = [
+        `### Envio consolidado`,
+        `- Arquivos: ${Number(fileCount) || 1}`,
+        `- Linhas válidas: ${mentionRows.length}${skipped ? ` (ignoradas: ${skipped})` : ''}`,
+        `- Datas: ${datesInUpload.join(', ')}`,
+        ``,
+        `### Lista Geral (somatório por REPETIÇÃO)`,
+        ...ranking.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count}`),
+      ].join('\n');
 
       const { data: analysis, error: insertError } = await supabase
         .from('crypto_analyses')
@@ -521,61 +506,38 @@ Formato Markdown. Não use emojis. Não cite Lista de Baixa.`,
           summary,
           period_type: 'daily',
           crypto_symbols: allCryptos,
-          ai_model_used: aiModelUsed,
+          ai_model_used: 'csv-import',
           access_code: accessCode || null,
-          region,
         })
         .select()
         .single();
       if (insertError) throw insertError;
 
-      for (const img of uploadedImages) {
-        await supabase.from('crypto_analysis_images').insert({
-          analysis_id: analysis.id,
-          image_url: img.url,
-          image_name: img.name,
-        });
-      }
-
-      const weekNumber = getISOWeek(now);
-      const year = now.getFullYear();
-      const reportDate = now.toISOString().split('T')[0];
-
       const { data: submission } = await supabase
         .from('crypto_report_submissions')
         .insert({
           analysis_id: analysis.id,
-          report_type: reportType,
-          report_date: reportDate,
-          session_time: sessionTime || (now.getHours() < 14 ? 'morning' : 'night'),
+          report_type: 'alta',
+          report_date: defaultDate,
+          session_time: now.getHours() < 14 ? 'morning' : 'night',
           access_code: accessCode || null,
-          region,
         })
         .select()
         .single();
 
-      if (submission && allCryptos.length > 0) {
-        const mentionRows = allCryptos.map(symbol => ({
-          submission_id: submission.id,
-          symbol,
-          report_type: reportType,
-          report_date: reportDate,
-          week_number: weekNumber,
-          year,
-          access_code: accessCode || null,
-          region,
-        }));
-        await supabase.from('crypto_mentions').insert(mentionRows);
+      if (submission) {
+        const toInsert = mentionRows.map(m => ({ ...m, submission_id: submission.id }));
+        await supabase.from('crypto_mentions').insert(toInsert);
       }
 
       return new Response(JSON.stringify({
-        analysis: { ...analysis, images: uploadedImages, detectedCryptos: allCryptos },
+        analysis: { ...analysis, detectedCryptos: allCryptos, ranking, totalRows: mentionRows.length, skipped },
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+
     // ========== REFRESH LISTS (region + window aware) ==========
     if (action === 'refresh-lists') {
-      const region = normalizeRegion(reqBody.region);
       const periodType = (reqBody.periodType || 'weekly') as string;
       if (!['daily','weekly','monthly'].includes(periodType)) {
         return new Response(JSON.stringify({ error: 'periodType deve ser daily, weekly ou monthly' }),
@@ -586,26 +548,22 @@ Formato Markdown. Não use emojis. Não cite Lista de Baixa.`,
 
       const { data: mentions, error: mErr } = await supabase
         .from('crypto_mentions')
-        .select('symbol, report_type, report_date, region')
+        .select('symbol, repetition, report_date, report_time')
         .eq('access_code', accessCode)
-        .eq('region', region)
-        .eq('report_type', 'alta')
         .gte('report_date', win.start)
         .lte('report_date', win.end);
       if (mErr) throw mErr;
 
-      const counts: Record<string, number> = {};
-      for (const m of (mentions || [])) counts[m.symbol] = (counts[m.symbol] || 0) + 1;
-      const altaRankings = Object.entries(counts).map(([symbol, count]) => ({ symbol, count })).sort((a, b) => b.count - a.count);
+      const altaRankings = sumMentions(mentions || []);
       const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
 
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
-        const laText = `### Lista de Alta (LA)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
+        const laText = `### Lista Geral (somatório)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Atualização de listas.\nRegião: ${REGION_LABEL[region]}.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos: ${rankings.length}\nTotal de menções: ${mentions?.length || 0}\n\nReanalise os padrões atuais deste recorte isolado. Apenas LA. Não use emojis.` },
+          { role: 'user', content: `Atualização de listas.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos: ${rankings.length}\nTotal de repetições: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nReanalise os padrões atuais deste recorte isolado. Não use emojis.` },
         ]);
         if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
       }
@@ -619,10 +577,9 @@ Formato Markdown. Não use emojis. Não cite Lista de Baixa.`,
           year: new Date().getFullYear(),
           week_number: getISOWeek(new Date(win.start)),
           rankings: rankings as any,
-          summary: `[ATUALIZAÇÃO] [${REGION_LABEL[region]}] ${win.label} — LA: ${altaRankings.length} criptos`,
+          summary: `[ATUALIZAÇÃO] ${win.label} — ${altaRankings.length} criptos`,
           ai_analysis: aiAnalysis,
           access_code: accessCode || null,
-          region,
         })
         .select()
         .single();
@@ -630,7 +587,7 @@ Formato Markdown. Não use emojis. Não cite Lista de Baixa.`,
 
       return new Response(JSON.stringify({
         success: true, altaRankings, report, aiModelUsed,
-        window: { ...win, periodType, windowIndex, region },
+        window: { ...win, periodType, windowIndex },
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
