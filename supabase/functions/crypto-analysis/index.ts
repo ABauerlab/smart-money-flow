@@ -37,6 +37,25 @@ const REGION_LABEL: Record<string,string> = { asia: 'Mercado Asiático', west: '
 
 const MONTHS_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 
+// Sum the REPETIÇÃO column per symbol; tie-break by most recent date/time.
+function sumMentions(mentions: any[]): { symbol: string; count: number }[] {
+  const agg: Record<string, { count: number; last: string }> = {};
+  for (const m of mentions) {
+    const sym = String(m.symbol || '').toUpperCase();
+    if (!sym) continue;
+    const rep = Number(m.repetition);
+    const value = Number.isFinite(rep) && rep > 0 ? rep : 1;
+    const stamp = `${m.report_date || ''} ${m.report_time || ''}`.trim();
+    if (!agg[sym]) agg[sym] = { count: 0, last: '' };
+    agg[sym].count += value;
+    if (stamp > agg[sym].last) agg[sym].last = stamp;
+  }
+  return Object.entries(agg)
+    .map(([symbol, v]) => ({ symbol, count: v.count, last: v.last }))
+    .sort((a, b) => (b.count - a.count) || (b.last > a.last ? 1 : -1))
+    .map(({ symbol, count }) => ({ symbol, count }));
+}
+
 const SYSTEM_PROMPT = `Você é o Consolidador CriptoEx Pro, responsável pela consolidação de relatórios de criptoativos da plataforma Fluxo Dos Mercados.
 
 ## ESCOPO
