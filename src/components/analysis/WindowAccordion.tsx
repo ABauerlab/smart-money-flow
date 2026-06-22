@@ -1,24 +1,22 @@
 import { useState } from 'react';
-import { ChevronDown, Loader2 } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { useCryptoAnalysis, type Region, type PeriodType } from '@/hooks/useCryptoAnalysis';
+import { useCryptoAnalysis, type PeriodType } from '@/hooks/useCryptoAnalysis';
 import { RegionWindowDashboard } from './RegionWindowDashboard';
 
 interface WindowItem { index: number; label: string; }
 
 interface WindowAccordionProps {
-  region: Region;
   periodType: PeriodType;
   windows: WindowItem[];
 }
 
-const WindowRow = ({ region, periodType, windowIndex, label, defaultOpen }: {
-  region: Region; periodType: PeriodType; windowIndex: number; label: string; defaultOpen?: boolean;
+const WindowRow = ({ periodType, windowIndex, label, defaultOpen }: {
+  periodType: PeriodType; windowIndex: number; label: string; defaultOpen?: boolean;
 }) => {
   const [open, setOpen] = useState(!!defaultOpen);
-  const { altaRankings, isLoadingRankings, rankingsWindow, refreshLists, isRefreshingLists } =
-    useCryptoAnalysis({ region, periodType, windowIndex });
+  const { altaRankings, isLoadingRankings, rankingsWindow, totalMentions, refreshLists, isRefreshingLists } =
+    useCryptoAnalysis({ periodType, windowIndex });
 
   return (
     <div className="border border-border/30 rounded-lg bg-card/50 overflow-hidden">
@@ -55,6 +53,7 @@ const WindowRow = ({ region, periodType, windowIndex, label, defaultOpen }: {
               <RegionWindowDashboard
                 altaRankings={altaRankings}
                 isLoading={isLoadingRankings}
+                totalMentions={totalMentions}
                 onRefresh={() => refreshLists(periodType, windowIndex)}
                 isRefreshing={isRefreshingLists}
               />
@@ -66,13 +65,12 @@ const WindowRow = ({ region, periodType, windowIndex, label, defaultOpen }: {
   );
 };
 
-export const WindowAccordion = ({ region, periodType, windows }: WindowAccordionProps) => {
+export const WindowAccordion = ({ periodType, windows }: WindowAccordionProps) => {
   return (
     <div className="space-y-2">
       {windows.map((w, idx) => (
         <WindowRow
           key={w.index}
-          region={region}
           periodType={periodType}
           windowIndex={w.index}
           label={w.label}
