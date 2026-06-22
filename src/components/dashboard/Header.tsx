@@ -140,6 +140,7 @@ export const Header = ({
         <button 
           onClick={handleRefresh}
           disabled={isRefreshing}
+          aria-label="Atualizar dados do mercado"
           className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors ${isRefreshing ? 'animate-spin' : ''}`} />
