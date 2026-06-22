@@ -304,35 +304,26 @@ serve(async (req) => {
       });
     }
 
-    // ========== RANKINGS (alta only, by region + window) ==========
+    // ========== RANKINGS (single market, summed by repetition + window) ==========
     if (action === 'rankings') {
-      const region = normalizeRegion(reqBody.region);
       const periodType = (reqBody.periodType || 'weekly') as string;
       const windowIndex = Number(reqBody.windowIndex || 0);
       const win = resolveWindow(periodType, windowIndex);
 
       const { data: mentions, error } = await supabase
         .from('crypto_mentions')
-        .select('symbol, report_type, region, report_date')
+        .select('symbol, repetition, report_date, report_time')
         .eq('access_code', accessCode)
-        .eq('region', region)
-        .eq('report_type', 'alta')
         .gte('report_date', win.start)
         .lte('report_date', win.end);
       if (error) throw error;
 
-      const counts: Record<string, number> = {};
-      for (const m of (mentions || [])) {
-        counts[m.symbol] = (counts[m.symbol] || 0) + 1;
-      }
-      const altaRankings = Object.entries(counts)
-        .map(([symbol, count]) => ({ symbol, count }))
-        .sort((a, b) => b.count - a.count);
+      const altaRankings = sumMentions(mentions || []);
 
       return new Response(JSON.stringify({
         altaRankings,
-        window: { ...win, periodType, windowIndex, region },
-        totalMentions: mentions?.length || 0,
+        window: { ...win, periodType, windowIndex },
+        totalMentions: (mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0),
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
