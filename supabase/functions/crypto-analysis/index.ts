@@ -417,103 +417,72 @@ serve(async (req) => {
       });
     }
 
-    // ========== ANALYZE (main upload) ==========
-    if (action === 'analyze') {
-      const region = normalizeRegion(reqBody.region);
-      const { images, cryptoSymbols, title, sessionTime } = reqBody;
-      // Force report type to 'alta' (RA) — RB removed.
-      const reportType = 'alta';
+    // ========== ANALYZE CSV (main upload — single market) ==========
+    if (action === 'analyze' || action === 'analyze-csv') {
+      const { rows, title, reportDate: fallbackDate, fileCount } = reqBody;
 
-      if (!images || !Array.isArray(images) || images.length === 0) {
-        return new Response(JSON.stringify({ error: 'Nenhuma imagem fornecida' }), {
+      if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        return new Response(JSON.stringify({ error: 'Nenhuma linha de CSV fornecida.' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (images.length > 20) {
-        return new Response(JSON.stringify({ error: 'Máximo de 20 imagens por requisição.' }), {
+      if (rows.length > 5000) {
+        return new Response(JSON.stringify({ error: 'Máximo de 5000 linhas por envio.' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      if (!Deno.env.get('GEMINI_API_KEY') && !Deno.env.get('LOVABLE_API_KEY')) {
-        throw new Error('Nenhum provedor de IA configurado.');
-      }
+      const defaultDate = parseDate(fallbackDate) || fmtDate(new Date());
 
-      const uploadedImages: { url: string; name: string; base64: string }[] = [];
-      for (const img of images) {
-        const fileName = `${crypto.randomUUID()}-${img.name}`;
-        const buffer = Uint8Array.from(atob(img.base64), c => c.charCodeAt(0));
-        const { error: uploadError } = await supabase.storage
-          .from('crypto-images')
-          .upload(fileName, buffer, { contentType: img.type || 'image/png' });
-        if (uploadError) { console.error('Upload error:', uploadError); continue; }
-        const { data: urlData } = supabase.storage.from('crypto-images').getPublicUrl(fileName);
-        uploadedImages.push({ url: urlData.publicUrl, name: img.name, base64: img.base64 });
-      }
-
-      const userContent: any[] = [
-        {
-          type: 'text',
-          text: `Analise os seguintes Relatórios de Alta (RA).
-Região deste envio: ${REGION_LABEL[region]}.
-
-Instruções:
-1. Identifique TODAS as criptomoedas presentes
-2. Conte as repetições de cada cripto
-3. Ordene por número de repetições (descendente)
-4. Gere a Lista de Alta (LA) deste envio
-5. Identifique destaques e inconsistências
-
-No INÍCIO da resposta, inclua:
-CRYPTOS_DETECTED: BTC,ETH,SOL,...
-
-Formato Markdown. Não use emojis. Não cite Lista de Baixa.`,
-        },
-      ];
-
-      for (const img of uploadedImages) {
-        userContent.push({
-          type: 'image_url',
-          image_url: { url: `data:image/png;base64,${img.base64}` },
+      const mentionRows: any[] = [];
+      let skipped = 0;
+      for (const r of rows) {
+        const symbol = String(r.symbol ?? r.crypto ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (!symbol || symbol.length > 12) { skipped++; continue; }
+        const repRaw = Number(String(r.repetition ?? r.rep ?? '1').replace(',', '.'));
+        const repetition = Number.isFinite(repRaw) && repRaw > 0 ? Math.round(repRaw) : 1;
+        const reportDate = parseDate(r.date) || defaultDate;
+        const time = typeof r.time === 'string' ? r.time.trim().slice(0, 8) : null;
+        const rankRaw = Number(r.rank);
+        const rank = Number.isFinite(rankRaw) ? Math.round(rankRaw) : null;
+        const d = new Date(reportDate + 'T00:00:00Z');
+        mentionRows.push({
+          symbol,
+          repetition,
+          report_type: 'alta',
+          report_date: reportDate,
+          report_time: time,
+          rank,
+          week_number: getISOWeek(d),
+          year: d.getUTCFullYear(),
+          access_code: accessCode || null,
         });
       }
 
-      const aiResult = await callAI([
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userContent },
-      ], { wantsVision: true });
-
-      if (!aiResult.ok) {
-        console.error('AI error:', aiResult.status, aiResult.error);
-        if (aiResult.status === 429) {
-          return new Response(JSON.stringify({ error: 'Limite de requisições atingido.' }), {
-            status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        if (aiResult.status === 402) {
-          return new Response(JSON.stringify({ error: 'Créditos de IA esgotados.' }), {
-            status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        throw new Error(`AI error: ${aiResult.status}`);
+      if (mentionRows.length === 0) {
+        return new Response(JSON.stringify({ error: 'Nenhuma linha válida encontrada no CSV.' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
-      const summary = aiResult.content || 'Análise não disponível.';
-      const aiModelUsed = aiResult.model;
-
-      const cryptoMatch = summary.match(/CRYPTOS_DETECTED:\s*([^\n]+)/i);
-      let detectedCryptos: string[] = [];
-      if (cryptoMatch) {
-        detectedCryptos = cryptoMatch[1]
-          .split(',')
-          .map((s: string) => s.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
-          .filter((s: string) => s.length > 0 && s.length <= 10);
-      }
-      const allCryptos = [...new Set([...detectedCryptos, ...(cryptoSymbols || []).map((s: string) => s.toUpperCase())])];
+      // Summed view of this upload (single market).
+      const ranking = sumMentions(mentionRows);
+      const allCryptos = ranking.map(r => r.symbol);
+      const datesInUpload = [...new Set(mentionRows.map(m => m.report_date))].sort();
 
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const standardTitle = title || `${dateStr} - RA ${region === 'asia' ? 'Ásia' : 'Ocidente'}`;
+      const standardTitle = (title && String(title).trim()) || `${dateStr} - Envio (${mentionRows.length} linhas)`;
+
+      const summary = [
+        `### Envio consolidado`,
+        `- Arquivos: ${Number(fileCount) || 1}`,
+        `- Linhas válidas: ${mentionRows.length}${skipped ? ` (ignoradas: ${skipped})` : ''}`,
+        `- Datas: ${datesInUpload.join(', ')}`,
+        ``,
+        `### Lista Geral (somatório por REPETIÇÃO)`,
+        ...ranking.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count}`),
+      ].join('\n');
 
       const { data: analysis, error: insertError } = await supabase
         .from('crypto_analyses')
@@ -522,57 +491,35 @@ Formato Markdown. Não use emojis. Não cite Lista de Baixa.`,
           summary,
           period_type: 'daily',
           crypto_symbols: allCryptos,
-          ai_model_used: aiModelUsed,
+          ai_model_used: 'csv-import',
           access_code: accessCode || null,
-          region,
         })
         .select()
         .single();
       if (insertError) throw insertError;
 
-      for (const img of uploadedImages) {
-        await supabase.from('crypto_analysis_images').insert({
-          analysis_id: analysis.id,
-          image_url: img.url,
-          image_name: img.name,
-        });
-      }
-
-      const weekNumber = getISOWeek(now);
-      const year = now.getFullYear();
-      const reportDate = now.toISOString().split('T')[0];
-
       const { data: submission } = await supabase
         .from('crypto_report_submissions')
         .insert({
           analysis_id: analysis.id,
-          report_type: reportType,
-          report_date: reportDate,
-          session_time: sessionTime || (now.getHours() < 14 ? 'morning' : 'night'),
+          report_type: 'alta',
+          report_date: defaultDate,
+          session_time: now.getHours() < 14 ? 'morning' : 'night',
           access_code: accessCode || null,
-          region,
         })
         .select()
         .single();
 
-      if (submission && allCryptos.length > 0) {
-        const mentionRows = allCryptos.map(symbol => ({
-          submission_id: submission.id,
-          symbol,
-          report_type: reportType,
-          report_date: reportDate,
-          week_number: weekNumber,
-          year,
-          access_code: accessCode || null,
-          region,
-        }));
-        await supabase.from('crypto_mentions').insert(mentionRows);
+      if (submission) {
+        const toInsert = mentionRows.map(m => ({ ...m, submission_id: submission.id }));
+        await supabase.from('crypto_mentions').insert(toInsert);
       }
 
       return new Response(JSON.stringify({
-        analysis: { ...analysis, images: uploadedImages, detectedCryptos: allCryptos },
+        analysis: { ...analysis, detectedCryptos: allCryptos, ranking, totalRows: mentionRows.length, skipped },
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+
 
     // ========== REFRESH LISTS (region + window aware) ==========
     if (action === 'refresh-lists') {
