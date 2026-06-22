@@ -365,7 +365,6 @@ serve(async (req) => {
 
     // ========== GENERATE PERIODIC REPORT (alta only, by region + window) ==========
     if (action === 'generate-periodic') {
-      const region = normalizeRegion(reqBody.region);
       const periodType = (reqBody.periodType || 'weekly') as string;
       if (!['daily','weekly','monthly'].includes(periodType)) {
         return new Response(JSON.stringify({ error: 'periodType deve ser daily, weekly ou monthly' }),
@@ -376,29 +375,22 @@ serve(async (req) => {
 
       const { data: mentions, error: mError } = await supabase
         .from('crypto_mentions')
-        .select('symbol, report_type, report_date, region')
+        .select('symbol, repetition, report_date, report_time')
         .eq('access_code', accessCode)
-        .eq('region', region)
-        .eq('report_type', 'alta')
         .gte('report_date', win.start)
         .lte('report_date', win.end);
       if (mError) throw mError;
 
-      const counts: Record<string, number> = {};
-      for (const m of (mentions || [])) counts[m.symbol] = (counts[m.symbol] || 0) + 1;
-      const altaRankings = Object.entries(counts)
-        .map(([symbol, count]) => ({ symbol, count }))
-        .sort((a, b) => b.count - a.count);
-
+      const altaRankings = sumMentions(mentions || []);
       const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
 
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
-        const laText = `### Lista de Alta (LA)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
+        const laText = `### Lista Geral (somatório)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Relatório consolidado.\nRegião: ${REGION_LABEL[region]}.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de menções no recorte: ${mentions?.length || 0}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Apenas LA. Não use emojis.` },
+          { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
         ]);
         if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
       }
@@ -412,10 +404,9 @@ serve(async (req) => {
           year: new Date().getFullYear(),
           week_number: getISOWeek(new Date(win.start)),
           rankings: rankings as any,
-          summary: `[${REGION_LABEL[region]}] ${win.label} — LA: ${altaRankings.length} criptos`,
+          summary: `${win.label} — ${altaRankings.length} criptos`,
           ai_analysis: aiAnalysis,
           access_code: accessCode || null,
-          region,
         })
         .select()
         .single();
