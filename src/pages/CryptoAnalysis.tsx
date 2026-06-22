@@ -87,7 +87,7 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
       <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <Link to="/dashboard" className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
+          <Link to="/dashboard" aria-label="Voltar ao Dashboard" className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
             <ArrowLeft className="w-4 h-4 text-muted-foreground" />
           </Link>
           <Logo />
