@@ -27,7 +27,7 @@ export const RegionWindowDashboard = ({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Trophy className="w-4 h-4 text-yellow-500" />
-          Lista de Alta (LA)
+          Lista Geral (somatório)
           {windowLabel && <span className="text-xs text-muted-foreground">— {windowLabel}</span>}
         </h3>
         {onRefresh && (
