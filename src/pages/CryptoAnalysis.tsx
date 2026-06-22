@@ -201,8 +201,25 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
 const CryptoAnalysis = () => {
   const [accessCode, setAccessCode] = useState(() => localStorage.getItem('crypto_access_code') || '');
 
+  const seo = (
+    <Seo
+      title="Análise IA de Criptomoedas | Fluxo Dos Mercados"
+      description="Ferramenta de análise de criptomoedas baseada em IA com relatórios consolidados diários, semanais e mensais do fluxo do mercado geral de cripto."
+      path="/analise-ia"
+      jsonLd={{
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        name: "Análise IA de Criptomoedas",
+        applicationCategory: "FinanceApplication",
+        operatingSystem: "Web",
+        description:
+          "Consolidador de relatórios de cripto com análise de IA e somatórios por período.",
+      }}
+    />
+  );
+
   if (!accessCode) {
-    return <AccessCodeGate onAccess={code => { localStorage.setItem('crypto_access_code', code); setAccessCode(code); }} />;
+    return <>{seo}<AccessCodeGate onAccess={code => { localStorage.setItem('crypto_access_code', code); setAccessCode(code); }} /></>;
   }
 
   const handleLogout = () => {
