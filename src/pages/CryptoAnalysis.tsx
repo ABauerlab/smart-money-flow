@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Seo } from '@/components/Seo';
 
 const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
   const [code, setCode] = useState('');
@@ -86,7 +87,7 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
       <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <Link to="/dashboard" className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
+          <Link to="/dashboard" aria-label="Voltar ao Dashboard" className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
             <ArrowLeft className="w-4 h-4 text-muted-foreground" />
           </Link>
           <Logo />
@@ -201,8 +202,25 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
 const CryptoAnalysis = () => {
   const [accessCode, setAccessCode] = useState(() => localStorage.getItem('crypto_access_code') || '');
 
+  const seo = (
+    <Seo
+      title="Análise IA de Criptomoedas | Fluxo Dos Mercados"
+      description="Ferramenta de análise de criptomoedas baseada em IA com relatórios consolidados diários, semanais e mensais do fluxo do mercado geral de cripto."
+      path="/analise-ia"
+      jsonLd={{
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        name: "Análise IA de Criptomoedas",
+        applicationCategory: "FinanceApplication",
+        operatingSystem: "Web",
+        description:
+          "Consolidador de relatórios de cripto com análise de IA e somatórios por período.",
+      }}
+    />
+  );
+
   if (!accessCode) {
-    return <AccessCodeGate onAccess={code => { localStorage.setItem('crypto_access_code', code); setAccessCode(code); }} />;
+    return <>{seo}<AccessCodeGate onAccess={code => { localStorage.setItem('crypto_access_code', code); setAccessCode(code); }} /></>;
   }
 
   const handleLogout = () => {
@@ -210,7 +228,7 @@ const CryptoAnalysis = () => {
     setAccessCode('');
   };
 
-  return <AnalysisPanel accessCode={accessCode} onLogout={handleLogout} />;
+  return <>{seo}<AnalysisPanel accessCode={accessCode} onLogout={handleLogout} /></>;
 };
 
 export default CryptoAnalysis;

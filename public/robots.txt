@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://deep-flow-scan.lovable.app/sitemap.xml

@@ -305,7 +305,7 @@ export const AnalysisReport = ({ title, summary, createdAt, cryptoSymbols, image
       {images && images.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-2">
           {images.map((img, i) => (
-            <img key={i} src={img.image_url} alt={img.image_name} className="h-20 rounded-lg border border-border/30 object-cover" />
+            <img key={i} src={img.image_url} alt={`Gráfico analisado da criptomoeda: ${img.image_name}`} className="h-20 rounded-lg border border-border/30 object-cover" />
           ))}
         </div>
       )}

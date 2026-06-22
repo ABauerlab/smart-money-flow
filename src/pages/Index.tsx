@@ -10,6 +10,7 @@ import { VolumeCharts } from '@/components/dashboard/VolumeCharts';
 import { NewsPanel } from '@/components/dashboard/NewsPanel';
 import { useMarketData } from '@/hooks/useMarketData';
 import { useNotifications } from '@/hooks/useNotifications';
+import { Seo } from '@/components/Seo';
 import { Loader2 } from 'lucide-react';
 
 const Index = () => {
@@ -50,6 +51,20 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title="Dashboard | Fluxo Dos Mercados"
+        description="Painel em tempo real com fluxo institucional, anomalias de volume (Smart Money) e classificações de Acumulação e Distribuição nos mercados globais."
+        path="/dashboard"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "Fluxo Dos Mercados Dashboard",
+          applicationCategory: "FinanceApplication",
+          operatingSystem: "Web",
+          description:
+            "Dashboard de análise de fluxo institucional em tempo real com detecção de anomalias de volume.",
+        }}
+      />
       <Header 
         lastUpdated={dataUpdatedAt ? new Date(dataUpdatedAt) : undefined}
         soundEnabled={soundEnabled}

@@ -75,6 +75,7 @@ export const Header = ({
       <div className="flex items-center gap-3 sm:gap-6">
         <Link 
           to="/"
+          aria-label="Voltar ao Início"
           className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
         >
           <Tooltip>
@@ -89,6 +90,7 @@ export const Header = ({
 
         <Link 
           to="/glossario"
+          aria-label="Glossário de Termos"
           className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
         >
           <Tooltip>
@@ -103,6 +105,7 @@ export const Header = ({
 
         <Link 
           to="/analise-ia"
+          aria-label="Análise IA de Criptomoedas"
           className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
         >
           <Tooltip>
@@ -137,6 +140,7 @@ export const Header = ({
         <button 
           onClick={handleRefresh}
           disabled={isRefreshing}
+          aria-label="Atualizar dados do mercado"
           className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors ${isRefreshing ? 'animate-spin' : ''}`} />

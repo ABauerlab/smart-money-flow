@@ -6,10 +6,24 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Seo } from '@/components/Seo';
 
 const Landing = () => {
   return (
     <div className="min-h-screen bg-[#000] text-[#D1D1D1] selection:bg-primary/30 overflow-x-hidden font-sans">
+      <Seo
+        title="Fluxo Dos Mercados | Fluxo Institucional em Tempo Real"
+        description="Rastreie o fluxo institucional nos mercados Cripto, EUA (S&P 500) e Bovespa. Identifique liquidez, anomalias de volume e oportunidades de alocação em tempo real."
+        path="/"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "Fluxo Dos Mercados",
+          url: "https://deep-flow-scan.lovable.app/",
+          description:
+            "Plataforma de análise de fluxo institucional em tempo real para os mercados Cripto, EUA e Bovespa.",
+        }}
+      />
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-black/60 backdrop-blur-xl">
         <div className="container h-14 sm:h-16 flex items-center justify-between gap-3">
@@ -39,6 +53,7 @@ const Landing = () => {
         </div>
       </header>
 
+      <main>
       {/* Hero */}
       <section className="relative min-h-[90vh] flex items-center justify-center pt-24 pb-16 sm:pt-32 sm:pb-24">
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
@@ -244,6 +259,7 @@ const Landing = () => {
           </Link>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8">
