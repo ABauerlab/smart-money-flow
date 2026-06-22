@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Seo } from '@/components/Seo';
 
 const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
   const [code, setCode] = useState('');
