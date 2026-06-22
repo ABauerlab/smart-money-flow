@@ -86,7 +86,7 @@ export const ImageUploader = ({ images, onImagesChange, disabled }: ImageUploade
                 exit={{ opacity: 0, scale: 0.8 }}
                 className="relative group rounded-lg overflow-hidden border border-border/50"
               >
-                <img src={img.preview} alt={img.name} className="w-full h-24 object-cover" />
+                <img src={img.preview} alt={`Pré-visualização do gráfico de criptomoeda: ${img.name}`} className="w-full h-24 object-cover" />
                 <button
                   onClick={() => removeImage(i)}
                   className="absolute top-1 right-1 p-1 rounded-full bg-destructive/80 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
