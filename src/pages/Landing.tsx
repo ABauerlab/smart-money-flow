@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Seo } from '@/components/Seo';
 
 const Landing = () => {
   return (
@@ -39,6 +40,7 @@ const Landing = () => {
         </div>
       </header>
 
+      <main>
       {/* Hero */}
       <section className="relative min-h-[90vh] flex items-center justify-center pt-24 pb-16 sm:pt-32 sm:pb-24">
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
@@ -244,6 +246,7 @@ const Landing = () => {
           </Link>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8">
