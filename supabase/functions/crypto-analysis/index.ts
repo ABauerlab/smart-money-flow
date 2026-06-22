@@ -29,6 +29,21 @@ function weekOfMonth(d: Date): number {
 
 function fmtDate(d: Date): string { return d.toISOString().split('T')[0]; }
 
+// Parse a date string in DD/MM/YYYY, YYYY-MM-DD or DD-MM-YYYY -> 'YYYY-MM-DD' (or null).
+function parseDate(input: any): string | null {
+  if (!input || typeof input !== 'string') return null;
+  const s = input.trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (y.length === 2) y = '20' + y;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  return null;
+}
+
 function normalizeRegion(r: any): 'asia' | 'west' {
   return r === 'asia' ? 'asia' : 'west';
 }
