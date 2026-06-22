@@ -2,10 +2,15 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 
-export type Region = 'asia' | 'west';
 export type PeriodType = 'daily' | 'weekly' | 'monthly';
 
-interface AnalysisImage { name: string; base64: string; type: string; preview: string; }
+export interface CsvRow {
+  symbol: string;
+  repetition: number;
+  date?: string;
+  time?: string;
+  rank?: number;
+}
 
 interface CryptoAnalysis {
   id: string;
@@ -14,9 +19,7 @@ interface CryptoAnalysis {
   period_type: string;
   crypto_symbols: string[];
   ai_model_used: string;
-  region?: string | null;
   created_at: string;
-  crypto_analysis_images?: { id: string; image_url: string; image_name: string }[];
 }
 
 interface SeparateRanking { symbol: string; count: number; }
@@ -28,8 +31,7 @@ interface PeriodicReport {
   period_end: string;
   year: number;
   week_number: number;
-  region?: string;
-  rankings: { symbol: string; total: number; alta: number; baixa: number; volume: number }[];
+  rankings: { symbol: string; total: number }[];
   summary: string;
   ai_analysis: string;
   created_at: string;
@@ -42,12 +44,11 @@ const headers = {
 };
 
 interface UseCryptoAnalysisOpts {
-  region: Region;
   periodType?: PeriodType;
   windowIndex?: number;
 }
 
-export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex = 0 }: UseCryptoAnalysisOpts) => {
+export const useCryptoAnalysis = ({ periodType = 'weekly', windowIndex = 0 }: UseCryptoAnalysisOpts = {}) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -58,10 +59,10 @@ export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex =
   const getAccessCode = () => localStorage.getItem('crypto_access_code') || undefined;
 
   const historyQuery = useQuery<{ analyses: CryptoAnalysis[] }>({
-    queryKey: ['crypto-analyses', region],
+    queryKey: ['crypto-analyses'],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=history`, {
-        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode(), region }),
+        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode() }),
       });
       if (!resp.ok) throw new Error('Failed to fetch history');
       return resp.json();
@@ -70,10 +71,10 @@ export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex =
   });
 
   const periodicReportsQuery = useQuery<{ reports: PeriodicReport[] }>({
-    queryKey: ['periodic-reports', region],
+    queryKey: ['periodic-reports'],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=periodic-reports`, {
-        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode(), region }),
+        method: 'POST', headers, body: JSON.stringify({ accessCode: getAccessCode() }),
       });
       if (!resp.ok) throw new Error('Failed to fetch periodic reports');
       return resp.json();
@@ -82,11 +83,11 @@ export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex =
   });
 
   const rankingsQuery = useQuery<{ altaRankings: SeparateRanking[]; window: any; totalMentions: number }>({
-    queryKey: ['crypto-rankings', region, periodType, windowIndex],
+    queryKey: ['crypto-rankings', periodType, windowIndex],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=rankings`, {
         method: 'POST', headers,
-        body: JSON.stringify({ accessCode: getAccessCode(), region, periodType, windowIndex }),
+        body: JSON.stringify({ accessCode: getAccessCode(), periodType, windowIndex }),
       });
       if (!resp.ok) throw new Error('Failed to fetch rankings');
       return resp.json();
@@ -94,28 +95,17 @@ export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex =
     staleTime: 30000,
   });
 
-  const submitAnalysis = async (
-    images: AnalysisImage[],
-    cryptoSymbols: string[],
-    title: string,
-    sessionTime?: string,
-  ) => {
+  const submitCsv = async (rows: CsvRow[], reportDate: string, title: string, fileCount: number) => {
     setIsAnalyzing(true);
     try {
-      const resp = await fetch(`${BASE_URL}?action=analyze`, {
+      const resp = await fetch(`${BASE_URL}?action=analyze-csv`, {
         method: 'POST', headers,
-        body: JSON.stringify({
-          images: images.map(img => ({ name: img.name, base64: img.base64, type: img.type })),
-          cryptoSymbols, title, sessionTime,
-          accessCode: getAccessCode(),
-          region,
-        }),
+        body: JSON.stringify({ rows, reportDate, title, fileCount, accessCode: getAccessCode() }),
       });
       if (resp.status === 429) { toast({ title: 'Limite atingido', description: 'Tente novamente em alguns minutos.', variant: 'destructive' }); return null; }
-      if (resp.status === 402) { toast({ title: 'Créditos esgotados', variant: 'destructive' }); return null; }
-      if (!resp.ok) throw new Error('Erro na análise');
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'Erro no envio'); }
       const data = await resp.json();
-      toast({ title: 'Análise concluída!', description: `RA registrado em ${region === 'asia' ? 'Ásia' : 'Ocidente'}.` });
+      toast({ title: 'Relatórios somados!', description: `${data.analysis?.totalRows || 0} linhas processadas.` });
       queryClient.invalidateQueries({ queryKey: ['crypto-analyses'] });
       queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
       return data.analysis;
@@ -130,7 +120,7 @@ export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex =
     try {
       const resp = await fetch(`${BASE_URL}?action=generate-periodic`, {
         method: 'POST', headers,
-        body: JSON.stringify({ periodType: period, windowIndex: winIdx, accessCode: getAccessCode(), region }),
+        body: JSON.stringify({ periodType: period, windowIndex: winIdx, accessCode: getAccessCode() }),
       });
       if (!resp.ok) throw new Error('Erro ao gerar relatório');
       const data = await resp.json();
@@ -164,7 +154,7 @@ export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex =
     try {
       const resp = await fetch(`${BASE_URL}?action=refresh-lists`, {
         method: 'POST', headers,
-        body: JSON.stringify({ periodType: period, windowIndex: winIdx, accessCode: getAccessCode(), region }),
+        body: JSON.stringify({ periodType: period, windowIndex: winIdx, accessCode: getAccessCode() }),
       });
       if (resp.status === 429) { toast({ title: 'Limite atingido', variant: 'destructive' }); return null; }
       if (!resp.ok) throw new Error('Erro ao atualizar listas');
@@ -174,7 +164,7 @@ export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex =
         title: total === 0 ? 'Listas atualizadas (vazias)' : 'Listas atualizadas!',
         description: total === 0
           ? 'Nenhuma menção encontrada neste recorte.'
-          : `LA: ${total} criptos • IA: ${data.aiModelUsed || 'sem IA'}`,
+          : `Lista: ${total} criptos • IA: ${data.aiModelUsed || 'sem IA'}`,
       });
       queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
       queryClient.invalidateQueries({ queryKey: ['periodic-reports'] });
@@ -187,11 +177,12 @@ export const useCryptoAnalysis = ({ region, periodType = 'weekly', windowIndex =
 
   return {
     isAnalyzing, isGeneratingReport, isDeleting, isRefreshingLists,
-    submitAnalysis, generatePeriodicReport, deleteAnalyses, refreshLists,
+    submitCsv, generatePeriodicReport, deleteAnalyses, refreshLists,
     history: historyQuery.data?.analyses || [],
     isLoadingHistory: historyQuery.isLoading,
     altaRankings: rankingsQuery.data?.altaRankings || [],
     rankingsWindow: rankingsQuery.data?.window,
+    totalMentions: rankingsQuery.data?.totalMentions || 0,
     isLoadingRankings: rankingsQuery.isLoading,
     periodicReports: periodicReportsQuery.data?.reports || [],
     isLoadingPeriodicReports: periodicReportsQuery.isLoading,
