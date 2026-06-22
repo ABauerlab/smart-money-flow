@@ -200,14 +200,15 @@ function resolveWindow(periodType: string, windowIndex: number, now = new Date()
     const ref = new Date(now); ref.setUTCDate(ref.getUTCDate() - idx * 7);
     const { start, end } = getMonFriWeek(ref);
     const wom = weekOfMonth(start);
-    return { start: fmtDate(start), end: fmtDate(end), label: idx === 0 ? `Semana atual (S${wom})` : `Semana ${wom}` };
+    const label = `SEMANA ${wom} - ${MONTHS_PT[start.getUTCMonth()]}`;
+    return { start: fmtDate(start), end: fmtDate(end), label };
   }
   // monthly
   const y = now.getUTCFullYear();
   const m = now.getUTCMonth() - idx;
   const start = new Date(Date.UTC(y, m, 1));
   const end = new Date(Date.UTC(y, m + 1, 0));
-  return { start: fmtDate(start), end: fmtDate(end), label: idx === 0 ? 'Mês atual' : `M-${idx}` };
+  return { start: fmtDate(start), end: fmtDate(end), label: `${MONTHS_PT[start.getUTCMonth()]} ${start.getUTCFullYear()}` };
 }
 
 serve(async (req) => {
