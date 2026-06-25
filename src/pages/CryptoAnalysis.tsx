@@ -16,15 +16,83 @@ import { Seo } from '@/components/Seo';
 const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
   const [code, setCode] = useState('');
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm space-y-4 text-center">
-        <BrainCircuit className="w-12 h-12 text-primary mx-auto" />
-        <h1 className="text-xl font-bold gradient-text">Análise IA — CriptoEx</h1>
-        <p className="text-sm text-muted-foreground">Digite seu código de acesso pessoal. Mínimo 4 caracteres.</p>
-        <Input placeholder="Código de acesso..." value={code} onChange={e => setCode(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && code.length >= 4 && onAccess(code)} className="text-center" />
-        <Button onClick={() => onAccess(code)} disabled={code.length < 4} className="w-full">Entrar</Button>
-      </motion.div>
+    <div className="min-h-screen bg-background">
+      <div className="container max-w-5xl py-10 md:py-16 px-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          className="grid gap-8 lg:grid-cols-[1.4fr_1fr] items-start">
+
+          {/* Commercial copy */}
+          <div className="space-y-8">
+            <div className="space-y-3">
+              <span className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                <BrainCircuit className="w-3.5 h-3.5" /> Acesso Restrito
+              </span>
+              <h1 className="text-2xl md:text-3xl font-bold gradient-text leading-tight">Área de Análise</h1>
+              <p className="text-sm md:text-base text-muted-foreground max-w-xl">
+                Esta é uma área exclusiva para assinantes. Aqui você terá acesso a relatórios
+                periódicos, análises baseadas em dados e leituras estruturadas do comportamento do
+                mercado de criptomoedas, organizadas com apoio de inteligência artificial.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Nosso conteúdo é desenvolvido com foco em</h2>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2"><span className="text-primary mt-0.5">›</span> Organização de tendências.</li>
+                <li className="flex gap-2"><span className="text-primary mt-0.5">›</span> Identificação de padrões de repetição das criptomoedas que mais se valorizam na semana e no mês.</li>
+                <li className="flex gap-2"><span className="text-primary mt-0.5">›</span> Consolidação desses dados.</li>
+              </ul>
+              <p className="text-sm text-muted-foreground">
+                Tudo isso apresentado de forma clara, objetiva e orientada à tomada de decisão consciente.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">O que você encontrará aqui</h2>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2"><span className="text-primary mt-0.5">›</span> Relatórios semanais e mensais.</li>
+                <li className="flex gap-2"><span className="text-primary mt-0.5">›</span> Monitoramento de comportamento de alta das criptomoedas.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">⚠️ Aviso importante</p>
+              <p className="text-xs md:text-sm text-muted-foreground">
+                Este ambiente é exclusivamente informativo e educacional. Nenhuma das análises,
+                relatórios ou conteúdos disponibilizados constitui recomendação de compra ou venda de
+                ativos. As decisões são de responsabilidade do próprio usuário.
+              </p>
+            </div>
+          </div>
+
+          {/* Access + subscribe card */}
+          <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+            className="lg:sticky lg:top-10 space-y-6">
+            <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur p-6 space-y-4 text-center">
+              <BrainCircuit className="w-10 h-10 text-primary mx-auto" />
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold gradient-text">Análise IA — CriptoEx</h2>
+                <p className="text-xs text-muted-foreground">Digite seu código de acesso pessoal. Mínimo 4 caracteres.</p>
+              </div>
+              <Input placeholder="Código de acesso..." value={code} onChange={e => setCode(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && code.length >= 4 && onAccess(code)} className="text-center" />
+              <Button onClick={() => onAccess(code)} disabled={code.length < 4} className="w-full">Entrar</Button>
+            </div>
+
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 space-y-3 text-center">
+              <h2 className="text-base font-bold text-foreground">Torne-se um assinante</h2>
+              <p className="text-xs md:text-sm text-muted-foreground">
+                Para desbloquear o acesso completo e acompanhar todas as análises, torne-se um
+                assinante. Entre em contato para acesso à área exclusiva.
+              </p>
+              <a href="mailto:fluxodosmercados@gmail.com"
+                className="inline-flex items-center justify-center w-full rounded-lg bg-primary text-primary-foreground text-sm font-medium px-4 py-2.5 hover:opacity-90 transition-opacity">
+                fluxodosmercados@gmail.com
+              </a>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 };
