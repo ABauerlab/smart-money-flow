@@ -215,11 +215,13 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
 
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                <CalendarDays className="w-3.5 h-3.5" /> Data dos relatórios deste envio:
+                <CalendarDays className="w-3.5 h-3.5" /> Data de fechamento do pregão:
               </label>
               <Input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)}
                 className="bg-card border-border/50 w-full sm:w-56" />
-              <p className="text-[11px] text-muted-foreground/70">Usada quando a coluna DATA do CSV estiver vazia.</p>
+              <p className="text-[11px] text-muted-foreground/70">
+                Vale para os 4 relatórios deste pregão (Londres, América e a Ásia da véspera). Todas as linhas entram nesta data — escolha o dia de fechamento (Londres/América).
+              </p>
             </div>
 
             <Input placeholder="Título (opcional — gerado automaticamente)" value={title} onChange={e => setTitle(e.target.value)} className="bg-card border-border/50" />
