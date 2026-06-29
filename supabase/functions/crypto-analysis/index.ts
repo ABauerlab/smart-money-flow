@@ -456,7 +456,12 @@ serve(async (req) => {
         if (!symbol || symbol.length > 12) { skipped++; continue; }
         const repRaw = Number(String(r.repetition ?? r.rep ?? '1').replace(',', '.'));
         const repetition = Number.isFinite(repRaw) && repRaw > 0 ? Math.round(repRaw) : 1;
-        const reportDate = parseDate(r.date) || defaultDate;
+        // The envio date chosen by the user is authoritative for the whole batch.
+        // A single daily cycle (Londres 05h, América 10h30/13h30, Ásia 21h) must be
+        // attributed to the same consolidation day even if the CSV's own DATA column
+        // crosses midnight (the Ásia session). This keeps the Daily/Weekly windows
+        // consistent with what the "Enviar" tab shows.
+        const reportDate = defaultDate;
         const time = typeof r.time === 'string' ? r.time.trim().slice(0, 8) : null;
         const rankRaw = Number(r.rank);
         const rank = Number.isFinite(rankRaw) ? Math.round(rankRaw) : null;
