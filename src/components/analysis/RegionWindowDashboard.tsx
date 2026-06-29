@@ -52,7 +52,7 @@ export const RegionWindowDashboard = ({
         </div>
       ) : (
         <div className="space-y-1.5">
-          {altaRankings.slice(0, 30).map((r, i) => (
+          {altaRankings.map((r, i) => (
             <motion.div
               key={r.symbol}
               initial={{ opacity: 0, x: -10 }}
