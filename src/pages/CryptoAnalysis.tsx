@@ -48,9 +48,17 @@ const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
             </div>
 
             <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Acompanhamentos intrasemanais</h2>
+              <p className="text-sm text-muted-foreground">
+                Aqui você acompanha o comportamento do mercado de criptomoedas ao longo da semana, com atualizações diárias dos relatórios enviados.
+              </p>
+            </div>
+
+            <div className="space-y-3">
               <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">O que você encontrará aqui</h2>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><span className="text-primary mt-0.5">›</span> Relatórios semanais e mensais.</li>
+                <li className="flex gap-2"><span className="text-primary mt-0.5">›</span> Relatórios consolidados semanais na sexta-feira e mensais.</li>
+                <li className="flex gap-2"><span className="text-primary mt-0.5">›</span> Acompanhamento das criptomoedas na intrasemana.</li>
                 <li className="flex gap-2"><span className="text-primary mt-0.5">›</span> Monitoramento de comportamento de alta das criptomoedas.</li>
               </ul>
             </div>
