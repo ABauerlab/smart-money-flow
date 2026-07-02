@@ -8,8 +8,20 @@ interface MarketComparisonProps {
   correlations: VolumeCorrelation[];
 }
 
+// Mesma sequência dos quadros principais (Ásia → Europa → América)
+const COMPARISON_ORDER = ['inda', 'ewy', 'ewg', 'ewj', 'qqq', 'spy', 'nya', 'vgk', 'cryptoglobal', 'btc', 'petr4', 'bvsp'];
+
 export const MarketComparison = ({ markets, correlations }: MarketComparisonProps) => {
   if (markets.length < 2) return null;
+
+  const orderedMarkets = [...markets].sort((a, b) => {
+    const ai = COMPARISON_ORDER.indexOf(a.id);
+    const bi = COMPARISON_ORDER.indexOf(b.id);
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
 
   const getCorrelationColor = (corr: number) => {
     if (corr > 0.5) return 'text-bullish';
