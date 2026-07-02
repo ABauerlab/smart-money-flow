@@ -8,8 +8,20 @@ interface MarketComparisonProps {
   correlations: VolumeCorrelation[];
 }
 
+// Mesma sequência dos quadros principais (Ásia → Europa → América)
+const COMPARISON_ORDER = ['inda', 'ewy', 'ewg', 'ewj', 'qqq', 'spy', 'nya', 'vgk', 'cryptoglobal', 'btc', 'petr4', 'bvsp'];
+
 export const MarketComparison = ({ markets, correlations }: MarketComparisonProps) => {
   if (markets.length < 2) return null;
+
+  const orderedMarkets = [...markets].sort((a, b) => {
+    const ai = COMPARISON_ORDER.indexOf(a.id);
+    const bi = COMPARISON_ORDER.indexOf(b.id);
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
 
   const getCorrelationColor = (corr: number) => {
     if (corr > 0.5) return 'text-bullish';
@@ -99,7 +111,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
             <thead>
               <tr className="border-b border-border/50">
                 <th className="text-left py-2 px-2 text-muted-foreground font-medium">Métrica</th>
-                {markets.map(market => (
+                {orderedMarkets.map(market => (
                   <th key={market.id} className="text-right py-2 px-2 font-medium">
                     <span className="flex items-center justify-end gap-1">
                       <span>{market.flag}</span>
@@ -112,7 +124,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
             <tbody>
               <tr className="border-b border-border/30">
                 <td className="py-2 px-2 text-muted-foreground">Volume vs Média</td>
-                {markets.map(market => (
+                {orderedMarkets.map(market => (
                   <td key={market.id} className="py-2 px-2 text-right font-mono">
                     <span className={market.volumeRatio > 1.2 ? 'text-bullish' : market.volumeRatio < 0.8 ? 'text-bearish' : ''}>
                       {market.volumeRatio.toFixed(2)}x
@@ -122,7 +134,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
               </tr>
               <tr className="border-b border-border/30">
                 <td className="py-2 px-2 text-muted-foreground">Atividade Extrema (Z-Score)</td>
-                {markets.map(market => (
+                {orderedMarkets.map(market => (
                   <td key={market.id} className="py-2 px-2 text-right font-mono">
                     <span className={market.zScore > 1.5 ? 'text-bullish' : market.zScore < -1.5 ? 'text-bearish' : ''}>
                       {market.zScore > 0 ? '+' : ''}{market.zScore.toFixed(2)}σ
@@ -132,7 +144,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
               </tr>
               <tr className="border-b border-border/30">
                 <td className="py-2 px-2 text-muted-foreground">Força Institucional</td>
-                {markets.map(market => (
+                {orderedMarkets.map(market => (
                   <td key={market.id} className="py-2 px-2 text-right font-mono">
                     <span className={market.convictionScore >= 7 ? 'text-bullish' : market.convictionScore <= 4 ? 'text-bearish' : 'text-warning'}>
                       {market.convictionScore.toFixed(1)}/10
@@ -142,7 +154,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
               </tr>
               <tr className="border-b border-border/30">
                 <td className="py-2 px-2 text-muted-foreground">Variação Preço</td>
-                {markets.map(market => (
+                {orderedMarkets.map(market => (
                   <td key={market.id} className="py-2 px-2 text-right font-mono">
                     <span className={market.priceChange >= 0 ? 'text-bullish' : 'text-bearish'}>
                       {market.priceChange >= 0 ? '+' : ''}{market.priceChange.toFixed(2)}%
@@ -152,7 +164,7 @@ export const MarketComparison = ({ markets, correlations }: MarketComparisonProp
               </tr>
               <tr>
                 <td className="py-2 px-2 text-muted-foreground">Fluxo</td>
-                {markets.map(market => (
+                {orderedMarkets.map(market => (
                   <td key={market.id} className="py-2 px-2 text-right">
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                       market.flowType === 'accumulation' ? 'bg-bullish/20 text-bullish' :
