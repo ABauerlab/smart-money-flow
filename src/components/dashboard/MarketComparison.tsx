@@ -8,8 +8,7 @@ interface MarketComparisonProps {
   correlations: VolumeCorrelation[];
 }
 
-// Mesma sequência dos quadros principais (Ásia → Europa → América)
-const COMPARISON_ORDER = ['inda', 'ewy', 'ewg', 'ewj', 'qqq', 'spy', 'nya', 'vgk', 'cryptoglobal', 'btc', 'petr4', 'bvsp'];
+const COMPARISON_ORDER = ['ewj', 'ewg', 'ewy', 'inda', 'vgk', 'nya', 'spy', 'qqq', 'bvsp', 'petr4', 'btc', 'cryptoglobal'];
 
 export const MarketComparison = ({ markets, correlations }: MarketComparisonProps) => {
   if (markets.length < 2) return null;
