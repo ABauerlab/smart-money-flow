@@ -192,7 +192,7 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
           <TabsContent value="dashboard" className="space-y-4">
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground space-y-1">
               <p className="font-semibold text-foreground">Como funciona</p>
-              <p>Cadência: <strong>4 relatórios/dia</strong> — 05:00 Londres, 10:30 América, 13:30 América, 21:00 Ásia (consolidados ~22h).</p>
+              <p>Cadência: <strong>4 relatórios/dia</strong> — 05:00 Londres, 10:30 América, 13:30 América, 21:00 Ásia (consolidados ~15h).</p>
               <p>A semana vai de <strong>segunda a sexta</strong>; na sexta o somatório fecha e na segunda recomeça do zero.</p>
             </div>
 
