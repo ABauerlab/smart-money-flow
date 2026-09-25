@@ -66,6 +66,32 @@ function parseDate(input: any): string | null {
   return null;
 }
 
+// Mirrors the client-side parser in src/components/analysis/CsvUploader.tsx exactly,
+// so an automation (e.g. Make.com pulling a file from Google Drive) can POST the raw
+// .CSV text directly instead of pre-parsing it into rows. Columns: CRIPTO, REPETIÇÃO,
+// DATA, HORA, RANK.
+function parseCsvText(text: string): Array<{ symbol: string; repetition: number; date?: string; time?: string; rank?: number }> {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  const rows: Array<{ symbol: string; repetition: number; date?: string; time?: string; rank?: number }> = [];
+  for (let i = 0; i < lines.length; i++) {
+    const delim = lines[i].includes(';') ? ';' : ',';
+    const cols = lines[i].split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
+    const symbol = (cols[0] || '').toUpperCase();
+    if (i === 0 && /cripto|symbol|ativo|moeda/i.test(cols[0] || '')) continue;
+    if (!symbol || !/[A-Z0-9]/.test(symbol)) continue;
+    const repetition = parseInt((cols[1] || '1').replace(/[^0-9-]/g, ''), 10);
+    rows.push({
+      symbol,
+      repetition: Number.isFinite(repetition) && repetition > 0 ? repetition : 1,
+      date: cols[2] || undefined,
+      time: cols[3] || undefined,
+      rank: cols[4] ? parseInt(cols[4].replace(/[^0-9-]/g, ''), 10) : undefined,
+    });
+    if (rows.length >= 5000) break; // matches the row cap enforced below
+  }
+  return rows;
+}
+
 function normalizeRegion(r: any): 'asia' | 'west' {
   return r === 'asia' ? 'asia' : 'west';
 }
@@ -478,11 +504,24 @@ serve(async (req) => {
 
     // ========== ANALYZE CSV (main upload — single market) ==========
     if (action === 'analyze' || action === 'analyze-csv') {
-      const { rows, title: titleRaw, reportDate: fallbackDate, fileCount } = reqBody;
+      const { rows: rowsIn, csvText, title: titleRaw, reportDate: fallbackDate, fileCount } = reqBody;
       const title = typeof titleRaw === 'string' ? titleRaw.slice(0, 200) : titleRaw;
 
-      if (!rows || !Array.isArray(rows) || rows.length === 0) {
-        return new Response(JSON.stringify({ error: 'Nenhuma linha de CSV fornecida.' }), {
+      // Two ways in: pre-parsed `rows` (the web UI, after client-side CSV parsing) or
+      // raw `csvText` (e.g. a Make.com/automation scenario posting the file's contents
+      // directly — parsed here with the exact same rules as the client-side parser).
+      let rows = Array.isArray(rowsIn) ? rowsIn : null;
+      if (!rows && typeof csvText === 'string' && csvText.trim().length > 0) {
+        if (csvText.length > 2_000_000) {
+          return new Response(JSON.stringify({ error: 'csvText excede o limite de tamanho permitido.' }), {
+            status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        rows = parseCsvText(csvText);
+      }
+
+      if (!rows || rows.length === 0) {
+        return new Response(JSON.stringify({ error: 'Nenhuma linha de CSV fornecida (envie `rows` ou `csvText`).' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
