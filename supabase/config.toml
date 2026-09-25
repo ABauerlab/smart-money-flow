@@ -1,1 +1,13 @@
 project_id = "xinzvskuxnxgjrcqncmy"
+
+# crypto-analysis implements its own authorization (the accessCode check + the
+# rate limiters in the function body) instead of relying on Supabase's platform
+# JWT gate. The anon key isn't a secret (it's embedded in the client bundle
+# already), so this doesn't weaken anything real — it just lets non-browser
+# callers (e.g. the Make.com automation) hit the endpoint without needing to
+# forward an Authorization header, which Make's generic HTTP module does not
+# send reliably for a manually-added header of that exact name.
+# Explicitly authorized by the project owner (2026-09-25) after confirming the
+# access-code + rate-limit checks in the function body are the real gate here.
+[functions.crypto-analysis]
+verify_jwt = false
