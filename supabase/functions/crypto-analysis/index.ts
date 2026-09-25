@@ -250,25 +250,24 @@ async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Pr
   return await callLovableGateway(messages, wantsVision);
 }
 
-// In-memory rate limiter (per key, sliding 60s window)
-const RL_WINDOW_MS = 60_000;
-const rlBuckets = new Map<string, number[]>();
-function rateLimitBucket(key: string, max: number): { ok: boolean; retryAfter: number } {
-  const now = Date.now();
-  const arr = (rlBuckets.get(key) || []).filter(t => now - t < RL_WINDOW_MS);
-  if (arr.length >= max) {
-    const retryAfter = Math.ceil((RL_WINDOW_MS - (now - arr[0])) / 1000);
-    return { ok: false, retryAfter };
+// Rate limiter backed by the `rl_check` Postgres function (see migration) instead of
+// an in-memory Map: Edge Functions run as ephemeral, possibly-multiple isolates, so an
+// in-memory counter doesn't hold up across instances or restarts. Postgres row locking
+// (via INSERT ... ON CONFLICT) makes this atomic and shared across every instance.
+async function rateLimitBucket(supabase: any, key: string, max: number): Promise<{ ok: boolean; retryAfter: number }> {
+  const { data, error } = await supabase.rpc('rl_check', { p_key: key, p_window_seconds: 60, p_max: max });
+  if (error) {
+    console.error('rl_check error (failing open):', error.message);
+    return { ok: true, retryAfter: 0 }; // never let a rate-limit outage take the endpoint down
   }
-  arr.push(now);
-  rlBuckets.set(key, arr);
-  return { ok: true, retryAfter: 0 };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: !!row?.allowed, retryAfter: Number(row?.retry_after) || 0 };
 }
 // AI/DB-expensive actions: tight per accessCode+IP+action budget.
-function rateLimit(key: string) { return rateLimitBucket(key, 8); }
+function rateLimit(supabase: any, key: string) { return rateLimitBucket(supabase, key, 8); }
 // Blanket per-IP budget covering every action, including ones before the access
 // code is known — stops brute-forcing access codes or hammering cheap endpoints.
-function ipRateLimit(ip: string) { return rateLimitBucket(`ip:${ip}`, 30); }
+function ipRateLimit(supabase: any, ip: string) { return rateLimitBucket(supabase, `ip:${ip}`, 30); }
 
 // Resolve a date window from periodType + windowIndex (relative to "now").
 // periodType: 'daily' | 'weekly' | 'monthly'
@@ -306,14 +305,6 @@ serve(async (req) => {
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
 
-    const ipRl = ipRateLimit(ip);
-    if (!ipRl.ok) {
-      return new Response(
-        JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${ipRl.retryAfter}s.` }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(ipRl.retryAfter) } },
-      );
-    }
-
     const contentLength = Number(req.headers.get('content-length') || '0');
     if (contentLength > MAX_BODY_BYTES) {
       return new Response(
@@ -329,6 +320,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const ipRl = await ipRateLimit(supabase, ip);
+    if (!ipRl.ok) {
+      return new Response(
+        JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${ipRl.retryAfter}s.` }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(ipRl.retryAfter) } },
+      );
+    }
+
     const reqBody = await req.json().catch(() => ({} as any));
     const accessCodeRaw = typeof reqBody.accessCode === 'string' ? reqBody.accessCode.trim() : '';
     if (!accessCodeRaw || accessCodeRaw.length < 4 || accessCodeRaw.length > 64) {
@@ -341,7 +340,7 @@ serve(async (req) => {
 
     const expensiveActions = new Set(['analyze', 'generate-periodic', 'refresh-lists']);
     if (expensiveActions.has(action)) {
-      const rl = rateLimit(`${accessCode}:${ip}:${action}`);
+      const rl = await rateLimit(supabase, `${accessCode}:${ip}:${action}`);
       if (!rl.ok) {
         return new Response(
           JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${rl.retryAfter}s.` }),

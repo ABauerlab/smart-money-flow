@@ -23,19 +23,18 @@ function corsHeadersFor(req: Request): Record<string, string> {
 // ---- Per-IP rate limit ----
 // This endpoint can trigger paid third-party API calls (Alpha Vantage, Brapi, CMC,
 // NewsAPI) on a cache miss, so it needs its own throttle independent of the cache TTL.
-const RL_WINDOW_MS = 60_000;
-const RL_MAX = 20;
-const rlBuckets = new Map<string, number[]>();
-function rateLimit(key: string): { ok: boolean; retryAfter: number } {
-  const now = Date.now();
-  const arr = (rlBuckets.get(key) || []).filter(t => now - t < RL_WINDOW_MS);
-  if (arr.length >= RL_MAX) {
-    const retryAfter = Math.ceil((RL_WINDOW_MS - (now - arr[0])) / 1000);
-    return { ok: false, retryAfter };
+// Backed by the `rl_check` Postgres function (see migration) instead of an in-memory
+// Map: Edge Functions run as ephemeral, possibly-multiple isolates, so an in-memory
+// counter doesn't hold up across instances or restarts. Postgres row locking (via
+// INSERT ... ON CONFLICT) makes this atomic and shared across every instance.
+async function rateLimit(supabase: any, key: string, windowSeconds = 60, max = 20): Promise<{ ok: boolean; retryAfter: number }> {
+  const { data, error } = await supabase.rpc('rl_check', { p_key: key, p_window_seconds: windowSeconds, p_max: max });
+  if (error) {
+    console.error('rl_check error (failing open):', error.message);
+    return { ok: true, retryAfter: 0 }; // never let a rate-limit outage take the endpoint down
   }
-  arr.push(now);
-  rlBuckets.set(key, arr);
-  return { ok: true, retryAfter: 0 };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: !!row?.allowed, retryAfter: Number(row?.retry_after) || 0 };
 }
 
 interface MarketData {
@@ -790,17 +789,18 @@ serve(async (req) => {
 
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rl = rateLimit(ip);
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const rl = await rateLimit(supabase, `market-data:${ip}`, 60, 20);
     if (!rl.ok) {
       return new Response(
         JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${rl.retryAfter}s.` }),
         { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } },
       );
     }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const alphaKey = Deno.env.get('ALPHA_VANTAGE_API_KEY') || 'demo';
     const brapiKey = Deno.env.get('BRAPI_API_KEY') || '';
