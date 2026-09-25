@@ -1,3 +1,23 @@
+# ---- Bot/abuse filtering ----
+# Blocks requests with no User-Agent and known scanner/exploit-tool signatures
+# before they ever reach the SPA or the Supabase edge functions. This is a
+# coarse, static filter — it complements (does not replace) Cloudflare's
+# Bot Fight Mode / WAF and the app-level rate limiting in the edge functions.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP_USER_AGENT} ^-?$ [OR]
+  RewriteCond %{HTTP_USER_AGENT} (sqlmap|nikto|acunetix|nessus|nmap|masscan|zgrab|dirbuster|wpscan|fimap|havij|libwww-perl|python-requests|python-urllib|go-http-client|Scrapy|^curl/|^Wget/) [NC]
+  RewriteRule .* - [F,L]
+</IfModule>
+
+# ---- Security headers ----
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), camera=(), microphone=()"
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /

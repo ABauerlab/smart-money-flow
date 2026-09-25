@@ -8,6 +8,12 @@ export interface ParsedCsvFile {
   rows: CsvRow[];
 }
 
+// Mirrors the server-side caps in the crypto-analysis edge function (rows.length > 5000
+// is rejected there). Enforcing it client-side too avoids uploading a payload that's
+// certain to bounce, and caps how large a single file we'll read into memory.
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_TOTAL_ROWS = 5000;
+
 interface CsvUploaderProps {
   files: ParsedCsvFile[];
   onFilesChange: (files: ParsedCsvFile[]) => void;
@@ -39,13 +45,25 @@ function parseCsv(text: string): CsvRow[] {
 
 export const CsvUploader = ({ files, onFilesChange, disabled }: CsvUploaderProps) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const processFiles = useCallback(async (fileList: FileList) => {
+    setError(null);
     const next: ParsedCsvFile[] = [];
+    let totalRows = files.reduce((s, f) => s + f.rows.length, 0);
     for (const file of Array.from(fileList)) {
       if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') continue;
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setError(`"${file.name}" excede o limite de ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB por arquivo.`);
+        continue;
+      }
       const text = await file.text();
       const rows = parseCsv(text);
+      if (totalRows + rows.length > MAX_TOTAL_ROWS) {
+        setError(`Limite de ${MAX_TOTAL_ROWS} linhas por envio excedido — "${file.name}" não foi adicionado.`);
+        continue;
+      }
+      totalRows += rows.length;
       next.push({ name: file.name, rows });
     }
     onFilesChange([...files, ...next]);
@@ -89,6 +107,12 @@ export const CsvUploader = ({ files, onFilesChange, disabled }: CsvUploaderProps
           Colunas: CRIPTO • REPETIÇÃO • DATA • HORA • RANK
         </p>
       </div>
+
+      {error && (
+        <p className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+          {error}
+        </p>
+      )}
 
       <AnimatePresence>
         {files.length > 0 && (

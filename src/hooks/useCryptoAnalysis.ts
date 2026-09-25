@@ -122,6 +122,7 @@ export const useCryptoAnalysis = ({ periodType = 'weekly', windowIndex = 0 }: Us
         method: 'POST', headers,
         body: JSON.stringify({ periodType: period, windowIndex: winIdx, accessCode: getAccessCode() }),
       });
+      if (resp.status === 429) { toast({ title: 'Limite atingido', description: 'Tente novamente em alguns minutos.', variant: 'destructive' }); return null; }
       if (!resp.ok) throw new Error('Erro ao gerar relatório');
       const data = await resp.json();
       toast({ title: 'Relatório gerado!', description: `${period} criado.` });

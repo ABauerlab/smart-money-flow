@@ -1,10 +1,41 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// ---- CORS allowlist ----
+// Only browsers on these origins may read the response. Direct script/curl abuse
+// isn't stopped by CORS (it's a browser-enforced header), but it blocks other
+// sites' JS from riding a visitor's session, and keeps this endpoint from being
+// trivially embedded elsewhere. Override via ALLOWED_ORIGINS (comma-separated).
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ||
+  'https://fluxodosmercados.com.br,https://www.fluxodosmercados.com.br')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+function corsHeadersFor(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Vary': 'Origin',
+  };
+}
+
+// ---- Per-IP rate limit ----
+// This endpoint can trigger paid third-party API calls (Alpha Vantage, Brapi, CMC,
+// NewsAPI) on a cache miss, so it needs its own throttle independent of the cache TTL.
+// Backed by the `rl_check` Postgres function (see migration) instead of an in-memory
+// Map: Edge Functions run as ephemeral, possibly-multiple isolates, so an in-memory
+// counter doesn't hold up across instances or restarts. Postgres row locking (via
+// INSERT ... ON CONFLICT) makes this atomic and shared across every instance.
+async function rateLimit(supabase: any, key: string, windowSeconds = 60, max = 20): Promise<{ ok: boolean; retryAfter: number }> {
+  const { data, error } = await supabase.rpc('rl_check', { p_key: key, p_window_seconds: windowSeconds, p_max: max });
+  if (error) {
+    console.error('rl_check error (failing open):', error.message);
+    return { ok: true, retryAfter: 0 }; // never let a rate-limit outage take the endpoint down
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: !!row?.allowed, retryAfter: Number(row?.retry_after) || 0 };
+}
 
 interface MarketData {
   id: string;
@@ -753,12 +784,23 @@ async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: strin
 }
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const rl = await rateLimit(supabase, `market-data:${ip}`, 60, 20);
+    if (!rl.ok) {
+      return new Response(
+        JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${rl.retryAfter}s.` }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } },
+      );
+    }
 
     const alphaKey = Deno.env.get('ALPHA_VANTAGE_API_KEY') || 'demo';
     const brapiKey = Deno.env.get('BRAPI_API_KEY') || '';

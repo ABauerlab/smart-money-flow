@@ -1,10 +1,32 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// ---- CORS allowlist ----
+// Only browsers on these origins may read the response. CORS doesn't stop a
+// direct script/curl call carrying the anon key — that's what the rate limiters
+// and payload caps below are for — but it stops other sites' JS from riding a
+// visitor's session. Override via ALLOWED_ORIGINS (comma-separated) as a secret.
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ||
+  'https://fluxodosmercados.com.br,https://www.fluxodosmercados.com.br')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+function corsHeadersFor(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Vary': 'Origin',
+  };
+}
+
+// Hard cap on request body size, checked before JSON parsing, so an oversized
+// payload (e.g. someone trying to force a huge AI prompt) is rejected cheaply.
+const MAX_BODY_BYTES = 2 * 1024 * 1024; // 2MB — comfortably above a 5000-row CSV as JSON
+
+// Cap how many ranking rows are ever interpolated into the AI prompt. The DB
+// query itself is unbounded by symbol count, but the LLM call cost should not be.
+const MAX_AI_RANKING_ROWS = 200;
 
 function getISOWeek(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -42,6 +64,32 @@ function parseDate(input: any): string | null {
     return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
   return null;
+}
+
+// Mirrors the client-side parser in src/components/analysis/CsvUploader.tsx exactly,
+// so an automation (e.g. Make.com pulling a file from Google Drive) can POST the raw
+// .CSV text directly instead of pre-parsing it into rows. Columns: CRIPTO, REPETIÇÃO,
+// DATA, HORA, RANK.
+function parseCsvText(text: string): Array<{ symbol: string; repetition: number; date?: string; time?: string; rank?: number }> {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  const rows: Array<{ symbol: string; repetition: number; date?: string; time?: string; rank?: number }> = [];
+  for (let i = 0; i < lines.length; i++) {
+    const delim = lines[i].includes(';') ? ';' : ',';
+    const cols = lines[i].split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
+    const symbol = (cols[0] || '').toUpperCase();
+    if (i === 0 && /cripto|symbol|ativo|moeda/i.test(cols[0] || '')) continue;
+    if (!symbol || !/[A-Z0-9]/.test(symbol)) continue;
+    const repetition = parseInt((cols[1] || '1').replace(/[^0-9-]/g, ''), 10);
+    rows.push({
+      symbol,
+      repetition: Number.isFinite(repetition) && repetition > 0 ? repetition : 1,
+      date: cols[2] || undefined,
+      time: cols[3] || undefined,
+      rank: cols[4] ? parseInt(cols[4].replace(/[^0-9-]/g, ''), 10) : undefined,
+    });
+    if (rows.length >= 5000) break; // matches the row cap enforced below
+  }
+  return rows;
 }
 
 function normalizeRegion(r: any): 'asia' | 'west' {
@@ -202,21 +250,24 @@ async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Pr
   return await callLovableGateway(messages, wantsVision);
 }
 
-// In-memory rate limiter
-const RL_WINDOW_MS = 60_000;
-const RL_MAX = 8;
-const rlBuckets = new Map<string, number[]>();
-function rateLimit(key: string): { ok: boolean; retryAfter: number } {
-  const now = Date.now();
-  const arr = (rlBuckets.get(key) || []).filter(t => now - t < RL_WINDOW_MS);
-  if (arr.length >= RL_MAX) {
-    const retryAfter = Math.ceil((RL_WINDOW_MS - (now - arr[0])) / 1000);
-    return { ok: false, retryAfter };
+// Rate limiter backed by the `rl_check` Postgres function (see migration) instead of
+// an in-memory Map: Edge Functions run as ephemeral, possibly-multiple isolates, so an
+// in-memory counter doesn't hold up across instances or restarts. Postgres row locking
+// (via INSERT ... ON CONFLICT) makes this atomic and shared across every instance.
+async function rateLimitBucket(supabase: any, key: string, max: number): Promise<{ ok: boolean; retryAfter: number }> {
+  const { data, error } = await supabase.rpc('rl_check', { p_key: key, p_window_seconds: 60, p_max: max });
+  if (error) {
+    console.error('rl_check error (failing open):', error.message);
+    return { ok: true, retryAfter: 0 }; // never let a rate-limit outage take the endpoint down
   }
-  arr.push(now);
-  rlBuckets.set(key, arr);
-  return { ok: true, retryAfter: 0 };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: !!row?.allowed, retryAfter: Number(row?.retry_after) || 0 };
 }
+// AI/DB-expensive actions: tight per accessCode+IP+action budget.
+function rateLimit(supabase: any, key: string) { return rateLimitBucket(supabase, key, 8); }
+// Blanket per-IP budget covering every action, including ones before the access
+// code is known — stops brute-forcing access codes or hammering cheap endpoints.
+function ipRateLimit(supabase: any, ip: string) { return rateLimitBucket(supabase, `ip:${ip}`, 30); }
 
 // Resolve a date window from periodType + windowIndex (relative to "now").
 // periodType: 'daily' | 'weekly' | 'monthly'
@@ -248,15 +299,34 @@ function resolveWindow(periodType: string, windowIndex: number, now = new Date()
 }
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+
+    const contentLength = Number(req.headers.get('content-length') || '0');
+    if (contentLength > MAX_BODY_BYTES) {
+      return new Response(
+        JSON.stringify({ error: 'Corpo da requisição excede o limite permitido.' }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const url = new URL(req.url);
     const action = url.searchParams.get('action') || 'analyze';
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const ipRl = await ipRateLimit(supabase, ip);
+    if (!ipRl.ok) {
+      return new Response(
+        JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${ipRl.retryAfter}s.` }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(ipRl.retryAfter) } },
+      );
+    }
 
     const reqBody = await req.json().catch(() => ({} as any));
     const accessCodeRaw = typeof reqBody.accessCode === 'string' ? reqBody.accessCode.trim() : '';
@@ -270,8 +340,7 @@ serve(async (req) => {
 
     const expensiveActions = new Set(['analyze', 'generate-periodic', 'refresh-lists']);
     if (expensiveActions.has(action)) {
-      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-      const rl = rateLimit(`${accessCode}:${ip}:${action}`);
+      const rl = await rateLimit(supabase, `${accessCode}:${ip}:${action}`);
       if (!rl.ok) {
         return new Response(
           JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${rl.retryAfter}s.` }),
@@ -402,7 +471,7 @@ serve(async (req) => {
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
-        const laText = `### Lista Geral (somatório)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
+        const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
@@ -434,10 +503,24 @@ serve(async (req) => {
 
     // ========== ANALYZE CSV (main upload — single market) ==========
     if (action === 'analyze' || action === 'analyze-csv') {
-      const { rows, title, reportDate: fallbackDate, fileCount } = reqBody;
+      const { rows: rowsIn, csvText, title: titleRaw, reportDate: fallbackDate, fileCount } = reqBody;
+      const title = typeof titleRaw === 'string' ? titleRaw.slice(0, 200) : titleRaw;
 
-      if (!rows || !Array.isArray(rows) || rows.length === 0) {
-        return new Response(JSON.stringify({ error: 'Nenhuma linha de CSV fornecida.' }), {
+      // Two ways in: pre-parsed `rows` (the web UI, after client-side CSV parsing) or
+      // raw `csvText` (e.g. a Make.com/automation scenario posting the file's contents
+      // directly — parsed here with the exact same rules as the client-side parser).
+      let rows = Array.isArray(rowsIn) ? rowsIn : null;
+      if (!rows && typeof csvText === 'string' && csvText.trim().length > 0) {
+        if (csvText.length > 2_000_000) {
+          return new Response(JSON.stringify({ error: 'csvText excede o limite de tamanho permitido.' }), {
+            status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        rows = parseCsvText(csvText);
+      }
+
+      if (!rows || rows.length === 0) {
+        return new Response(JSON.stringify({ error: 'Nenhuma linha de CSV fornecida (envie `rows` ou `csvText`).' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -565,7 +648,7 @@ serve(async (req) => {
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
-        const laText = `### Lista Geral (somatório)\n${altaRankings.map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
+        const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: `Atualização de listas.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos: ${rankings.length}\nTotal de repetições: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nReanalise os padrões atuais deste recorte isolado. Não use emojis.` },
