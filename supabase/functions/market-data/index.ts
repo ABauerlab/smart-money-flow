@@ -1,10 +1,42 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// ---- CORS allowlist ----
+// Only browsers on these origins may read the response. Direct script/curl abuse
+// isn't stopped by CORS (it's a browser-enforced header), but it blocks other
+// sites' JS from riding a visitor's session, and keeps this endpoint from being
+// trivially embedded elsewhere. Override via ALLOWED_ORIGINS (comma-separated).
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ||
+  'https://fluxodosmercados.com.br,https://www.fluxodosmercados.com.br')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+function corsHeadersFor(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Vary': 'Origin',
+  };
+}
+
+// ---- Per-IP rate limit ----
+// This endpoint can trigger paid third-party API calls (Alpha Vantage, Brapi, CMC,
+// NewsAPI) on a cache miss, so it needs its own throttle independent of the cache TTL.
+const RL_WINDOW_MS = 60_000;
+const RL_MAX = 20;
+const rlBuckets = new Map<string, number[]>();
+function rateLimit(key: string): { ok: boolean; retryAfter: number } {
+  const now = Date.now();
+  const arr = (rlBuckets.get(key) || []).filter(t => now - t < RL_WINDOW_MS);
+  if (arr.length >= RL_MAX) {
+    const retryAfter = Math.ceil((RL_WINDOW_MS - (now - arr[0])) / 1000);
+    return { ok: false, retryAfter };
+  }
+  arr.push(now);
+  rlBuckets.set(key, arr);
+  return { ok: true, retryAfter: 0 };
+}
 
 interface MarketData {
   id: string;
@@ -753,9 +785,19 @@ async function fetchAllMarkets(alphaKey: string, brapiKey: string, cmcKey: strin
 }
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const rl = rateLimit(ip);
+    if (!rl.ok) {
+      return new Response(
+        JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${rl.retryAfter}s.` }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } },
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
