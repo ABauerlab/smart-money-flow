@@ -407,6 +407,101 @@ serve(async (req) => {
       });
     }
 
+    // ========== LATEST ROUND (operational dashboard) ==========
+    // A "round" = one ingested CSV (one crypto_report_submissions row). Returns the
+    // selected round's ranking with a trend vs. the immediately previous round, plus
+    // the list of today's rounds for the quick switcher. Falls back to the most recent
+    // round ever recorded when nothing has landed yet today, so the dashboard never
+    // goes blank while waiting for the next Make.com run.
+    if (action === 'latest-round') {
+      const today = fmtDate(new Date());
+
+      const roundCols = 'id, created_at, report_date, source_file_name, source_modified_time, crypto_analyses(title)';
+      const { data: todayRounds, error: todayErr } = await supabase
+        .from('crypto_report_submissions')
+        .select(roundCols)
+        .eq('access_code', accessCode)
+        .eq('report_date', today)
+        .order('created_at', { ascending: false });
+      if (todayErr) throw todayErr;
+
+      let rounds = todayRounds || [];
+      let isFallbackFromPreviousDay = false;
+      if (rounds.length === 0) {
+        const { data: lastRound, error: lastErr } = await supabase
+          .from('crypto_report_submissions')
+          .select(roundCols)
+          .eq('access_code', accessCode)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (lastErr) throw lastErr;
+        rounds = lastRound || [];
+        isFallbackFromPreviousDay = rounds.length > 0;
+      }
+
+      if (rounds.length === 0) {
+        return new Response(JSON.stringify({ latest: null, rounds: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const requestedId = typeof reqBody.submissionId === 'string' ? reqBody.submissionId : null;
+      const selectedIdx = requestedId ? Math.max(0, rounds.findIndex(r => r.id === requestedId)) : 0;
+      const selected = rounds[selectedIdx];
+      const previousRound = rounds[selectedIdx + 1] || null;
+
+      // Group by symbol in case a round's raw rows include repeats for the same symbol.
+      async function groupedMentions(submissionId: string): Promise<Map<string, { count: number; rank: number | null }>> {
+        const { data, error } = await supabase
+          .from('crypto_mentions')
+          .select('symbol, repetition, rank')
+          .eq('submission_id', submissionId);
+        if (error) throw error;
+        const map = new Map<string, { count: number; rank: number | null }>();
+        for (const m of data || []) {
+          const cur = map.get(m.symbol);
+          if (cur) { cur.count += Number(m.repetition) || 0; }
+          else { map.set(m.symbol, { count: Number(m.repetition) || 0, rank: m.rank ?? null }); }
+        }
+        return map;
+      }
+
+      const [selectedMap, previousMap] = await Promise.all([
+        groupedMentions(selected.id),
+        previousRound ? groupedMentions(previousRound.id) : Promise.resolve(new Map()),
+      ]);
+
+      const rankings = [...selectedMap.entries()]
+        .sort((a, b) => b[1].count - a[1].count)
+        .map(([symbol, cur], i) => {
+          const prev = previousMap.get(symbol);
+          const trend: 'up' | 'down' | 'flat' | 'new' =
+            !prev ? 'new' : cur.count > prev.count ? 'up' : cur.count < prev.count ? 'down' : 'flat';
+          return {
+            symbol,
+            count: cur.count,
+            rank: cur.rank ?? i + 1,
+            trend,
+            previousCount: prev?.count ?? null,
+          };
+        });
+
+      return new Response(JSON.stringify({
+        selectedRoundId: selected.id,
+        isLatest: selectedIdx === 0,
+        isFallbackFromPreviousDay,
+        timestamp: selected.source_modified_time || selected.created_at,
+        sourceFileName: selected.source_file_name,
+        title: (selected as any).crypto_analyses?.title || null,
+        rankings,
+        rounds: rounds.map(r => ({
+          id: r.id,
+          timestamp: r.source_modified_time || r.created_at,
+          sourceFileName: r.source_file_name,
+        })),
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // ========== RANKINGS (single market, summed by repetition + window) ==========
     if (action === 'rankings') {
       const periodType = (reqBody.periodType || 'weekly') as string;
@@ -505,6 +600,29 @@ serve(async (req) => {
     if (action === 'analyze' || action === 'analyze-csv') {
       const { rows: rowsIn, csvText, title: titleRaw, reportDate: fallbackDate, fileCount } = reqBody;
       const title = typeof titleRaw === 'string' ? titleRaw.slice(0, 200) : titleRaw;
+      const sourceFileId = typeof reqBody.sourceFileId === 'string' ? reqBody.sourceFileId.slice(0, 200) : null;
+      const sourceFileName = typeof reqBody.sourceFileName === 'string' ? reqBody.sourceFileName.slice(0, 300) : null;
+      const sourceModifiedTime = typeof reqBody.sourceModifiedTime === 'string' && !isNaN(Date.parse(reqBody.sourceModifiedTime))
+        ? new Date(reqBody.sourceModifiedTime).toISOString()
+        : null;
+
+      // Idempotency: an automation (Make.com) re-polling the same Drive file must not
+      // create a second round. One unique index on source_file_id enforces this at the
+      // DB level too — this check just returns the existing round instead of erroring.
+      if (sourceFileId) {
+        const { data: existing } = await supabase
+          .from('crypto_report_submissions')
+          .select('id, analysis_id, crypto_analyses(id, title, summary, crypto_symbols, created_at)')
+          .eq('source_file_id', sourceFileId)
+          .eq('access_code', accessCode)
+          .maybeSingle();
+        if (existing) {
+          return new Response(JSON.stringify({
+            duplicate: true,
+            analysis: existing.crypto_analyses,
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
 
       // Two ways in: pre-parsed `rows` (the web UI, after client-side CSV parsing) or
       // raw `csvText` (e.g. a Make.com/automation scenario posting the file's contents
@@ -601,7 +719,7 @@ serve(async (req) => {
         .single();
       if (insertError) throw insertError;
 
-      const { data: submission } = await supabase
+      const { data: submission, error: submissionError } = await supabase
         .from('crypto_report_submissions')
         .insert({
           analysis_id: analysis.id,
@@ -609,9 +727,31 @@ serve(async (req) => {
           report_date: defaultDate,
           session_time: now.getHours() < 14 ? 'morning' : 'night',
           access_code: accessCode || null,
+          source_file_id: sourceFileId,
+          source_file_name: sourceFileName,
+          source_modified_time: sourceModifiedTime,
         })
         .select()
         .single();
+
+      if (submissionError) {
+        // Unique violation on source_file_id: a concurrent request beat this one to the
+        // same Drive file. Discard the orphaned analysis row just created and return the
+        // winning round instead, so the caller still gets a normal (non-error) response.
+        await supabase.from('crypto_analyses').delete().eq('id', analysis.id);
+        if (sourceFileId && submissionError.code === '23505') {
+          const { data: existing } = await supabase
+            .from('crypto_report_submissions')
+            .select('crypto_analyses(id, title, summary, crypto_symbols, created_at)')
+            .eq('source_file_id', sourceFileId)
+            .eq('access_code', accessCode)
+            .maybeSingle();
+          return new Response(JSON.stringify({ duplicate: true, analysis: existing?.crypto_analyses }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        throw submissionError;
+      }
 
       if (submission) {
         const toInsert = mentionRows.map(m => ({ ...m, submission_id: submission.id }));
