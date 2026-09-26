@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_audit_log: {
+        Row: {
+          access_code_attempted: string | null
+          action: string | null
+          created_at: string
+          id: string
+          ip: string | null
+          success: boolean
+        }
+        Insert: {
+          access_code_attempted?: string | null
+          action?: string | null
+          created_at?: string
+          id?: string
+          ip?: string | null
+          success: boolean
+        }
+        Update: {
+          access_code_attempted?: string | null
+          action?: string | null
+          created_at?: string
+          id?: string
+          ip?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
+      access_codes: {
+        Row: {
+          active: boolean
+          client_name: string
+          code: string
+          created_at: string
+          last_used_at: string | null
+          revoked_at: string | null
+        }
+        Insert: {
+          active?: boolean
+          client_name: string
+          code: string
+          created_at?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+        }
+        Update: {
+          active?: boolean
+          client_name?: string
+          code?: string
+          created_at?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+        }
+        Relationships: []
+      }
       api_rate_limits: {
         Row: {
           bucket_key: string
