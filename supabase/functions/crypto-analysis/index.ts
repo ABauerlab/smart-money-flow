@@ -51,6 +51,22 @@ function weekOfMonth(d: Date): number {
 
 function fmtDate(d: Date): string { return d.toISOString().split('T')[0]; }
 
+// The VPS names each export with its own generation timestamp, e.g.
+// "relatorio_2026-09-25_18-39-54.csv". That's the authoritative moment the
+// report was produced — Google Drive's own modifiedTime can lag behind it
+// (sync delay, or a file re-touched without re-exporting), which is what made
+// the dashboard's "last update" freeze at a stale timestamp even after a
+// newer file had already landed in Drive. Extracted first; Drive's
+// modifiedTime is only a fallback for files that don't carry a timestamp.
+function extractTimestampFromFilename(name: string | null): string | null {
+  if (!name) return null;
+  const m = name.match(/(\d{4})-(\d{2})-(\d{2})[_ ](\d{2})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s] = m;
+  const iso = `${y}-${mo}-${d}T${h}:${mi}:${s}Z`;
+  return isNaN(Date.parse(iso)) ? null : new Date(iso).toISOString();
+}
+
 // Parse a date string in DD/MM/YYYY, YYYY-MM-DD or DD-MM-YYYY -> 'YYYY-MM-DD' (or null).
 function parseDate(input: any): string | null {
   if (!input || typeof input !== 'string') return null;
@@ -650,9 +666,10 @@ serve(async (req) => {
       const title = typeof titleRaw === 'string' ? titleRaw.slice(0, 200) : titleRaw;
       const sourceFileId = typeof reqBody.sourceFileId === 'string' ? reqBody.sourceFileId.slice(0, 200) : null;
       const sourceFileName = typeof reqBody.sourceFileName === 'string' ? reqBody.sourceFileName.slice(0, 300) : null;
-      const sourceModifiedTime = typeof reqBody.sourceModifiedTime === 'string' && !isNaN(Date.parse(reqBody.sourceModifiedTime))
+      const driveModifiedTime = typeof reqBody.sourceModifiedTime === 'string' && !isNaN(Date.parse(reqBody.sourceModifiedTime))
         ? new Date(reqBody.sourceModifiedTime).toISOString()
         : null;
+      const sourceModifiedTime = extractTimestampFromFilename(sourceFileName) || driveModifiedTime;
 
       // Idempotency: an automation (Make.com) re-polling the same Drive file must not
       // create a second round. One unique index on source_file_id enforces this at the
@@ -696,7 +713,12 @@ serve(async (req) => {
         });
       }
 
-      const defaultDate = parseDate(fallbackDate) || fmtDate(new Date());
+      // Prefer the calendar date implied by the filename's own timestamp over the
+      // caller-supplied reportDate (which Make derives from Drive's modifiedTime and
+      // can drift a day off around midnight syncs).
+      const defaultDate = (sourceModifiedTime && fmtDate(new Date(sourceModifiedTime)))
+        || parseDate(fallbackDate)
+        || fmtDate(new Date());
 
       const mentionRows: any[] = [];
       let skipped = 0;
