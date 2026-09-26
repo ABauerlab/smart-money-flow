@@ -254,8 +254,8 @@ async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Pr
 // an in-memory Map: Edge Functions run as ephemeral, possibly-multiple isolates, so an
 // in-memory counter doesn't hold up across instances or restarts. Postgres row locking
 // (via INSERT ... ON CONFLICT) makes this atomic and shared across every instance.
-async function rateLimitBucket(supabase: any, key: string, max: number): Promise<{ ok: boolean; retryAfter: number }> {
-  const { data, error } = await supabase.rpc('rl_check', { p_key: key, p_window_seconds: 60, p_max: max });
+async function rateLimitBucket(supabase: any, key: string, max: number, windowSeconds = 60): Promise<{ ok: boolean; retryAfter: number }> {
+  const { data, error } = await supabase.rpc('rl_check', { p_key: key, p_window_seconds: windowSeconds, p_max: max });
   if (error) {
     console.error('rl_check error (failing open):', error.message);
     return { ok: true, retryAfter: 0 }; // never let a rate-limit outage take the endpoint down
@@ -268,6 +268,22 @@ function rateLimit(supabase: any, key: string) { return rateLimitBucket(supabase
 // Blanket per-IP budget covering every action, including ones before the access
 // code is known — stops brute-forcing access codes or hammering cheap endpoints.
 function ipRateLimit(supabase: any, ip: string) { return rateLimitBucket(supabase, `ip:${ip}`, 30); }
+// Tighter, longer-window budget specifically for WRONG access codes — makes
+// guessing/brute-forcing a valid code impractical even if the blanket per-IP
+// budget above is under an automation's normal traffic. 5 wrong codes per 5
+// minutes per IP, independent of which code was tried.
+function badCodeRateLimit(supabase: any, ip: string) { return rateLimitBucket(supabase, `badcode:${ip}`, 5, 300); }
+
+// Fire-and-forget audit row. Never throws — an audit-log outage must not be
+// able to take the endpoint down or block a legitimate request.
+function auditLog(supabase: any, entry: { ip: string; code: string; action: string; success: boolean }) {
+  supabase.from('access_audit_log').insert({
+    ip: entry.ip,
+    access_code_attempted: entry.code,
+    action: entry.action,
+    success: entry.success,
+  }).then(({ error }: any) => { if (error) console.error('audit log insert failed:', error.message); });
+}
 
 // Resolve a date window from periodType + windowIndex (relative to "now").
 // periodType: 'daily' | 'weekly' | 'monthly'
@@ -338,7 +354,39 @@ serve(async (req) => {
     }
     const accessCode = accessCodeRaw;
 
+    // Validate against the allow-list of active client codes. A wrong code counts
+    // against a dedicated, tighter per-IP budget (see badCodeRateLimit) on top of
+    // the blanket ipRateLimit above, so guessing codes is rate-limited twice over.
+    const { data: codeRow } = await supabase
+      .from('access_codes')
+      .select('code, active')
+      .eq('code', accessCode)
+      .maybeSingle();
+
+    if (!codeRow || !codeRow.active) {
+      const badRl = await badCodeRateLimit(supabase, ip);
+      auditLog(supabase, { ip, code: accessCode, action, success: false });
+      if (!badRl.ok) {
+        return new Response(
+          JSON.stringify({ error: `Muitas tentativas com código inválido. Tente novamente em ${badRl.retryAfter}s.` }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(badRl.retryAfter) } },
+        );
+      }
+      return new Response(
+        JSON.stringify({ error: 'Código de acesso inválido.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const expensiveActions = new Set(['analyze', 'generate-periodic', 'refresh-lists']);
+    // Audit only meaningful (mutating) successful actions, to keep log volume sane
+    // against the dashboard's 60s polling of read-only actions like latest-round.
+    if (expensiveActions.has(action) || action === 'analyze-csv' || action === 'delete') {
+      auditLog(supabase, { ip, code: accessCode, action, success: true });
+      supabase.from('access_codes').update({ last_used_at: new Date().toISOString() }).eq('code', accessCode)
+        .then(({ error }: any) => { if (error) console.error('last_used_at update failed:', error.message); });
+    }
+
     if (expensiveActions.has(action)) {
       const rl = await rateLimit(supabase, `${accessCode}:${ip}:${action}`);
       if (!rl.ok) {
