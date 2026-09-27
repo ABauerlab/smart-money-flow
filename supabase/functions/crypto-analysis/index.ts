@@ -144,6 +144,9 @@ function sumMentions(mentions: any[]): { symbol: string; count: number }[] {
 // project owner, to shortlist up to five assets for trend/trade monitoring.
 const SYSTEM_PROMPT = `Realize uma triagem técnica, comparativa e atualizada das criptomoedas relacionadas abaixo (a lista, já ordenada pela recorrência com que cada ativo apareceu nos relatórios monitorados, é enviada logo em seguida nesta mesma conversa):
 
+AVISO SOBRE FONTES DE DADOS:
+Você não tem acesso à internet nem a busca ao vivo nesta análise. Os únicos dados reais disponíveis são os fornecidos explicitamente na mensagem do usuário (a lista de recorrência e, quando presente, o bloco de preço/volume/variação de 24h obtido da Binance). Para qualquer campo pedido abaixo que não conste nesses dados fornecidos (RSI, MACD, VWAP, ATR, book de ofertas, funding, open interest, notícias/catalisadores, estrutura multi-timeframe etc.), não estime nem presuma um valor plausível: classifique explicitamente esse campo como "Dados insuficientes", conforme a regra de "não inventar dados ausentes" já definida mais abaixo.
+
 DATA E HORA DE REFERÊNCIA:
 Utilize dados disponíveis e verificados no momento da pesquisa.
 Informe no início:
@@ -499,6 +502,44 @@ REGRAS FINAIS:
 Sempre comece a resposta com:
 CRYPTOS_DETECTED: BTC,ETH,SOL,...`;
 
+// Free, no-key public market data (Binance 24hr ticker) for the symbols being
+// screened. This is what lets the AI prompt reason over real price/volume
+// numbers without needing paid Google Search grounding.
+async function fetchLivePriceData(symbols: string[]): Promise<Record<string, { price: string; changePct: string; quoteVolume: string }>> {
+  try {
+    const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr');
+    if (!resp.ok) return {};
+    const all = await resp.json();
+    if (!Array.isArray(all)) return {};
+    const wanted = new Set(symbols.map(s => `${s}USDT`));
+    const out: Record<string, { price: string; changePct: string; quoteVolume: string }> = {};
+    for (const t of all) {
+      if (wanted.has(t.symbol)) {
+        out[t.symbol.slice(0, -4)] = {
+          price: t.lastPrice,
+          changePct: t.priceChangePercent,
+          quoteVolume: t.quoteVolume,
+        };
+      }
+    }
+    return out;
+  } catch (e) {
+    console.error('fetchLivePriceData error:', e);
+    return {};
+  }
+}
+
+function formatLivePriceBlock(priceData: Record<string, { price: string; changePct: string; quoteVolume: string }>): string {
+  const entries = Object.entries(priceData);
+  if (entries.length === 0) {
+    return `### Dados de mercado ao vivo\nNenhum dado de preço/volume disponível (ativos sem par USDT na Binance, ou consulta indisponível no momento).`;
+  }
+  return [
+    `### Dados de mercado ao vivo (Binance, par USDT, janela de 24h)`,
+    ...entries.map(([sym, d]) => `${sym}: preço ${d.price} USDT, variação 24h ${d.changePct}%, volume 24h ${d.quoteVolume} USDT`),
+  ].join('\n');
+}
+
 // ====== AI call abstraction ======
 async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -529,11 +570,14 @@ async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promis
     contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts });
   }
 
-  // Grounding with live Google Search results: the crypto screening prompt asks
-  // for current price, volume, RSI, funding rate, open interest, etc. Without a
-  // real-time data source the model would otherwise have to fabricate those
-  // numbers. This lets Gemini look them up instead of guessing.
-  const body: any = { contents, tools: [{ googleSearch: {} }] };
+  // No Google Search grounding tool here: it requires a billed Google Cloud
+  // project (RESOURCE_EXHAUSTED/402 otherwise), while plain generateContent
+  // calls work on Gemini's free tier. Real price/volume data is instead fetched
+  // for free from Binance's public API and injected into the prompt directly
+  // (see fetchLivePriceData / the analyze-csv and refresh-lists callers) — the
+  // system prompt tells the model to mark anything else as "Dados insuficientes"
+  // instead of guessing.
+  const body: any = { contents };
   if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
 
   const resp = await fetch(
@@ -943,10 +987,12 @@ serve(async (req) => {
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
+        const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
         const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
+        const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
+          { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
         ]);
         if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
       }
@@ -1171,10 +1217,12 @@ serve(async (req) => {
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
+        const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
         const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
+        const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Atualização de listas.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\nTotal de criptos: ${rankings.length}\nTotal de repetições: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nReanalise os padrões atuais deste recorte isolado. Não use emojis.` },
+          { role: 'user', content: `Atualização de listas.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos: ${rankings.length}\nTotal de repetições: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nReanalise os padrões atuais deste recorte isolado. Não use emojis.` },
         ]);
         if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
       }
