@@ -10,7 +10,7 @@ import { Seo } from '@/components/Seo';
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-[#000] text-[#D1D1D1] selection:bg-primary/30 overflow-x-hidden font-sans">
+    <div className="min-h-screen bg-background text-foreground/90 selection:bg-primary/30 overflow-x-hidden font-sans">
       <Seo
         title="Fluxo Dos Mercados | Fluxo Institucional em Tempo Real"
         description="Rastreie o fluxo institucional nos mercados Cripto, EUA (S&P 500) e Bovespa. Identifique liquidez, anomalias de volume e oportunidades de alocação em tempo real."
@@ -25,7 +25,7 @@ const Landing = () => {
         }}
       />
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-black/60 backdrop-blur-xl">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-background/60 backdrop-blur-xl">
         <div className="container h-14 sm:h-16 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20 flex-shrink-0">
@@ -80,7 +80,7 @@ const Landing = () => {
               </span>
             </h1>
             
-            <p className="mt-6 sm:mt-10 text-base sm:text-xl md:text-2xl text-[#888] max-w-3xl mx-auto font-light leading-relaxed">
+            <p className="mt-6 sm:mt-10 text-base sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto font-light leading-relaxed">
               Rastreamos volume, preço e fluxo dos principais ativos do <span className="text-white font-medium">Brasil, EUA, Europa, Ásia e Forex</span> em tempo real. Identifique acumulação, distribuição e exaustão antes que o movimento aconteça.
             </p>
           </motion.div>
@@ -189,7 +189,7 @@ const Landing = () => {
                 <h3 className="text-base sm:text-lg font-bold text-white mb-2 uppercase tracking-tight">
                   {item.title}
                 </h3>
-                <p className="text-sm text-[#888] leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {item.desc}
                 </p>
               </motion.div>
@@ -221,11 +221,11 @@ const Landing = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.4 }}
-                className="relative p-6 border border-white/10 bg-black/40"
+                className="relative p-6 border border-white/10 bg-background/40"
               >
                 <span className="text-5xl font-black text-primary/20 font-mono">{step.num}</span>
                 <h3 className="text-lg font-bold text-white mt-3 mb-2 uppercase">{step.title}</h3>
-                <p className="text-sm text-[#888] leading-relaxed">{step.desc}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -244,7 +244,7 @@ const Landing = () => {
             </span>
           </h2>
           
-          <p className="text-base sm:text-lg text-[#888] max-w-xl mx-auto">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto">
             Acesso imediato. Sem cadastro. Dados reais.
           </p>
 
@@ -263,7 +263,7 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8">
-        <div className="container px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] sm:text-xs text-[#555] uppercase tracking-widest">
+        <div className="container px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] sm:text-xs text-muted-foreground uppercase tracking-widest">
           <span>© 2026 Fluxo Dos Mercados</span>
           <a href="mailto:fluxodosmercados@gmail.com" className="hover:text-primary hover:underline normal-case tracking-normal">
             fluxodosmercados@gmail.com

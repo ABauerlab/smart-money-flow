@@ -502,7 +502,6 @@ REGRAS FINAIS:
 Sempre comece a resposta com:
 CRYPTOS_DETECTED: BTC,ETH,SOL,...`;
 
-// ====== AI call abstraction ======
 // Free, no-key public market data (Binance 24hr ticker) for the symbols being
 // screened. This is what lets the AI prompt reason over real price/volume
 // numbers without needing paid Google Search grounding.
@@ -541,6 +540,7 @@ function formatLivePriceBlock(priceData: Record<string, { price: string; changeP
   ].join('\n');
 }
 
+// ====== AI call abstraction ======
 async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
   if (!GEMINI_API_KEY) return { ok: false, status: 0, content: '', model: 'none', error: 'no key' };
@@ -570,6 +570,13 @@ async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promis
     contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts });
   }
 
+  // No Google Search grounding tool here: it requires a billed Google Cloud
+  // project (RESOURCE_EXHAUSTED/402 otherwise), while plain generateContent
+  // calls work on Gemini's free tier. Real price/volume data is instead fetched
+  // for free from Binance's public API and injected into the prompt directly
+  // (see fetchLivePriceData / the analyze-csv and refresh-lists callers) — the
+  // system prompt tells the model to mark anything else as "Dados insuficientes"
+  // instead of guessing.
   const body: any = { contents };
   if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
 
@@ -980,8 +987,8 @@ serve(async (req) => {
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
-        const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
+        const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
@@ -1210,8 +1217,8 @@ serve(async (req) => {
       let aiAnalysis = '';
       let aiModelUsed = 'none';
       if (rankings.length > 0) {
-        const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
+        const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
         const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
