@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { RefreshCw, Wifi, BookOpenText, Home, BrainCircuit } from 'lucide-react';
+import { RefreshCw, Wifi, BookOpenText, Home, Network } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NotificationControls } from './NotificationControls';
@@ -110,7 +110,7 @@ export const Header = ({
         >
           <Tooltip>
             <TooltipTrigger asChild>
-              <BrainCircuit className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Network className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
             </TooltipTrigger>
             <TooltipContent>
               <p>Análise IA de Criptomoedas</p>

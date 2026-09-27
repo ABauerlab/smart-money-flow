@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BrainCircuit, Loader2, Send, LogOut, FileSpreadsheet, CalendarDays, Radio } from 'lucide-react';
+import { ArrowLeft, Network, Loader2, Send, LogOut, FileSpreadsheet, CalendarDays, Radio } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CsvUploader, type ParsedCsvFile } from '@/components/analysis/CsvUploader';
 import { AnalysisReport } from '@/components/analysis/AnalysisReport';
@@ -14,7 +14,7 @@ import { Logo } from '@/components/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Seo } from '@/components/Seo';
 
-// Minimal, code-only gate — no marketing copy. The code is trusted locally after
+// Minimal, code-only gate, no marketing copy. The code is trusted locally after
 // the first successful entry (see CryptoAnalysis below), so a phone visit never
 // needs to retype it.
 const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
@@ -23,8 +23,9 @@ const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-xs rounded-xl border border-border/60 bg-card/60 backdrop-blur p-6 space-y-4 text-center">
-        <BrainCircuit className="w-9 h-9 text-primary mx-auto" />
-        <h1 className="text-base font-bold gradient-text">Análise IA</h1>
+        <Network className="w-9 h-9 text-primary mx-auto" />
+        <h1 className="text-base font-bold gradient-text">Laboratório de Dados CriptoEx</h1>
+        <p className="text-xs text-muted-foreground -mt-2">Informe seu código pessoal para acessar os estudos e materiais da plataforma.</p>
         <Input
           placeholder="Código de acesso"
           value={code}
@@ -104,7 +105,7 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
           <Logo />
           <div>
             <h1 className="text-lg font-bold gradient-text">Análise IA</h1>
-            <p className="text-xs text-muted-foreground">Consolidador CriptoEx — mercado geral de cripto</p>
+            <p className="text-xs text-muted-foreground">Laboratório de Dados CriptoEx: estudos do mercado geral de cripto</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -116,6 +117,9 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
       </motion.header>
 
       <main className="container py-6 max-w-5xl">
+        <p className="text-[11px] text-muted-foreground/70 mb-4 leading-relaxed">
+          Observatório CriptoEx: ambiente de aprendizagem e pesquisa sobre padrões e recorrências observados no mercado de criptoativos. O conteúdo não constitui recomendação de investimento, consultoria financeira, análise individualizada, oferta, intermediação ou promessa de resultado.
+        </p>
         <Tabs defaultValue="operacao" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 bg-card/50">
             <TabsTrigger value="operacao" className="gap-1"><Radio className="w-3.5 h-3.5" /> Operação</TabsTrigger>
@@ -133,7 +137,7 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
           <TabsContent value="dashboard" className="space-y-4">
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground space-y-1">
               <p className="font-semibold text-foreground">Como funciona</p>
-              <p>Cadência: <strong>4 relatórios/dia</strong> — 05:00 Londres, 10:30 América, 13:30 América, 21:00 Ásia (consolidados ~15h).</p>
+              <p>Cadência: <strong>4 relatórios/dia</strong>, 05:00 Londres, 10:30 América, 13:30 América, 21:00 Ásia (consolidados ~15h).</p>
               <p>A semana vai de <strong>segunda a sexta</strong>; na sexta o somatório fecha e na segunda recomeça do zero.</p>
             </div>
 
@@ -169,11 +173,11 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
               <Input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)}
                 className="bg-card border-border/50 w-full sm:w-56" />
               <p className="text-[11px] text-muted-foreground/70">
-                Vale para os 4 relatórios deste pregão (Londres, América e a Ásia da véspera). Todas as linhas entram nesta data — escolha o dia de fechamento (Londres/América).
+                Vale para os 4 relatórios deste pregão (Londres, América e a Ásia da véspera). Todas as linhas entram nesta data: escolha o dia de fechamento (Londres/América).
               </p>
             </div>
 
-            <Input placeholder="Título (opcional — gerado automaticamente)" value={title} onChange={e => setTitle(e.target.value)} className="bg-card border-border/50" />
+            <Input placeholder="Título (opcional, gerado automaticamente)" value={title} onChange={e => setTitle(e.target.value)} className="bg-card border-border/50" />
 
             <div className="rounded-xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 space-y-3 shadow-lg shadow-primary/10">
               <div className="flex items-center justify-between flex-wrap gap-2">

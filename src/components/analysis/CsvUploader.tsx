@@ -60,7 +60,7 @@ export const CsvUploader = ({ files, onFilesChange, disabled }: CsvUploaderProps
       const text = await file.text();
       const rows = parseCsv(text);
       if (totalRows + rows.length > MAX_TOTAL_ROWS) {
-        setError(`Limite de ${MAX_TOTAL_ROWS} linhas por envio excedido — "${file.name}" não foi adicionado.`);
+        setError(`Limite de ${MAX_TOTAL_ROWS} linhas por envio excedido: "${file.name}" não foi adicionado.`);
         continue;
       }
       totalRows += rows.length;

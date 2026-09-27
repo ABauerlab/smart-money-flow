@@ -70,7 +70,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
         <div className="min-w-0">
           <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Volume 24h</p>
           <p className="text-sm sm:text-lg font-semibold font-mono truncate">
-            {market.currentVolume > 0 ? formatVolume(market.currentVolume) : '—'}
+            {market.currentVolume > 0 ? formatVolume(market.currentVolume) : '-'}
           </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground font-mono truncate">
             {market.averageVolume > 0 ? `Média: ${formatVolume(market.averageVolume)}` : ''}

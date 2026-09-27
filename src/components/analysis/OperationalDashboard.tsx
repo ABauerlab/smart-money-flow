@@ -85,16 +85,16 @@ export const OperationalDashboard = () => {
         <div className="flex items-baseline gap-2 flex-wrap">
           <Clock className="w-4 h-4 text-primary shrink-0" />
           <span className="text-lg font-bold text-foreground">
-            Última leitura: {data.timestamp ? formatDateTime(data.timestamp) : '—'}
+            Última leitura: {data.timestamp ? formatDateTime(data.timestamp) : '-'}
           </span>
         </div>
         {freshness && freshness.level !== 'fresh' && (
           <p className="text-xs text-muted-foreground">
-            Há {freshness.minutesAgo < 60 ? `${freshness.minutesAgo} min` : `${Math.round(freshness.minutesAgo / 60)}h`} sem nova remessa — exibindo a última rodada válida.
+            Há {freshness.minutesAgo < 60 ? `${freshness.minutesAgo} min` : `${Math.round(freshness.minutesAgo / 60)}h`} sem nova remessa, exibindo a última rodada válida.
           </p>
         )}
         {data.isFallbackFromPreviousDay && (
-          <p className="text-xs text-amber-400/90">Nenhum envio hoje ainda — mostrando a última rodada disponível.</p>
+          <p className="text-xs text-amber-400/90">Nenhum envio hoje ainda, mostrando a última rodada disponível.</p>
         )}
       </div>
 

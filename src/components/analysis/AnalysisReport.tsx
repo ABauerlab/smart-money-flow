@@ -136,7 +136,7 @@ function exportReportPdf(title: string, summary: string, createdAt: string, cryp
   doc.text('Fluxo Dos Mercados', margin, 18);
   doc.setFontSize(10);
   doc.setTextColor(180, 180, 180);
-  doc.text('Relatório de Análise IA — CriptoEx', margin, 26);
+  doc.text('Relatório de Análise IA, CriptoEx', margin, 26);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
   doc.text(new Date(createdAt).toLocaleString('pt-BR'), margin, 34);

@@ -130,7 +130,7 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                 tickFormatter={(v) => `${v}%`}
                 domain={[0, (dataMax: number) => Math.max(160, Math.ceil(dataMax / 20) * 20)]}
               />
-              <Tooltip 
+              <Tooltip
                 cursor={{ fill: 'hsl(var(--secondary))', opacity: 0.15 }}
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
@@ -138,7 +138,10 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                   borderRadius: '8px',
                   boxShadow: 'var(--shadow-card)',
                   padding: '12px',
+                  color: 'hsl(var(--foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                itemStyle={{ color: 'hsl(var(--foreground))' }}
                 labelFormatter={(label: string, payload: any) => {
                   const p = payload?.[0]?.payload;
                   const dateStr = p?.date ? new Date(p.date).toLocaleDateString('pt-BR') : '';
@@ -147,7 +150,7 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                 formatter={(v: number, _n: any, item: any) => {
                   const status = v > 120 ? 'Alta atividade' : v < 80 ? 'Baixa atividade' : 'Normal';
                   const proxyTag = item?.payload?.source === 'proxy' ? ' (proxy)' : '';
-                  return [`${v.toFixed(1)}% — ${status}${proxyTag}`, 'Volume vs Média'];
+                  return [`${v.toFixed(1)}%, ${status}${proxyTag}`, 'Volume vs Média'];
                 }}
               />
               <Legend
@@ -188,14 +191,17 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                 axisLine={false}
                 tickFormatter={(v) => v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(0)}M` : `${v}`}
               />
-              <Tooltip 
+              <Tooltip
                 cursor={{ fill: 'hsl(var(--secondary))', opacity: 0.15 }}
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
                   padding: '12px',
+                  color: 'hsl(var(--foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                itemStyle={{ color: 'hsl(var(--foreground))' }}
                 formatter={(v: number) => v >= 1e9 ? `${(v/1e9).toFixed(2)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v.toFixed(0)}
               />
               <Legend verticalAlign="top" align="right" height={36} iconType="circle" />
