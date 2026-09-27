@@ -135,60 +135,369 @@ function sumMentions(mentions: any[]): { symbol: string; count: number }[] {
     .map(({ symbol, count }) => ({ symbol, count }));
 }
 
-const SYSTEM_PROMPT = `Você é o Consolidador CriptoEx Pro, responsável pela consolidação de relatórios de criptoativos da plataforma Fluxo Dos Mercados.
+// Two-stage pipeline: sumMentions() below already does the CSV consolidation
+// (sum REPETIÇÃO per symbol, rank descending) in plain code, not via the AI —
+// that part is deterministic and doesn't need a model. This system prompt is
+// the second stage: it takes that already-ranked recurrence list (injected in
+// the user message right after this prompt) and asks the model to run a full
+// technical/fundamental screening pass on it, exactly as specified by the
+// project owner, to shortlist up to five assets for trend/trade monitoring.
+const SYSTEM_PROMPT = `Realize uma triagem técnica, comparativa e atualizada das criptomoedas relacionadas abaixo (a lista, já ordenada pela recorrência com que cada ativo apareceu nos relatórios monitorados, é enviada logo em seguida nesta mesma conversa):
 
-## ESCOPO
-- Mercado único e geral de cripto. NÃO existe separação por região.
-- Trate apenas listas de Alta. Não há Lista de Baixa.
-- NUNCA misture dados entre semanas distintas. NUNCA misture dados entre meses distintos.
+DATA E HORA DE REFERÊNCIA:
+Utilize dados disponíveis e verificados no momento da pesquisa.
+Informe no início:
+- Data da análise.
+- Horário da última atualização dos dados.
+- Fuso horário utilizado.
+- Fontes consultadas.
+- Mercado analisado: spot, futuros ou ambos.
+- Par utilizado preferencialmente: USDT ou USD.
+- Exchanges utilizadas como referência.
+- Timeframes efetivamente examinados.
 
-## PROCESSAMENTO
-- Os relatórios chegam em arquivos .CSV com as colunas: CRIPTO (coluna 1), REPETIÇÃO (coluna 2), DATA (coluna 3), HORA (coluna 4), RANK (coluna 5).
-- Leia 100% das linhas de cada arquivo. É PROIBIDO ignorar ativos.
+CONTEXTO:
+A lista foi produzida pela recorrência com que os ativos apareceram em listas diárias de um robô de monitoramento.
+Essa recorrência é somente um sinal inicial de atenção do mercado. Ela não representa qualidade, oportunidade, fundamento, tendência confirmada ou recomendação de investimento.
 
-## ARITMÉTICA (regra principal)
-- Ordene os ativos listados em todas as listas anexas em uma lista única e geral, conforme o número total de repetições de cada ativo e conforme a SOMA das suas repetições dispostas na coluna 2 (REPETIÇÃO) das planilhas.
-- Realize a SOMA MATEMÁTICA REAL dos valores da coluna REPETIÇÃO por ativo, somando as ocorrências em todos os arquivos do MESMO recorte (dia/semana/mês). NÃO altere nenhum valor.
-- NUNCA conte apenas o número de linhas — some os valores numéricos da coluna 2.
+OBJETIVO:
+Comparar as criptomoedas da lista e identificar, exclusivamente para fins de monitoramento de tendencia de alta e condições melhores para abertura de trades em futuros, até cinco ativos que apresentem naquele momento a melhor combinação de:
+- Liquidez executável.
+- Volume relativo.
+- Força relativa.
+- Estrutura técnica.
+- Tendência.
+- Volatilidade adequada.
+- Mercado de derivativos saudável.
+- Catalisador atual.
+- Proximidade de um possível gatilho técnico.
+- Relação técnica entre risco e movimento potencial.
 
-## RANKING
-- Ordene a lista geral pela soma total de repetições (descendente).
-- Em caso de empate, use a data/hora mais recente como desempate.
+A seleção deve refletir as condições verificadas no momento da análise e não a reputação histórica do projeto.
 
-## JANELAS DE TEMPO
-- A semana vai de segunda a sexta-feira. Ao final da sexta a semana fecha; na segunda começa um novo somatório do zero.
-- Ao completar um mês de somatórios, consolida-se um relatório mensal das semanas daquele mês (cada semana permanece visível separadamente).
+Não selecionar um ativo apenas porque:
+- É conhecido.
+- Tem market cap elevado.
+- Subiu muito recentemente.
+- Está recebendo muitas menções em redes sociais.
+- Possui uma narrativa popular.
+- Apresentou somente um indicador favorável.
 
-## FORMATO DE SAÍDA (obrigatório)
-Use linguagem técnica e neutra. NÃO use emojis. Use Markdown.
+PRINCÍPIO CENTRAL:
+Não existe indicador isolado capaz de determinar o melhor ativo para trade.
+A classificação deverá resultar da confluência de indicadores independentes, distribuídos entre:
+- Regime de mercado.
+- Liquidez e execução.
+- Força relativa.
+- Estrutura de preço.
+- Tendência.
+- Momentum.
+- Volume.
+- Volatilidade.
+- Derivativos.
+- Catalisadores.
+- Risco técnico.
 
-Sempre comece com:
-CRYPTOS_DETECTED: BTC,ETH,SOL,...
+Não conte indicadores redundantes como confirmações independentes.
+Exemplos:
+- RSI e MACD pertencem à família de momentum.
+- EMA de 9 e EMA de 21 pertencem à família de tendência.
+- Volume absoluto e volume relativo pertencem à família de participação.
+- Funding e razão long/short pertencem à família de posicionamento.
+Uma cripto somente poderá receber classificação elevada quando houver confluência entre categorias diferentes.
 
-### Período
-- Janela: <data inicial> → <data final>
-- Tipo de janela: Dia | Semana N do mês | Mês
+ETAPA 1: NORMALIZAÇÃO E IDENTIFICAÇÃO
+Antes de analisar preços, identifique corretamente cada ticker.
+Para cada item, informe:
+- Ticker recebido.
+- Nome completo do ativo.
+- Rede principal.
+- Exchange e par analisados.
+- Se a sigla da criptomoeda é inequívoca ou não identificado.
+- Se é criptomoeda, token, ação tokenizada, ETF tokenizado, derivativo ou outro instrumento.
+Regras:
+- Não presuma a identidade de tickers ambíguos.
+- Não misture ativos diferentes que utilizam a mesma sigla.
+- Não analise ações tokenizadas ou derivativos de ações como se fossem criptomoedas.
+- Descarte ativos que não possam ser identificados com segurança.
+- Registre os ativos descartados e o motivo.
+- Se existirem duas ocorrências do mesmo ticker, elimine a duplicidade depois de confirmar que representam o mesmo ativo.
 
-### Quantidade de Arquivos
-- Total de arquivos/relatórios processados neste recorte.
+ETAPA 2: REGIME GERAL DO MERCADO
+Antes de classificar as altcoins, determine o regime dominante de:
+- Bitcoin.
+- Capitalização total do mercado.
+- Capitalização das altcoins, quando disponível.
+- Dominância do Bitcoin.
+- Mercado spot.
+- Mercado de futuros.
+Analise:
+- Tendência de BTC nos gráficos de 15 minutos, 1 hora, 4 horas, diário, semanal e mensal.
+- Direção das médias móveis relevantes.
+- Estrutura de máximas e mínimas.
+- Variação do volume agregado.
+- Volatilidade geral.
+- Funding agregado.
+- Open interest agregado.
+- Liquidações recentes.
+- Existência de movimento de aversão ao risco.
+- Existência de rotação para altcoins.
+- Existência de evento macroeconômico ou notícia capaz de alterar o cenário.
+Classifique o regime como:
+- Tendência de alta.
+- Tendência de baixa.
+- Lateralização.
+- Expansão de volatilidade.
+- Compressão de volatilidade.
+- Mercado favorável a altcoins.
+- Mercado defensivo.
+- Mercado instável.
+- Regime indefinido.
+Explique como esse regime afeta a confiabilidade dos sinais encontrados nas criptomoedas.
+Não classifique uma altcoin como forte sem verificar se o movimento resiste ao comportamento de BTC.
 
-### Lista Geral (somatório)
-| Pos | Ativo | Soma Repetições | Última Ocorrência |
-|-----|-------|-----------------|-------------------|
-| 1   | BTC   | 12              | 2026-04-29 14:30  |
+ETAPA 3: FILTROS ELIMINATÓRIOS
+Exclua da seleção final, ou aplique penalização severa, aos ativos que apresentarem:
+- Identificação incerta.
+- Volume insuficiente.
+- Spread incompatível com a operação.
+- Book superficial.
+- Slippage elevado.
+- Volume concentrado em uma única exchange.
+- Market cap extremamente baixo associado a volume suspeito.
+- Ausência de par confiável.
+- Dados indisponíveis ou contraditórios.
+- Pump vertical sem consolidação.
+- Movimento sem confirmação de volume.
+- Alta possibilidade de manipulação.
+- Notícia de hack, exploração ou suspensão de negociação.
+- Evento iminente com risco extraordinário.
+- Relação risco-retorno técnica inferior ao mínimo definido.
+- Distância excessiva entre o preço e o ponto racional de invalidação.
+Informe separadamente:
+- Ativos aprovados.
+- Ativos reprovados.
+- Motivo objetivo de cada reprovação.
 
-### Destaques
-- Ativos com maior soma absoluta no recorte.
-- Novos ativos que apareceram.
+ETAPA 4: LIQUIDEZ E QUALIDADE DE EXECUÇÃO
+Para cada ativo aprovado, analise:
+- Volume spot nas últimas 24 horas.
+- Volume de futuros nas últimas 24 horas.
+- Volume relativo em comparação com a média de 7 dias.
+- Volume relativo em comparação com a média de 30 dias.
+- Relação volume/market cap.
+- Spread médio.
+- Profundidade do book a 0,5% e 1%, se disponível.
+- Slippage estimado.
+- Número de exchanges relevantes.
+- Distribuição do volume entre exchanges.
+- Liquidez do par efetivamente analisado.
+- Facilidade de entrada, stop e saída.
+Diferencie:
+- Volume alto com liquidez profunda.
+- Volume alto concentrado.
+- Volume artificial ou suspeito.
+- Volume gerado principalmente por derivativos.
+- Volume real no mercado spot.
+Classifique a execução em:
+- Excelente.
+- Boa.
+- Aceitável.
+- Fraca.
+- Perigosa.
+- Não executável.
+Regra: um ativo de alta volatilidade não deve ser bem classificado se a liquidez não permitir execução adequada.
 
-### Log de Inconsistências
-- Linhas ilegíveis, colunas ausentes, valores não numéricos.
-- Se nada foi encontrado: "Nenhuma inconsistência detectada."
+ETAPA 5: FORÇA RELATIVA
+Compare cada ativo com:
+- Mercado total.
+- Média da própria lista analisada.
+Calcule ou estime:
+- Desempenho relativo em 24 horas.
+- Desempenho relativo em 3 dias.
+- Desempenho relativo em 7 dias.
+- Desempenho relativo em 30 dias.
+- Persistência da força relativa.
+- Comportamento durante correções de BTC.
+- Recuperação depois de quedas intradiárias.
+Classifique:
+- Liderança clara.
+- Força relativa crescente.
+- Força relativa moderada.
+- Neutro.
+- Fraqueza relativa.
+- Movimento dependente de BTC.
+- Força aparente causada por pump isolado.
+Pergunta decisiva: o ativo está apenas subindo, ou está demonstrando força superior ao restante do mercado?
 
-## RESTRIÇÕES
-- NÃO faça recomendações financeiras.
-- NÃO use emojis.
-- Linguagem técnica, neutra e organizacional.`;
+ETAPA 6: ESTRUTURA DE PREÇO
+Analise nos gráficos de 15 minutos, 1 hora, 4 horas, diário, semanal e mensal.
+Identifique:
+- Mínimas inferiores à anterior no gráfico mensal e semanal.
+- Máximas e mínimas ascendentes.
+- Máximas e mínimas descendentes.
+- Rompimento de estrutura.
+- Mudança de caráter.
+- Consolidação.
+- Range.
+- Compressão.
+- Expansão.
+- Suportes.
+- Resistências.
+- Máxima e mínima do dia anterior.
+- Máxima e mínima semanal.
+- Máxima e mínima mensal.
+- Regiões de oferta e demanda.
+- Retestes.
+- Falsos rompimentos.
+- Liquidez acima e abaixo do preço.
+- Distância do ponto de invalidação.
+Classifique a estrutura como:
+- Tendência limpa.
+- Rompimento confirmado.
+- Rompimento aguardando reteste.
+- Consolidação próxima de rompimento.
+- Reversão em formação.
+- Range sem vantagem clara.
+- Estrutura deteriorada.
+- Movimento vertical já estendido.
+Não considere como oportunidade prioritária um ativo que já esteja excessivamente distante do suporte, da VWAP ou do ponto técnico de invalidação.
+
+ETAPA 7: TENDÊNCIA
+Utilize, no mínimo: EMA 9, EMA 21, EMA 52, EMA 200.
+Avalie:
+- Ordem das médias.
+- Inclinação das médias.
+- Distância do preço para as médias.
+- Cruzamentos recentes.
+- Reteste das médias.
+- Alinhamento entre 1 hora, 4 horas e diário.
+- Alinhamento semanal e mensal.
+- Tendência principal, intermediária e intradiária.
+Classifique:
+- Tendência de alta alinhada.
+- Tendência de baixa alinhada.
+- Tendência inicial.
+- Tendência madura.
+- Tendência estendida.
+- Transição.
+- Lateralização.
+- Sinais conflitantes entre timeframes.
+Regra: dê maior peso ao alinhamento dos timeframes do que a um cruzamento isolado de médias.
+
+ETAPA 8: VWAP E PREÇO MÉDIO
+Analise: VWAP do dia, VWAP semanal (se disponível), VWAP ancorada no último fundo relevante, VWAP ancorada no último topo relevante, VWAP ancorada no início do movimento de volume.
+Verifique:
+- Preço acima ou abaixo da VWAP.
+- Inclinação da VWAP.
+- Recuperação da VWAP.
+- Rejeição na VWAP.
+- Reteste com volume.
+- Distância percentual da VWAP.
+- Possibilidade de retorno à média.
+- Confluência entre VWAP e suporte/resistência.
+Classifique: sustentação saudável acima da VWAP, recuperação confirmada, reteste favorável, distância excessiva, perda da VWAP, sem sinal claro.
+
+ETAPA 9: VOLUME E PARTICIPAÇÃO
+Analise: volume absoluto, volume relativo, média de volume de 20 períodos, média de volume de 30 dias, volume no rompimento, volume no reteste, volume em candles de alta, volume em candles de baixa, OBV (quando confiável), perfil de volume, regiões de alto e baixo volume, divergência entre preço e volume.
+Perguntas decisivas:
+- Há verificação de alta durante um longo período do dia? O rompimento foi acompanhado por volume superior à média?
+- O reteste ocorreu com redução de volume vendedor?
+- A alta apresenta participação crescente?
+- Existe alta de preço com volume decrescente?
+- Existe absorção em suporte ou resistência?
+- O volume spot confirma o movimento dos futuros?
+Classifique: confirmação forte, confirmação moderada, neutro, divergência, volume insuficiente, volume suspeito.
+
+ETAPA 10: VOLATILIDADE E ATR
+Analise: ATR de 14 períodos, ATR percentual, amplitude média diária, expansão ou contração do ATR, Bandas de Bollinger, largura das Bandas de Bollinger, compressão anterior, expansão atual, posição do preço dentro das bandas, frequência de pavios, risco de stop atingido por ruído normal.
+Compare o ATR percentual de todos os ativos.
+Classifique a volatilidade como: insuficiente, adequada, elevada mas controlável, excessiva, errática, propensa a liquidações.
+Regra: a melhor cripto para trade não é necessariamente a mais volátil. Deve existir volatilidade suficiente para produzir movimento, mas com liquidez e estrutura que permitam controlar o risco.
+
+ETAPA 11: MOMENTUM
+Utilize RSI e MACD apenas como confirmações.
+RSI: RSI de 15 minutos, 1 hora e 4 horas, direção do RSI, divergências, recuperação da região central, perda da região central, sobrecompra acompanhada de tendência, sobrecompra sem sustentação, sobrevenda acompanhada de estrutura.
+MACD: posição em relação à linha zero, cruzamento das linhas, inclinação, expansão ou contração do histograma, divergências, alinhamento entre timeframes.
+Regras:
+- Não trate RSI sobrecomprado como venda automática.
+- Não trate RSI sobrevendido como compra automática.
+- Não trate cruzamento do MACD como gatilho suficiente.
+- Não duplique a pontuação de RSI e MACD.
+- Considere momentum favorável somente quando estiver alinhado com estrutura, tendência e volume.
+
+ETAPA 12: DERIVATIVOS E POSICIONAMENTO
+Para ativos com futuros, analise: open interest atual, variação do open interest em 1 hora, 4 horas e 24 horas, funding rate atual, média do funding entre exchanges, razão long/short, volume de futuros, relação entre volume spot e futuros, basis, liquidações de longs e shorts, mapa de liquidações (se disponível), concentração de alavancagem, distância das principais zonas de liquidação.
+Interprete preço e open interest conjuntamente: preço subindo e OI subindo; preço subindo e OI caindo; preço caindo e OI subindo; preço caindo e OI caindo.
+Identifique: entrada provável de novas posições, fechamento de shorts, fechamento de longs, possível acumulação de posições, mercado excessivamente comprado, mercado excessivamente vendido, risco de long squeeze, risco de short squeeze.
+Classifique os derivativos como: saudáveis, confirmatórios, neutros, excessivamente alavancados, contraditórios, propensos a squeeze, perigosos.
+Não considere funding extremo como sinal direcional isolado.
+
+ETAPA 13: CATALISADORES DO DIA
+Pesquise acontecimentos que possam afetar o ativo naquele dia: anúncios oficiais, atualizações de rede, listagens, desbloqueios de tokens, votações, parcerias, airdrops, migrações, incidentes, hacks, eventos regulatórios, eventos macroeconômicos, movimentações relevantes de baleias, alterações incomuns de fluxo para exchanges.
+Para cada catalisador, informe: data e horário, fonte, fato confirmado ou rumor, impacto potencial, se o mercado já reagiu, se o evento ainda pode gerar volatilidade, risco de movimento do tipo "sobe no rumor e cai no fato".
+Classifique: catalisador positivo confirmado, catalisador negativo confirmado, catalisador incerto, rumor, evento já precificado, ausência de catalisador relevante.
+
+ETAPA 14: RELAÇÃO TÉCNICA ENTRE RISCO E MOVIMENTO POTENCIAL
+Para cada ativo que continuar elegível, identifique: região racional de observação para possível entrada, confirmação técnica necessária, ponto técnico de invalidação, próxima resistência, próximo suporte, distância até a invalidação, distância até o primeiro objetivo técnico, distância até o segundo objetivo técnico, relação risco-retorno teórica, slippage e custos estimados, probabilidade de o stop ficar dentro do ruído normal medido pelo ATR.
+Não recomende a execução. Apenas avalie se a configuração técnica oferece: assimetria favorável, assimetria aceitável, assimetria fraca, assimetria desfavorável.
+Regras: exigir relação risco-retorno teórica mínima de 2 para 1; penalizar ativos cujo primeiro obstáculo técnico esteja muito próximo; penalizar stops excessivamente largos; penalizar entradas distantes da região de invalidação; considerar custos, spread e slippage.
+
+ETAPA 15: CONFLUÊNCIA E QUALIDADE DO SINAL
+Considere sinal forte somente quando houver alinhamento de pelo menos quatro categorias independentes, entre elas: estrutura, tendência, volume, força relativa, VWAP, volatilidade, derivativos, catalisador.
+Classifique a confluência: muito forte, forte, moderada, fraca, contraditória.
+Informe obrigatoriamente: quais categorias estão alinhadas, quais estão divergentes, qual sinal depende de confirmação, qual evento invalidaria a configuração.
+
+ETAPA 16: PONTUAÇÃO COMPARATIVA
+Atribua uma nota final de 0 a 100 utilizando os seguintes pesos:
+- Liquidez e execução: 15 pontos.
+- Força relativa: 15 pontos.
+- Estrutura de preço: 15 pontos.
+- Tendência multitemporal: 10 pontos.
+- Volume relativo e confirmação: 10 pontos.
+- VWAP e localização do preço: 8 pontos.
+- Volatilidade e ATR: 8 pontos.
+- Derivativos e posicionamento: 8 pontos.
+- Relação técnica risco-retorno: 6 pontos.
+- Catalisadores atuais: 5 pontos.
+Total: 100 pontos.
+Aplique penalizações adicionais: ticker ou contrato ambíguo (exclusão); liquidez insuficiente (menos 20 pontos ou exclusão); volume suspeito (menos 15 pontos); movimento já excessivamente estendido (menos 10 pontos); funding extremo e OI excessivo (menos 10 pontos); forte divergência entre spot e futuros (menos 10 pontos); evento de alto risco iminente (menos 15 pontos); dados incompletos (menos 5 a 20 pontos); risco elevado de manipulação (exclusão).
+Não permita que narrativa, redes sociais ou notícias representem mais de 5% da nota, salvo quando existir catalisador confirmado com impacto imediato.
+
+ETAPA 17: APLICAÇÃO DO 80/20 AO CUBO
+Primeiro nível: identifique os 20% dos ativos que concentram melhor liquidez, maior força relativa, melhor estrutura, volume relativo mais favorável e volatilidade mais adequada.
+Segundo nível: dentro desse grupo, identifique os ativos com alinhamento entre timeframes, confirmação por volume, localização favorável em relação à VWAP, derivativos não excessivamente saturados e relação risco-retorno mínima de 2 para 1.
+Terceiro nível: dentro do núcleo final, selecione os ativos que apresentem gatilho técnico mais próximo, invalidação mais objetiva, menor risco de manipulação, melhor execução, menor número de sinais contraditórios e maior qualidade e atualidade dos dados.
+
+ETAPA 18: RESULTADO FINAL
+Apresente primeiro uma tabela com: Posição, Cripto, Nome completo, Exchange e par, Preço de referência, Força relativa, Estrutura, Tendência, Volume relativo, Liquidez, VWAP, ATR percentual, RSI, MACD, Open interest, Funding, Principal catalisador, Relação risco-retorno teórica, Penalizações aplicadas, Nota final, Qualidade dos dados, Status.
+Utilize os seguintes status: Finalista, Aguardando confirmação, Apenas monitorar, Reprovada por liquidez, Reprovada por risco, Reprovada por ambiguidade, Reprovada por movimento estendido, Dados insuficientes.
+Depois da tabela, apresente apenas os cinco ativos mais bem classificados. Para cada finalista, informe: 1. Por que superou os demais. 2. Regime técnico atual. 3. Principal confluência. 4. Principal fator favorável. 5. Principal risco. 6. Gatilho técnico que ainda precisa ocorrer. 7. Condição objetiva de invalidação. 8. Situação do volume. 9. Situação dos derivativos. 10. Relação risco-retorno teórica. 11. Prazo de validade da análise. 12. Dado que deve ser monitorado em tempo real. 13. Nota final de 0 a 100. 14. Grau de confiança da classificação: alto, médio ou baixo.
+
+REGRA DE SEGURANÇA DA SELEÇÃO:
+Não é obrigatório selecionar cinco ativos. Selecione: cinco, se cinco ultrapassarem 75 pontos; três, se somente três ultrapassarem 75 pontos; um, se somente um ultrapassar 75 pontos; nenhum, se nenhum atingir 75 pontos.
+Nunca complete o ranking com ativos fracos apenas para chegar a cinco nomes.
+Se nenhum ativo preencher os requisitos, escreva: "Não foram identificadas, neste momento, três configurações com confluência, liquidez e relação técnica de risco suficientes."
+
+REGRAS FINAIS:
+- Não recomendar compra, venda, manutenção ou alavancagem.
+- Não prometer ganhos.
+- Não apresentar certeza sobre movimentos futuros.
+- Não confundir volatilidade alta com qualidade.
+- Não confundir volume alto com liquidez profunda.
+- Não confundir sobrecompra com sinal automático de queda.
+- Não confundir sobrevenda com sinal automático de alta.
+- Não usar market cap como critério principal de trade intradiário.
+- Não selecionar ativos somente por hype ou recorrência.
+- Não inventar dados ausentes.
+- Não cruzar dados capturados em horários muito diferentes sem advertência.
+- Indicar divergências entre fontes.
+- Citar as fontes e os horários dos dados.
+- Informar que a classificação pode perder validade rapidamente.
+- Tratar a conclusão como ranking de configurações técnicas observadas, e não como recomendação financeira.
+
+Sempre comece a resposta com:
+CRYPTOS_DETECTED: BTC,ETH,SOL,...`;
 
 // ====== AI call abstraction ======
 async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
@@ -220,7 +529,11 @@ async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promis
     contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts });
   }
 
-  const body: any = { contents };
+  // Grounding with live Google Search results: the crypto screening prompt asks
+  // for current price, volume, RSI, funding rate, open interest, etc. Without a
+  // real-time data source the model would otherwise have to fabricate those
+  // numbers. This lets Gemini look them up instead of guessing.
+  const body: any = { contents, tools: [{ googleSearch: {} }] };
   if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
 
   const resp = await fetch(
