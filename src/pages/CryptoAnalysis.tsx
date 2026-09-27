@@ -19,8 +19,9 @@ import { Seo } from '@/components/Seo';
 // needs to retype it.
 const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
   const [code, setCode] = useState('');
+  const [showAbout, setShowAbout] = useState(false);
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-xs rounded-xl border border-border/60 bg-card/60 backdrop-blur p-6 space-y-4 text-center">
         <Network className="w-9 h-9 text-primary mx-auto" />
@@ -36,6 +37,52 @@ const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
           inputMode="numeric"
         />
         <Button onClick={() => onAccess(code)} disabled={code.length < 4} className="w-full">Entrar</Button>
+        <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+          Participe da nossa comunidade. Um ambiente dedicado ao estudo de padrões, recorrências e comportamentos observados no mercado de criptoativos.
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowAbout(v => !v)}
+          className="text-[11px] text-primary hover:underline"
+        >
+          {showAbout ? 'Ocultar' : 'Saiba mais sobre este espaço'}
+        </button>
+        {showAbout && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+            className="text-left text-[11px] text-muted-foreground/80 leading-relaxed space-y-3 overflow-hidden">
+            <div>
+              <p className="font-semibold text-foreground text-xs">Observatório dos Mercados Digitais</p>
+              <p className="text-foreground/70">Ambiente de Aprendizagem e Pesquisa.</p>
+            </div>
+            <p>
+              O Fluxo dos Mercados é uma comunidade independente de educação e pesquisa dedicada ao estudo do comportamento dos mercados de criptoativos.
+              A plataforma organiza dados públicos, desenvolve estudos quantitativos e produz materiais educacionais destinados à compreensão das tendências dos mercados digitais.
+            </p>
+            <div>
+              <p className="font-semibold text-foreground">Nossa comunidade tem foco em:</p>
+              <ul className="list-disc list-inside space-y-0.5 mt-1">
+                <li>Organização e interpretação de dados de mercado para estudo de padrões estatísticos das criptomoedas.</li>
+                <li>Identificação das tendências e dos momentos.</li>
+                <li>Compartilhamento de informações e aprendizado colaborativo.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Acompanhamento educacional contínuo</p>
+              <p>Os participantes têm acesso a materiais organizados periodicamente, permitindo o estudo da evolução dos dados ao longo do dia, da semana e do mês. O objetivo é promover uma compreensão mais ampla dos mercados digitais por meio da análise estruturada de informações.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">O que você encontrará aqui:</p>
+              <ul className="space-y-0.5 mt-1">
+                <li>🤖 Ferramentas de organização e processamento de dados.</li>
+                <li>📚 Relatórios educacionais e agrupamento de dados.</li>
+                <li>🌐 Espaço para aprendizado e discussão sobre o ecossistema de ativos digitais.</li>
+              </ul>
+            </div>
+            <p className="text-[10px] text-muted-foreground/60">
+              O conteúdo não constitui recomendação de investimento, consultoria financeira, análise individualizada, oferta, intermediação ou promessa de resultado.
+            </p>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );
@@ -104,8 +151,8 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
           </Link>
           <Logo />
           <div>
-            <h1 className="text-lg font-bold gradient-text">Análise IA</h1>
-            <p className="text-xs text-muted-foreground">Laboratório de Dados CriptoEx: estudos do mercado geral de cripto</p>
+            <h1 className="text-lg font-bold gradient-text">Observatório CriptoEx</h1>
+            <p className="text-xs text-muted-foreground">Estudos consolidados sobre o mercado de criptoativos</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
