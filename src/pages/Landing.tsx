@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
-import { 
-  Activity, ArrowRight, BarChart3, Brain, 
-  CheckCircle2, Cpu, Globe, LineChart, 
-  Newspaper, ShieldCheck, Target, TrendingUp, Zap 
+import {
+  Activity, ArrowRight, BarChart3, Network,
+  CheckCircle2, Cpu, Globe, LineChart,
+  Newspaper, ShieldCheck, Target, TrendingUp, Zap
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -107,7 +107,7 @@ const Landing = () => {
                   size="lg" 
                   className="w-full sm:w-auto h-14 sm:h-16 px-6 sm:px-8 border-white/20 bg-white/5 text-white hover:bg-white/10 rounded-none font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em] text-xs sm:text-sm"
                 >
-                  <Brain className="mr-2 w-4 h-4" />
+                  <Network className="mr-2 w-4 h-4" />
                   Análise IA
                 </Button>
               </Link>
@@ -160,9 +160,9 @@ const Landing = () => {
                 desc: 'Ibovespa, S&P 500, Nasdaq, Nikkei, Mercado Europeu, Petrobras, USD/BRL e EUR/BRL, tudo em uma tela.',
               },
               {
-                icon: <Brain className="w-6 h-6 text-primary" />,
-                title: 'Análise IA de Cripto',
-                desc: 'Envie prints de relatórios de alta e baixa. A IA extrai criptomoedas, conta repetições e gera relatórios periódicos.',
+                icon: <Network className="w-6 h-6 text-primary" />,
+                title: 'Observatório CriptoEx',
+                desc: 'Envie relatórios de recorrência e acompanhe o estudo consolidado, com rankings diários, semanais e mensais organizados automaticamente.',
               },
               {
                 icon: <Newspaper className="w-6 h-6 text-bullish" />,
