@@ -157,7 +157,7 @@ const Landing = () => {
               {
                 icon: <LineChart className="w-6 h-6 text-warning" />,
                 title: 'Mercados Globais',
-                desc: 'Ibovespa, S&P 500, Nasdaq, Nikkei, Mercado Europeu, Petrobras, USD/BRL e EUR/BRL — tudo em uma tela.',
+                desc: 'Ibovespa, S&P 500, Nasdaq, Nikkei, Mercado Europeu, Petrobras, USD/BRL e EUR/BRL, tudo em uma tela.',
               },
               {
                 icon: <Brain className="w-6 h-6 text-primary" />,
@@ -265,6 +265,9 @@ const Landing = () => {
       <footer className="border-t border-white/5 py-8">
         <div className="container px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] sm:text-xs text-[#555] uppercase tracking-widest">
           <span>© 2026 Fluxo Dos Mercados</span>
+          <a href="mailto:fluxodosmercados@gmail.com" className="hover:text-primary hover:underline normal-case tracking-normal">
+            fluxodosmercados@gmail.com
+          </a>
           <span>
             Desenvolvido por{' '}
             <a 

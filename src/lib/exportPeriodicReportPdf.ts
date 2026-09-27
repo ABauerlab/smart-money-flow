@@ -54,7 +54,7 @@ export function exportPeriodicReportPdf(report: PeriodicReport) {
   const periodLabel = PERIOD_LABELS[report.period_type] || report.period_type;
   const startDate = new Date(report.period_start).toLocaleDateString('pt-BR');
   const endDate = new Date(report.period_end).toLocaleDateString('pt-BR');
-  doc.text(`${periodLabel} • ${startDate} — ${endDate}`, margin, 34);
+  doc.text(`${periodLabel} • ${startDate} a ${endDate}`, margin, 34);
 
   y = 50;
 

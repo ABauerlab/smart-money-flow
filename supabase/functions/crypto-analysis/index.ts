@@ -960,7 +960,7 @@ serve(async (req) => {
           year: new Date().getFullYear(),
           week_number: getISOWeek(new Date(win.start)),
           rankings: rankings as any,
-          summary: `${win.label} — ${altaRankings.length} criptos`,
+          summary: `${win.label}: ${altaRankings.length} criptos`,
           ai_analysis: aiAnalysis,
           access_code: accessCode || null,
         })
@@ -1188,7 +1188,7 @@ serve(async (req) => {
           year: new Date().getFullYear(),
           week_number: getISOWeek(new Date(win.start)),
           rankings: rankings as any,
-          summary: `[ATUALIZAÇÃO] ${win.label} — ${altaRankings.length} criptos`,
+          summary: `[ATUALIZAÇÃO] ${win.label}: ${altaRankings.length} criptos`,
           ai_analysis: aiAnalysis,
           access_code: accessCode || null,
         })

@@ -874,8 +874,8 @@ function buildResponse(markets: MarketData[], news: any[] = []) {
       type: m.zScore > 1.5 ? 'opportunity' : 'attention',
       severity: Math.abs(m.zScore) > 2.5 ? 'high' : 'medium',
       message: m.zScore > 1.5
-        ? `${m.name}: Volume ${m.volumeRatio.toFixed(1)}x acima da média — possível acumulação institucional`
-        : `${m.name}: Volume ${m.volumeRatio.toFixed(1)}x abaixo da média — atividade reduzida`,
+        ? `${m.name}: Volume ${m.volumeRatio.toFixed(1)}x acima da média, possível acumulação institucional`
+        : `${m.name}: Volume ${m.volumeRatio.toFixed(1)}x abaixo da média, atividade reduzida`,
       market: m.name,
       timestamp: new Date().toISOString(),
     }));
