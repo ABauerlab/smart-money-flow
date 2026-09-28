@@ -76,7 +76,10 @@ function extractTimestampFromFilename(name: string | null): string | null {
   const m = name.match(/(\d{4})-(\d{2})-(\d{2})[_ ](\d{2})-(\d{2})-(\d{2})/);
   if (!m) return null;
   const [, y, mo, d, h, mi, s] = m;
-  const iso = `${y}-${mo}-${d}T${h}:${mi}:${s}Z`;
+  // The VPS macro stamps the filename with Format(Now, ...) using its own local
+  // (Brasília) clock, not UTC — so this must be read back as -03:00, not "Z", or
+  // every timestamp derived from it ends up 3h off (and Brazil has no DST to worry about).
+  const iso = `${y}-${mo}-${d}T${h}:${mi}:${s}-03:00`;
   return isNaN(Date.parse(iso)) ? null : new Date(iso).toISOString();
 }
 
@@ -700,6 +703,55 @@ function resolveWindow(periodType: string, windowIndex: number, now = new Date()
   return { start: fmtDate(start), end: fmtDate(end), label: `${MONTHS_PT[start.getUTCMonth()]} ${start.getUTCFullYear()}` };
 }
 
+async function generateAIPeriodicReport(
+  supabase: any, accessCode: string, periodType: string, windowIndex: number,
+): Promise<{ report: any; aiModelUsed: string }> {
+  const win = resolveWindow(periodType, windowIndex);
+
+  const { data: mentions, error: mError } = await supabase
+    .from('crypto_mentions')
+    .select('symbol, repetition, report_date, report_time')
+    .eq('access_code', accessCode)
+    .gte('report_date', win.start)
+    .lte('report_date', win.end);
+  if (mError) throw mError;
+
+  const altaRankings = sumMentions(mentions || []);
+  const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
+
+  let aiAnalysis = '';
+  let aiModelUsed = 'none';
+  if (rankings.length > 0) {
+    const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
+    const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
+    const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
+    const aiResult = await callAI([
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
+    ]);
+    if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
+  }
+
+  const { data: report, error: insertErr } = await supabase
+    .from('crypto_periodic_reports')
+    .insert({
+      period_type: periodType,
+      period_start: win.start,
+      period_end: win.end,
+      year: new Date().getFullYear(),
+      week_number: getISOWeek(new Date(win.start)),
+      rankings: rankings as any,
+      summary: `${win.label}: ${altaRankings.length} criptos`,
+      ai_analysis: aiAnalysis,
+      access_code: accessCode || null,
+    })
+    .select()
+    .single();
+  if (insertErr) throw insertErr;
+
+  return { report, aiModelUsed };
+}
+
 serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -984,48 +1036,7 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       const windowIndex = Number(reqBody.windowIndex || 0);
-      const win = resolveWindow(periodType, windowIndex);
-
-      const { data: mentions, error: mError } = await supabase
-        .from('crypto_mentions')
-        .select('symbol, repetition, report_date, report_time')
-        .eq('access_code', accessCode)
-        .gte('report_date', win.start)
-        .lte('report_date', win.end);
-      if (mError) throw mError;
-
-      const altaRankings = sumMentions(mentions || []);
-      const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
-
-      let aiAnalysis = '';
-      let aiModelUsed = 'none';
-      if (rankings.length > 0) {
-        const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
-        const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
-        const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
-        const aiResult = await callAI([
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
-        ]);
-        if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
-      }
-
-      const { data: report, error: insertErr } = await supabase
-        .from('crypto_periodic_reports')
-        .insert({
-          period_type: periodType,
-          period_start: win.start,
-          period_end: win.end,
-          year: new Date().getFullYear(),
-          week_number: getISOWeek(new Date(win.start)),
-          rankings: rankings as any,
-          summary: `${win.label}: ${altaRankings.length} criptos`,
-          ai_analysis: aiAnalysis,
-          access_code: accessCode || null,
-        })
-        .select()
-        .single();
-      if (insertErr) throw insertErr;
+      const { report, aiModelUsed } = await generateAIPeriodicReport(supabase, accessCode, periodType, windowIndex);
 
       return new Response(JSON.stringify({ report, aiModelUsed }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1198,6 +1209,19 @@ serve(async (req) => {
       if (submission) {
         const toInsert = mentionRows.map(m => ({ ...m, submission_id: submission.id }));
         await supabase.from('crypto_mentions').insert(toInsert);
+      }
+
+      // Run the same 18-step AI screening that "Listas" triggers by hand, but for
+      // EVERY ingestion — manual upload or Make.com/VPS automation alike — so the
+      // dashboard's AI report always reflects the latest data, not just when a
+      // person happens to click. Backgrounded via waitUntil: it can take several
+      // seconds (AI call), and must not delay the response back to the VPS macro's
+      // synchronous HTTP request or Make's module timeout.
+      if (submission) {
+        const bgReport = generateAIPeriodicReport(supabase, accessCode, 'daily', 0)
+          .catch((e) => console.error('Background daily AI report failed:', e));
+        // @ts-ignore EdgeRuntime is a Deno Deploy/Supabase global, not in the TS lib defs.
+        if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(bgReport);
       }
 
       return new Response(JSON.stringify({
