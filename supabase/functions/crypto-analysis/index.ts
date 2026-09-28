@@ -703,6 +703,10 @@ function resolveWindow(periodType: string, windowIndex: number, now = new Date()
   return { start: fmtDate(start), end: fmtDate(end), label: `${MONTHS_PT[start.getUTCMonth()]} ${start.getUTCFullYear()}` };
 }
 
+// Shared by the manual "generate-periodic" action and by the automatic call
+// fired after every CSV ingestion (analyze-csv), so a report produced by the
+// Make.com/VPS pipeline goes through the exact same 18-step AI screening as
+// one a person triggers by hand from the "Listas" tab — not just a raw count.
 async function generateAIPeriodicReport(
   supabase: any, accessCode: string, periodType: string, windowIndex: number,
 ): Promise<{ report: any; aiModelUsed: string }> {
