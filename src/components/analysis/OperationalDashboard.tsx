@@ -9,9 +9,7 @@ function formatTime(iso: string): string {
 }
 
 function formatDateTime(iso: string): string {
-  return formatBRDateTime(iso, {
-    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-  });
+  return formatBRDateTime(iso, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 // Fresh under 75min (covers the hourly Make.com run + some slack), then a warning
