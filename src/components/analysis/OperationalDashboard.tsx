@@ -2,15 +2,14 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUp, ArrowDown, Minus, Sparkles, Loader2, Radio, Clock } from 'lucide-react';
 import { useOperationalRound } from '@/hooks/useOperationalRound';
+import { formatBRTime, formatBRDateTime } from '@/lib/brTime';
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return formatBRTime(iso);
 }
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-  });
+  return formatBRDateTime(iso, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 // Fresh under 75min (covers the hourly Make.com run + some slack), then a warning
