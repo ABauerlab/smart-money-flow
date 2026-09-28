@@ -30,6 +30,9 @@ const trendStyles: Record<string, { icon: typeof ArrowUp; color: string; bg: str
 };
 
 export const OperationalDashboard = () => {
+  // undefined = live mode: always follows whatever round the backend resolves as
+  // "current" on each 60s refetch. Only set when the user explicitly picks an
+  // older round from the switcher below — picking "Atual" clears it back to live.
   const [pinnedRoundId, setPinnedRoundId] = useState<string | undefined>(undefined);
   const { data, isLoading, isFetching } = useOperationalRound(pinnedRoundId);
 
