@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Logo } from '@/components/Logo';
+import { formatBRTime } from '@/lib/brTime';
 
 interface HeaderProps {
   lastUpdated?: Date;
@@ -31,11 +32,7 @@ export const Header = ({
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const currentTime = new Date().toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  const currentTime = formatBRTime(new Date(), { second: '2-digit' });
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -45,10 +42,7 @@ export const Header = ({
 
   const formatLastUpdated = (date?: Date) => {
     if (!date) return 'N/A';
-    return date.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatBRTime(date);
   };
 
   return (

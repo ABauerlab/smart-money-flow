@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { RankingTable } from './RankingTable';
+import { formatBRDateTime } from '@/lib/brTime';
 
 interface AnalysisReportProps {
   title: string;
@@ -139,7 +140,7 @@ function exportReportPdf(title: string, summary: string, createdAt: string, cryp
   doc.text('Relatório de Análise IA, CriptoEx', margin, 26);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
-  doc.text(new Date(createdAt).toLocaleString('pt-BR'), margin, 34);
+  doc.text(formatBRDateTime(createdAt), margin, 34);
 
   y = 50;
 
@@ -232,7 +233,7 @@ function exportReportPdf(title: string, summary: string, createdAt: string, cryp
     doc.rect(0, ph - 12, pageWidth, 12, 'F');
     doc.setTextColor(100, 100, 100);
     doc.setFontSize(7);
-    doc.text(`Fluxo Dos Mercados • Gerado em ${new Date().toLocaleString('pt-BR')}`, margin, ph - 5);
+    doc.text(`Fluxo Dos Mercados • Gerado em ${formatBRDateTime(new Date())}`, margin, ph - 5);
     doc.text(`Página ${i}/${totalPages}`, pageWidth - margin, ph - 5, { align: 'right' });
   }
 
@@ -287,7 +288,7 @@ export const AnalysisReport = ({ title, summary, createdAt, cryptoSymbols, image
           </button>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="w-3 h-3" />
-            {new Date(createdAt).toLocaleString('pt-BR')}
+            {formatBRDateTime(createdAt)}
           </div>
         </div>
       </div>

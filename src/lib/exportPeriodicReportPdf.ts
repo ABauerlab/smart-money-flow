@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatBRDate, formatBRDateTime } from './brTime';
 
 interface RankingEntry {
   symbol: string;
@@ -52,8 +53,8 @@ export function exportPeriodicReportPdf(report: PeriodicReport) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
   const periodLabel = PERIOD_LABELS[report.period_type] || report.period_type;
-  const startDate = new Date(report.period_start).toLocaleDateString('pt-BR');
-  const endDate = new Date(report.period_end).toLocaleDateString('pt-BR');
+  const startDate = formatBRDate(report.period_start);
+  const endDate = formatBRDate(report.period_end);
   doc.text(`${periodLabel} • ${startDate} a ${endDate}`, margin, 34);
 
   y = 50;
@@ -144,7 +145,7 @@ export function exportPeriodicReportPdf(report: PeriodicReport) {
     doc.rect(0, ph - 12, pageWidth, 12, 'F');
     doc.setTextColor(100, 100, 100);
     doc.setFontSize(7);
-    doc.text(`Fluxo Dos Mercados • Gerado em ${new Date().toLocaleString('pt-BR')}`, margin, ph - 5);
+    doc.text(`Fluxo Dos Mercados • Gerado em ${formatBRDateTime(new Date())}`, margin, ph - 5);
     doc.text(`Página ${i}/${totalPages}`, pageWidth - margin, ph - 5, { align: 'right' });
   }
 

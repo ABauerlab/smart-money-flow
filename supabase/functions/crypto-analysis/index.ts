@@ -28,6 +28,19 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024; // 2MB — comfortably above a 5000-row 
 // query itself is unbounded by symbol count, but the LLM call cost should not be.
 const MAX_AI_RANKING_ROWS = 200;
 
+// Deno's Date is UTC-based server-side; the VPS, Make.com and the audience are
+// all Brazil-based, so anything derived from "now" (titles, session bucketing)
+// must read as Brasília time, not the server's UTC clock.
+function nowInBrasilia(): Date {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(new Date());
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? '00';
+  return new Date(`${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`);
+}
+
 function getISOWeek(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -1120,8 +1133,8 @@ serve(async (req) => {
       const allCryptos = ranking.map(r => r.symbol);
       const datesInUpload = [...new Set(mentionRows.map(m => m.report_date))].sort();
 
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const nowBR = nowInBrasilia();
+      const dateStr = nowBR.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
       const standardTitle = (title && String(title).trim()) || `${dateStr} - Envio (${mentionRows.length} linhas)`;
 
       const summary = [
@@ -1154,7 +1167,7 @@ serve(async (req) => {
           analysis_id: analysis.id,
           report_type: 'alta',
           report_date: defaultDate,
-          session_time: now.getHours() < 14 ? 'morning' : 'night',
+          session_time: nowBR.getHours() < 14 ? 'morning' : 'night',
           access_code: accessCode || null,
           source_file_id: sourceFileId,
           source_file_name: sourceFileName,
