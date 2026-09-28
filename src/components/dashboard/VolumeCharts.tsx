@@ -9,6 +9,7 @@ import {
 import { MarketData } from '@/types/market';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatBRDate } from '@/lib/brTime';
 
 interface VolumeChartsProps {
   markets: MarketData[];
@@ -144,7 +145,7 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                 itemStyle={{ color: 'hsl(var(--foreground))' }}
                 labelFormatter={(label: string, payload: any) => {
                   const p = payload?.[0]?.payload;
-                  const dateStr = p?.date ? new Date(p.date).toLocaleDateString('pt-BR') : '';
+                  const dateStr = p?.date ? formatBRDate(p.date) : '';
                   return dateStr ? `${label} (${dateStr})` : label;
                 }}
                 formatter={(v: number, _n: any, item: any) => {

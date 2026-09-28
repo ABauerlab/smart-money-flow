@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Seo } from '@/components/Seo';
+import { formatBRDate } from '@/lib/brTime';
 
 // Minimal, code-only gate, no marketing copy. The code is trusted locally after
 // the first successful entry (see CryptoAnalysis below), so a phone visit never
@@ -97,7 +98,7 @@ function buildWindows(periodType: PeriodType): { index: number; label: string }[
     const out = [{ index: 0, label: 'Hoje' }];
     for (let i = 1; i <= 6; i++) {
       const d = new Date(); d.setDate(d.getDate() - i);
-      const label = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      const label = formatBRDate(d, { weekday: 'short', day: '2-digit', month: '2-digit' });
       out.push({ index: i, label });
     }
     return out;
