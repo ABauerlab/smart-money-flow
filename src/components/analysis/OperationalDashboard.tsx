@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUp, ArrowDown, Minus, Sparkles, Loader2, Radio, Clock } from 'lucide-react';
 import { useOperationalRound } from '@/hooks/useOperationalRound';
@@ -30,14 +30,11 @@ const trendStyles: Record<string, { icon: typeof ArrowUp; color: string; bg: str
 };
 
 export const OperationalDashboard = () => {
-  const [selectedRoundId, setSelectedRoundId] = useState<string | undefined>(undefined);
-  const { data, isLoading, isFetching } = useOperationalRound(selectedRoundId);
-
-  // Once the "current" query resolves, lock the selector onto that round's real id so
-  // switching between rounds doesn't jump back to "latest" on the next 60s refetch.
-  useEffect(() => {
-    if (!selectedRoundId && data?.selectedRoundId) setSelectedRoundId(data.selectedRoundId);
-  }, [data?.selectedRoundId, selectedRoundId]);
+  // undefined = live mode: always follows whatever round the backend resolves as
+  // "current" on each 60s refetch. Only set when the user explicitly picks an
+  // older round from the switcher below — picking "Atual" clears it back to live.
+  const [pinnedRoundId, setPinnedRoundId] = useState<string | undefined>(undefined);
+  const { data, isLoading, isFetching } = useOperationalRound(pinnedRoundId);
 
   const freshness = useMemo(() => (data?.timestamp ? freshnessOf(data.timestamp) : null), [data?.timestamp]);
 
@@ -104,7 +101,7 @@ export const OperationalDashboard = () => {
           {data.rounds.map((r, i) => (
             <button
               key={r.id}
-              onClick={() => setSelectedRoundId(r.id)}
+              onClick={() => setPinnedRoundId(i === 0 ? undefined : r.id)}
               className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap
                 ${r.id === data.selectedRoundId
                   ? 'bg-primary text-primary-foreground border-primary'
