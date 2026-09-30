@@ -680,7 +680,7 @@ function auditLog(supabase: any, entry: { ip: string; code: string; action: stri
 //   daily   : 0 = today, 1 = yesterday, ... up to ~30
 //   weekly  : 0 = current week (Mon-Fri); 1..N = previous weeks (also Mon-Fri)
 //   monthly : 0 = current month; 1..N = previous calendar months
-function resolveWindow(periodType: string, windowIndex: number, now = new Date()): { start: string; end: string; label: string } {
+function resolveWindow(periodType: string, windowIndex: number, now = nowInBrasilia()): { start: string; end: string; label: string } {
   const idx = Math.max(0, Math.min(60, Number(windowIndex) || 0));
   if (periodType === 'daily') {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
