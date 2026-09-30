@@ -41,6 +41,24 @@ function nowInBrasilia(): Date {
   return new Date(`${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`);
 }
 
+// Crypto trades 24/7, so the daily/weekly/monthly report cycle rolls over at
+// 21:00 Brasília time (lined up with the VPS's daily Ásia session) instead of
+// local midnight — any moment at or after 21:00 belongs to the NEXT calendar
+// day's business date. Weekly closes with that Sunday's 21:00 rollover, and
+// monthly closes with the 21:00 rollover of the month's last day, both for
+// free since they're derived from this same adjusted date.
+function businessDateBR(instant: Date): Date {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+  }).formatToParts(instant);
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? '0';
+  const y = Number(get('year')), mo = Number(get('month')), d = Number(get('day')), h = Number(get('hour'));
+  const base = new Date(Date.UTC(y, mo - 1, d));
+  if (h >= 21) base.setUTCDate(base.getUTCDate() + 1);
+  return base;
+}
+
 function getISOWeek(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -48,13 +66,15 @@ function getISOWeek(date: Date): number {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
-// Returns Monday->Friday window for the ISO week containing `ref`.
-function getMonFriWeek(ref: Date): { start: Date; end: Date } {
+// Monday->Sunday window for the week containing `ref` (crypto trades every day,
+// so the week runs the full 7 days and closes with Sunday's 21:00 rollover —
+// pass a businessDateBR-adjusted `ref` so that rollover is already baked in).
+function getWeekRange(ref: Date): { start: Date; end: Date } {
   const d = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()));
   const dow = d.getUTCDay() || 7; // 1=Mon..7=Sun
   const monday = new Date(d); monday.setUTCDate(d.getUTCDate() - (dow - 1));
-  const friday = new Date(monday); friday.setUTCDate(monday.getUTCDate() + 4);
-  return { start: monday, end: friday };
+  const sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
+  return { start: monday, end: sunday };
 }
 
 // Week-of-month index (1..4), based on calendar day, capping a 5th week into 4.
@@ -677,27 +697,28 @@ function auditLog(supabase: any, entry: { ip: string; code: string; action: stri
 // Resolve a date window from periodType + windowIndex (relative to "now").
 // periodType: 'daily' | 'weekly' | 'monthly'
 // windowIndex semantics:
-//   daily   : 0 = today, 1 = yesterday, ... up to ~30
-//   weekly  : 0 = current week (Mon-Fri); 1..N = previous weeks (also Mon-Fri)
-//   monthly : 0 = current month; 1..N = previous calendar months
-function resolveWindow(periodType: string, windowIndex: number, now = nowInBrasilia()): { start: string; end: string; label: string } {
+//   daily   : 0 = today (current 21:00-21:00 business day), 1 = the previous one, ... up to ~30
+//   weekly  : 0 = current week (Mon-Sun, closing Sunday 21:00); 1..N = previous weeks
+//   monthly : 0 = current month (closing the last day's 21:00); 1..N = previous calendar months
+function resolveWindow(periodType: string, windowIndex: number, now = new Date()): { start: string; end: string; label: string } {
   const idx = Math.max(0, Math.min(60, Number(windowIndex) || 0));
+  const businessNow = businessDateBR(now);
   if (periodType === 'daily') {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const d = new Date(businessNow);
     d.setUTCDate(d.getUTCDate() - idx);
     const s = fmtDate(d);
     return { start: s, end: s, label: idx === 0 ? 'Hoje' : `D-${idx}` };
   }
   if (periodType === 'weekly') {
-    const ref = new Date(now); ref.setUTCDate(ref.getUTCDate() - idx * 7);
-    const { start, end } = getMonFriWeek(ref);
+    const ref = new Date(businessNow); ref.setUTCDate(ref.getUTCDate() - idx * 7);
+    const { start, end } = getWeekRange(ref);
     const wom = weekOfMonth(start);
     const label = `SEMANA ${wom} - ${MONTHS_PT[start.getUTCMonth()]}`;
     return { start: fmtDate(start), end: fmtDate(end), label };
   }
   // monthly
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth() - idx;
+  const y = businessNow.getUTCFullYear();
+  const m = businessNow.getUTCMonth() - idx;
   const start = new Date(Date.UTC(y, m, 1));
   const end = new Date(Date.UTC(y, m + 1, 0));
   return { start: fmtDate(start), end: fmtDate(end), label: `${MONTHS_PT[start.getUTCMonth()]} ${start.getUTCFullYear()}` };
@@ -1102,10 +1123,13 @@ serve(async (req) => {
 
       // Prefer the calendar date implied by the filename's own timestamp over the
       // caller-supplied reportDate (which Make derives from Drive's modifiedTime and
-      // can drift a day off around midnight syncs).
-      const defaultDate = (sourceModifiedTime && fmtDate(new Date(sourceModifiedTime)))
+      // can drift a day off around midnight syncs). Run it through businessDateBR so
+      // this lines up with resolveWindow's 21:00 Brasília rollover — a submission at,
+      // say, 22:00 must land in the SAME business day that the daily/weekly/monthly
+      // windows will later query for, not the plain calendar date.
+      const defaultDate = (sourceModifiedTime && fmtDate(businessDateBR(new Date(sourceModifiedTime))))
         || parseDate(fallbackDate)
-        || fmtDate(new Date());
+        || fmtDate(businessDateBR(new Date()));
 
       const mentionRows: any[] = [];
       let skipped = 0;
