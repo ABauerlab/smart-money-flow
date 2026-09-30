@@ -697,9 +697,9 @@ function auditLog(supabase: any, entry: { ip: string; code: string; action: stri
 // Resolve a date window from periodType + windowIndex (relative to "now").
 // periodType: 'daily' | 'weekly' | 'monthly'
 // windowIndex semantics:
-//   daily   : 0 = today, 1 = yesterday, ... up to ~30
-//   weekly  : 0 = current week (Mon-Fri); 1..N = previous weeks (also Mon-Fri)
-//   monthly : 0 = current month; 1..N = previous calendar months
+//   daily   : 0 = today (current 21:00-21:00 business day), 1 = the previous one, ... up to ~30
+//   weekly  : 0 = current week (Mon-Sun, closing Sunday 21:00); 1..N = previous weeks
+//   monthly : 0 = current month (closing the last day's 21:00); 1..N = previous calendar months
 function resolveWindow(periodType: string, windowIndex: number, now = new Date()): { start: string; end: string; label: string } {
   const idx = Math.max(0, Math.min(60, Number(windowIndex) || 0));
   const businessNow = businessDateBR(now);
@@ -1123,7 +1123,10 @@ serve(async (req) => {
 
       // Prefer the calendar date implied by the filename's own timestamp over the
       // caller-supplied reportDate (which Make derives from Drive's modifiedTime and
-      // can drift a day off around midnight syncs).
+      // can drift a day off around midnight syncs). Run it through businessDateBR so
+      // this lines up with resolveWindow's 21:00 Brasília rollover — a submission at,
+      // say, 22:00 must land in the SAME business day that the daily/weekly/monthly
+      // windows will later query for, not the plain calendar date.
       const defaultDate = (sourceModifiedTime && fmtDate(businessDateBR(new Date(sourceModifiedTime))))
         || parseDate(fallbackDate)
         || fmtDate(businessDateBR(new Date()));
