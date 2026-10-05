@@ -664,6 +664,11 @@ async function rateLimitBucket(supabase: any, key: string, max: number, windowSe
 }
 // AI/DB-expensive actions: tight per accessCode+IP+action budget.
 function rateLimit(supabase: any, key: string) { return rateLimitBucket(supabase, key, 8); }
+// Same AI-expensive budget, but keyed on the access code ALONE (no IP). A leaked
+// or shared code hammered from many different IPs (botnet, proxy rotation) would
+// otherwise dodge the per-IP budget above entirely — this one catches that case
+// by capping total AI-triggering calls for that code regardless of origin.
+function codeRateLimit(supabase: any, accessCode: string) { return rateLimitBucket(supabase, `code:${accessCode}`, 20); }
 // Blanket per-IP budget covering every action, including ones before the access
 // code is known — stops brute-forcing access codes or hammering cheap endpoints.
 function ipRateLimit(supabase: any, ip: string) { return rateLimitBucket(supabase, `ip:${ip}`, 30); }
@@ -831,21 +836,29 @@ serve(async (req) => {
       );
     }
 
-    const expensiveActions = new Set(['analyze', 'generate-periodic', 'refresh-lists']);
+    // Every action that triggers (directly or via background waitUntil) a call to
+    // the AI model. analyze-csv runs the same background generateAIPeriodicReport
+    // as generate-periodic/refresh-lists on every CSV submission, so it carries the
+    // exact same AI-cost risk and must share the same rate budget.
+    const expensiveActions = new Set(['analyze', 'analyze-csv', 'generate-periodic', 'refresh-lists']);
     // Audit only meaningful (mutating) successful actions, to keep log volume sane
     // against the dashboard's 60s polling of read-only actions like latest-round.
-    if (expensiveActions.has(action) || action === 'analyze-csv' || action === 'delete') {
+    if (expensiveActions.has(action) || action === 'delete') {
       auditLog(supabase, { ip, code: accessCode, action, success: true });
       supabase.from('access_codes').update({ last_used_at: new Date().toISOString() }).eq('code', accessCode)
         .then(({ error }: any) => { if (error) console.error('last_used_at update failed:', error.message); });
     }
 
     if (expensiveActions.has(action)) {
-      const rl = await rateLimit(supabase, `${accessCode}:${ip}:${action}`);
-      if (!rl.ok) {
+      const [rl, codeRl] = await Promise.all([
+        rateLimit(supabase, `${accessCode}:${ip}:${action}`),
+        codeRateLimit(supabase, accessCode),
+      ]);
+      const blocked = !rl.ok ? rl : (!codeRl.ok ? codeRl : null);
+      if (blocked) {
         return new Response(
-          JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${rl.retryAfter}s.` }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } },
+          JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${blocked.retryAfter}s.` }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(blocked.retryAfter) } },
         );
       }
     }
