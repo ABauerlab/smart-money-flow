@@ -180,9 +180,6 @@ function sumMentions(mentions: any[]): { symbol: string; count: number }[] {
 // project owner, to shortlist up to five assets for trend/trade monitoring.
 const SYSTEM_PROMPT = `Realize uma triagem técnica, comparativa e atualizada das criptomoedas relacionadas abaixo (a lista, já ordenada pela recorrência com que cada ativo apareceu nos relatórios monitorados, é enviada logo em seguida nesta mesma conversa):
 
-AVISO SOBRE FONTES DE DADOS:
-Você não tem acesso à internet nem a busca ao vivo nesta análise. Os únicos dados reais disponíveis são os fornecidos explicitamente na mensagem do usuário (a lista de recorrência e, quando presente, o bloco de preço/volume/variação de 24h obtido da Binance). Para qualquer campo pedido abaixo que não conste nesses dados fornecidos (RSI, MACD, VWAP, ATR, book de ofertas, funding, open interest, notícias/catalisadores, estrutura multi-timeframe etc.), não estime nem presuma um valor plausível: classifique explicitamente esse campo como "Dados insuficientes", conforme a regra de "não inventar dados ausentes" já definida mais abaixo.
-
 DATA E HORA DE REFERÊNCIA:
 Utilize dados disponíveis e verificados no momento da pesquisa.
 Informe no início:
@@ -200,7 +197,7 @@ A lista foi produzida pela recorrência com que os ativos apareceram em listas d
 Essa recorrência é somente um sinal inicial de atenção do mercado. Ela não representa qualidade, oportunidade, fundamento, tendência confirmada ou recomendação de investimento.
 
 OBJETIVO:
-Comparar as criptomoedas da lista e identificar, exclusivamente para fins de monitoramento de tendencia de alta e condições melhores para abertura de trades em futuros, até cinco ativos que apresentem naquele momento a melhor combinação de:
+Comparar as criptomoedas da lista e identificar, exclusivamente para fins de monitoramento de tendencia de alta e condições melhores para abertura de trades em futuros, até três ativos que apresentem naquele momento a melhor combinação de:
 - Liquidez executável.
 - Volume relativo.
 - Força relativa.
@@ -511,11 +508,11 @@ Terceiro nível: dentro do núcleo final, selecione os ativos que apresentem gat
 ETAPA 18: RESULTADO FINAL
 Apresente primeiro uma tabela com: Posição, Cripto, Nome completo, Exchange e par, Preço de referência, Força relativa, Estrutura, Tendência, Volume relativo, Liquidez, VWAP, ATR percentual, RSI, MACD, Open interest, Funding, Principal catalisador, Relação risco-retorno teórica, Penalizações aplicadas, Nota final, Qualidade dos dados, Status.
 Utilize os seguintes status: Finalista, Aguardando confirmação, Apenas monitorar, Reprovada por liquidez, Reprovada por risco, Reprovada por ambiguidade, Reprovada por movimento estendido, Dados insuficientes.
-Depois da tabela, apresente apenas os cinco ativos mais bem classificados. Para cada finalista, informe: 1. Por que superou os demais. 2. Regime técnico atual. 3. Principal confluência. 4. Principal fator favorável. 5. Principal risco. 6. Gatilho técnico que ainda precisa ocorrer. 7. Condição objetiva de invalidação. 8. Situação do volume. 9. Situação dos derivativos. 10. Relação risco-retorno teórica. 11. Prazo de validade da análise. 12. Dado que deve ser monitorado em tempo real. 13. Nota final de 0 a 100. 14. Grau de confiança da classificação: alto, médio ou baixo.
+Depois da tabela, apresente apenas os três ativos mais bem classificados. Para cada finalista, informe: 1. Por que superou os demais. 2. Regime técnico atual. 3. Principal confluência. 4. Principal fator favorável. 5. Principal risco. 6. Gatilho técnico que ainda precisa ocorrer. 7. Condição objetiva de invalidação. 8. Situação do volume. 9. Situação dos derivativos. 10. Relação risco-retorno teórica. 11. Prazo de validade da análise. 12. Dado que deve ser monitorado em tempo real. 13. Nota final de 0 a 100. 14. Grau de confiança da classificação: alto, médio ou baixo.
 
 REGRA DE SEGURANÇA DA SELEÇÃO:
-Não é obrigatório selecionar cinco ativos. Selecione: cinco, se cinco ultrapassarem 75 pontos; três, se somente três ultrapassarem 75 pontos; um, se somente um ultrapassar 75 pontos; nenhum, se nenhum atingir 75 pontos.
-Nunca complete o ranking com ativos fracos apenas para chegar a cinco nomes.
+Não é obrigatório selecionar três ativos. Selecione: três, se três ultrapassarem 75 pontos; dois, se somente dois ultrapassarem 75 pontos; um, se somente um ultrapassar 75 pontos; nenhum, se nenhum atingir 75 pontos.
+Nunca complete o ranking com ativos fracos apenas para chegar a três nomes.
 Se nenhum ativo preencher os requisitos, escreva: "Não foram identificadas, neste momento, três configurações com confluência, liquidez e relação técnica de risco suficientes."
 
 REGRAS FINAIS:
@@ -606,14 +603,7 @@ async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promis
     contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts });
   }
 
-  // No Google Search grounding tool here: it requires a billed Google Cloud
-  // project (RESOURCE_EXHAUSTED/402 otherwise), while plain generateContent
-  // calls work on Gemini's free tier. Real price/volume data is instead fetched
-  // for free from Binance's public API and injected into the prompt directly
-  // (see fetchLivePriceData / the analyze-csv and refresh-lists callers) — the
-  // system prompt tells the model to mark anything else as "Dados insuficientes"
-  // instead of guessing.
-  const body: any = { contents };
+  const body: any = { contents, tools: [{ googleSearch: {} }] };
   if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
 
   const resp = await fetch(
