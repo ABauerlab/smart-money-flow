@@ -511,7 +511,7 @@ Utilize os seguintes status: Finalista, Aguardando confirmação, Apenas monitor
 Depois da tabela, apresente apenas os três ativos mais bem classificados. Para cada finalista, informe: 1. Por que superou os demais. 2. Regime técnico atual. 3. Principal confluência. 4. Principal fator favorável. 5. Principal risco. 6. Gatilho técnico que ainda precisa ocorrer. 7. Condição objetiva de invalidação. 8. Situação do volume. 9. Situação dos derivativos. 10. Relação risco-retorno teórica. 11. Prazo de validade da análise. 12. Dado que deve ser monitorado em tempo real. 13. Nota final de 0 a 100. 14. Grau de confiança da classificação: alto, médio ou baixo.
 
 REGRA DE SEGURANÇA DA SELEÇÃO:
-Não é obrigatório selecionar três ativos. Selecione: três, se três ultrapassarem 75 pontos; dois, se somente dois ultrapassarem 75 pontos; um, se somente um ultrapassar 75 pontos; nenhum, se nenhum atingir 75 pontos.
+Não é obrigatório selecionar três ativos. Selecione: três, se três ultrapassarem 75 pontos; um, se somente um ultrapassar 75 pontos; nenhum, se nenhum atingir 75 pontos.
 Nunca complete o ranking com ativos fracos apenas para chegar a três nomes.
 Se nenhum ativo preencher os requisitos, escreva: "Não foram identificadas, neste momento, três configurações com confluência, liquidez e relação técnica de risco suficientes."
 
