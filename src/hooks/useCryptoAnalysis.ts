@@ -24,14 +24,14 @@ interface CryptoAnalysis {
 
 interface SeparateRanking { symbol: string; count: number; }
 
-interface PeriodicReport {
+export interface PeriodicReport {
   id: string;
   period_type: string;
   period_start: string;
   period_end: string;
   year: number;
   week_number: number;
-  rankings: { symbol: string; total: number }[];
+  rankings: { symbol: string; total: number; alta: number; baixa: number; volume: number }[];
   summary: string;
   ai_analysis: string;
   created_at: string;
