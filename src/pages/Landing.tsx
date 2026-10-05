@@ -185,11 +185,41 @@ const Landing = () => {
 
       <main>
         {/* 1. Hero */}
-        <section className="relative min-h-[90vh] flex items-center justify-center pt-24 pb-10 sm:pt-32 sm:pb-16">
+        <section className="relative min-h-[90vh] flex items-center justify-center pt-24 pb-10 sm:pt-32 sm:pb-16 overflow-hidden">
           <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
             <div className="absolute top-1/4 left-1/4 w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-primary/10 blur-[100px] sm:blur-[150px] rounded-full" />
             <div className="absolute bottom-1/4 right-1/4 w-[200px] sm:w-[400px] h-[200px] sm:h-[400px] bg-bullish/5 blur-[80px] sm:blur-[120px] rounded-full" />
           </div>
+          <div
+            className="absolute inset-0 pointer-events-none opacity-[0.07]"
+            style={{
+              backgroundImage:
+                'linear-gradient(to right, hsl(var(--primary)) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--primary)) 1px, transparent 1px)',
+              backgroundSize: '48px 48px',
+              maskImage: 'radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent)',
+            }}
+          />
+
+          <motion.div
+            initial={{ opacity: 0, y: 40, rotate: -4 }}
+            animate={{ opacity: 1, y: 0, rotate: -4 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="hidden xl:block absolute right-[4%] top-[18%] w-[280px] pointer-events-none select-none"
+          >
+            <div className="rounded-xl border border-primary/20 bg-background/60 backdrop-blur shadow-[0_0_80px_rgba(14,165,233,0.15)] overflow-hidden">
+              <img src={produtoDashboard} alt="" aria-hidden="true" className="w-full opacity-90" />
+            </div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 40, rotate: 5 }}
+            animate={{ opacity: 1, y: 0, rotate: 5 }}
+            transition={{ delay: 0.7, duration: 0.8 }}
+            className="hidden xl:block absolute left-[4%] bottom-[12%] w-[240px] pointer-events-none select-none"
+          >
+            <div className="rounded-xl border border-bullish/20 bg-background/60 backdrop-blur shadow-[0_0_80px_rgba(16,185,129,0.12)] overflow-hidden">
+              <img src={produtoOperacao} alt="" aria-hidden="true" className="w-full opacity-80" />
+            </div>
+          </motion.div>
 
           <div className="container relative z-10 text-center space-y-8 sm:space-y-10 px-4">
             <motion.div
@@ -283,8 +313,9 @@ const Landing = () => {
         </section>
 
         {/* 3. Agitação da dor */}
-        <section className="py-16 sm:py-24 border-t border-white/5">
-          <div className="container px-4 max-w-3xl mx-auto text-center">
+        <section className="relative py-16 sm:py-24 border-t border-white/5 overflow-hidden">
+          <div className="absolute top-0 right-[10%] w-[250px] h-[250px] bg-bearish/5 blur-[100px] rounded-full pointer-events-none" />
+          <div className="container relative px-4 max-w-3xl mx-auto text-center">
             <motion.div {...fadeUp}>
               <span className="text-[10px] uppercase tracking-[0.3em] text-bearish font-bold">O problema</span>
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4 mb-10">
@@ -311,19 +342,47 @@ const Landing = () => {
         </section>
 
         {/* 4. Solução / mecanismo único */}
-        <section className="py-16 sm:py-24 border-t border-white/5 bg-white/[0.01]">
-          <div className="container px-4 max-w-3xl mx-auto text-center">
-            <motion.div {...fadeUp}>
-              <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">O mecanismo</span>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4 mb-6">
-                Não é opinião. <br />
-                <span className="text-primary">É volume, Z-Score e fluxo, direto da fonte.</span>
-              </h2>
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                A cada atualização, o sistema calcula se o volume de cada ativo está acima ou abaixo
-                do padrão histórico e classifica automaticamente o momento em acumulação, distribuição,
-                exaustão ou neutro. Sem call. Sem viés. Só o dado.
-              </p>
+        <section className="relative py-16 sm:py-24 border-t border-white/5 bg-white/[0.01] overflow-hidden">
+          <div className="absolute bottom-0 left-[8%] w-[280px] h-[280px] bg-primary/5 blur-[110px] rounded-full pointer-events-none" />
+          <div className="container relative px-4">
+            <div className="max-w-3xl mx-auto text-center mb-10">
+              <motion.div {...fadeUp}>
+                <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">O mecanismo</span>
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4 mb-6">
+                  Não é opinião. <br />
+                  <span className="text-primary">É volume, Z-Score e fluxo, direto da fonte.</span>
+                </h2>
+                <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+                  A cada atualização, o sistema calcula se o volume de cada ativo está acima ou abaixo
+                  do padrão histórico e classifica automaticamente o momento em acumulação, distribuição,
+                  exaustão ou neutro. Sem call. Sem viés. Só o dado.
+                </p>
+              </motion.div>
+            </div>
+
+            <motion.div
+              {...fadeUp}
+              className="max-w-sm mx-auto rounded-xl border border-white/10 bg-background/60 backdrop-blur p-5 shadow-[0_0_60px_rgba(14,165,233,0.08)]"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold text-white uppercase tracking-wide">BTC/USDT</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-bullish/15 text-bullish font-bold uppercase">Acumulação</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-left">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Z-Score</p>
+                  <p className="text-xl font-black text-bullish font-mono">+2,41</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Vol. relativo</p>
+                  <p className="text-xl font-black text-white font-mono">184%</p>
+                </div>
+              </div>
+              <div className="mt-4 h-10 flex items-end gap-1">
+                {[40, 55, 48, 62, 58, 71, 66, 82, 77, 94, 88, 100].map((h, i) => (
+                  <div key={i} className="flex-1 bg-gradient-to-t from-primary/70 to-primary/20 rounded-sm" style={{ height: `${h}%` }} />
+                ))}
+              </div>
             </motion.div>
           </div>
         </section>
@@ -364,9 +423,10 @@ const Landing = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.05, duration: 0.4 }}
-                  className={`p-6 border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-primary/30 transition-all duration-300 group ${item.span}`}
+                  className={`relative overflow-hidden p-6 border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-primary/30 transition-all duration-300 group ${item.color} ${item.span}`}
                 >
-                  <div className="p-2.5 rounded-lg bg-white/5 border border-white/10 inline-block mb-4 group-hover:border-primary/40 transition-colors">
+                  <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-current opacity-[0.06] blur-2xl group-hover:opacity-[0.12] transition-opacity" />
+                  <div className="relative p-2.5 rounded-lg bg-white/5 border border-white/10 inline-block mb-4 group-hover:border-primary/40 transition-colors">
                     <item.icon className={`w-6 h-6 ${item.color}`} />
                   </div>
                   <h3 className="text-base sm:text-lg font-bold text-white mb-2 uppercase tracking-tight">
@@ -448,11 +508,12 @@ const Landing = () => {
             >
               E tem mais telas rodando por trás
             </motion.p>
-            <div className="-mx-4 px-4 flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 max-w-5xl mx-auto sm:mx-auto">
+            {/* Mobile: horizontal snap carousel */}
+            <div className="sm:hidden -mx-4 px-4 flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2">
               {MORE_SCREENS.map((screen, i) => (
                 <figure
                   key={i}
-                  className="snap-start shrink-0 w-[70vw] sm:w-[280px] border border-white/10 bg-white/[0.02] rounded-lg overflow-hidden"
+                  className="snap-start shrink-0 w-[70vw] border border-white/10 bg-white/[0.02] rounded-lg overflow-hidden"
                 >
                   <img
                     src={screen.img}
@@ -469,12 +530,40 @@ const Landing = () => {
                 </figure>
               ))}
             </div>
+
+            {/* Desktop/tablet: full grid, bigger previews */}
+            <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-5 gap-5 max-w-6xl mx-auto">
+              {MORE_SCREENS.map((screen, i) => (
+                <motion.figure
+                  key={i}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.06, duration: 0.4 }}
+                  className="border border-white/10 bg-white/[0.02] hover:border-primary/30 hover:bg-white/[0.04] rounded-lg overflow-hidden transition-all duration-300"
+                >
+                  <img
+                    src={screen.img}
+                    alt={`Tela real de ${screen.title} do Fluxo Dos Mercados`}
+                    width={1440}
+                    height={900}
+                    loading="lazy"
+                    className="w-full aspect-[16/10] object-cover object-top"
+                  />
+                  <figcaption className="p-3">
+                    <p className="text-xs font-bold text-white uppercase tracking-tight">{screen.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{screen.desc}</p>
+                  </figcaption>
+                </motion.figure>
+              ))}
+            </div>
           </div>
         </section>
 
         {/* 7. Como funciona */}
-        <section className="py-16 sm:py-24 border-t border-white/5">
-          <div className="container px-4">
+        <section className="relative py-16 sm:py-24 border-t border-white/5 overflow-hidden">
+          <div className="absolute top-10 right-[15%] w-[220px] h-[220px] bg-warning/5 blur-[100px] rounded-full pointer-events-none" />
+          <div className="container relative px-4">
             <div className="text-center mb-12 max-w-2xl mx-auto">
               <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">Como funciona</span>
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4">
@@ -503,8 +592,9 @@ const Landing = () => {
         </section>
 
         {/* 8. FAQ */}
-        <section className="py-16 sm:py-24 border-t border-white/5 bg-white/[0.01]">
-          <div className="container px-4 max-w-2xl mx-auto">
+        <section className="relative py-16 sm:py-24 border-t border-white/5 bg-white/[0.01] overflow-hidden">
+          <div className="absolute bottom-0 left-[20%] w-[240px] h-[240px] bg-primary/5 blur-[110px] rounded-full pointer-events-none" />
+          <div className="container relative px-4 max-w-2xl mx-auto">
             <div className="text-center mb-10">
               <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">Dúvidas frequentes</span>
               <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mt-4">
