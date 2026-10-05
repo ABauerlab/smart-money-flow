@@ -12,6 +12,19 @@ import {
 import { Seo } from '@/components/Seo';
 import produtoDesktop from '@/assets/landing/produto-criptoex-ia.png';
 import produtoMobile from '@/assets/landing/produto-criptoex-ia-mobile.png';
+import produtoDashboard from '@/assets/landing/produto-dashboard.png';
+import produtoOperacao from '@/assets/landing/produto-operacao.png';
+import produtoGlossario from '@/assets/landing/produto-glossario.png';
+import produtoEnviar from '@/assets/landing/produto-enviar.png';
+import produtoHistorico from '@/assets/landing/produto-historico.png';
+
+const MORE_SCREENS = [
+  { img: produtoDashboard, title: 'Dashboard', desc: 'Veredito do fluxo e todos os mercados globais numa tela só.' },
+  { img: produtoOperacao, title: 'Operação (CriptoEx)', desc: 'Ranking ao vivo da rodada mais recente, com variação por ativo.' },
+  { img: produtoGlossario, title: 'Glossário', desc: 'Cada termo técnico explicado, sem academiquês.' },
+  { img: produtoEnviar, title: 'Enviar relatório', desc: 'Suba o CSV e o sistema soma e organiza sozinho.' },
+  { img: produtoHistorico, title: 'Histórico', desc: 'Todos os envios anteriores, sempre à mão.' },
+];
 
 const TICKER_ITEMS = [
   'IBOVESPA', 'S&P 500', 'NASDAQ', 'NIKKEI 225', 'MERCADO EUROPEU',
@@ -426,6 +439,35 @@ const Landing = () => {
                   className="order-1 md:order-2 w-full max-w-[280px] mx-auto rounded-lg border border-white/10 shadow-2xl"
                 />
               </motion.article>
+            </div>
+
+            {/* Galeria: o resto do sistema, mesma lógica de carrossel com snap no mobile */}
+            <motion.p
+              {...fadeUp}
+              className="text-center text-xs uppercase tracking-[0.3em] text-muted-foreground mt-16 mb-6"
+            >
+              E tem mais telas rodando por trás
+            </motion.p>
+            <div className="-mx-4 px-4 flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 max-w-5xl mx-auto sm:mx-auto">
+              {MORE_SCREENS.map((screen, i) => (
+                <figure
+                  key={i}
+                  className="snap-start shrink-0 w-[70vw] sm:w-[280px] border border-white/10 bg-white/[0.02] rounded-lg overflow-hidden"
+                >
+                  <img
+                    src={screen.img}
+                    alt={`Tela real de ${screen.title} do Fluxo Dos Mercados`}
+                    width={1440}
+                    height={900}
+                    loading="lazy"
+                    className="w-full aspect-[16/10] object-cover object-top"
+                  />
+                  <figcaption className="p-3">
+                    <p className="text-xs font-bold text-white uppercase tracking-tight">{screen.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{screen.desc}</p>
+                  </figcaption>
+                </figure>
+              ))}
             </div>
           </div>
         </section>
