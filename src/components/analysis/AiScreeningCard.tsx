@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sparkles, Download, ChevronDown } from 'lucide-react';
+import { Sparkles, Download, ChevronDown, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { exportPeriodicReportPdf } from '@/lib/exportPeriodicReportPdf';
@@ -8,16 +8,42 @@ import type { PeriodicReport } from '@/hooks/useCryptoAnalysis';
 
 interface AiScreeningCardProps {
   report: PeriodicReport | undefined;
+  onGenerate?: () => void;
+  isGenerating?: boolean;
 }
 
 // Renders the 18-step AI screening (ETAPA 18 table + finalists) stored in
 // crypto_periodic_reports.ai_analysis. Only the markdown <table> gets its own
 // horizontal scroll container — the surrounding prose text still wraps
 // normally on narrow screens instead of forcing the whole card to scroll.
-export const AiScreeningCard = ({ report }: AiScreeningCardProps) => {
+//
+// A window with no periodic report yet (nobody has generated/refreshed it for
+// this specific recorte) used to render nothing here — indistinguishable from
+// the AI screening feature simply not existing. It now always shows a card,
+// with an explicit "generate on demand" state instead of silently vanishing.
+export const AiScreeningCard = ({ report, onGenerate, isGenerating }: AiScreeningCardProps) => {
   const [open, setOpen] = useState(false);
 
-  if (!report?.ai_analysis) return null;
+  if (!report?.ai_analysis) {
+    return (
+      <div className="rounded-lg border border-dashed border-primary/25 bg-primary/5 p-3 flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+          <Sparkles className="w-4 h-4 text-primary shrink-0" />
+          <span className="truncate">Ainda não há triagem de IA gerada para este recorte.</span>
+        </span>
+        {onGenerate && (
+          <button
+            onClick={onGenerate}
+            disabled={isGenerating}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary/15 border border-primary/30 px-2.5 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/25 transition-colors disabled:opacity-60"
+          >
+            {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {isGenerating ? 'Gerando...' : 'Gerar agora'}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-primary/20 bg-primary/5 overflow-hidden">
