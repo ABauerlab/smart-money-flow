@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Histórico</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .frame{width:390px;height:844px;background:var(--bg);color:var(--text);
+    border-radius:44px;overflow:hidden;position:relative;
+    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
+  .scroll{flex:1;overflow-y:auto;padding-bottom:20px;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  .topbar{padding:10px 16px 12px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;}
+  .tb-l{display:flex;align-items:center;gap:9px;}
+  .back{width:28px;height:28px;border-radius:9px;background:var(--card);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .tb-l b{font-size:13px;font-weight:800;color:var(--primary);display:block;}
+  .tb-l span{font-size:9px;color:var(--muted);}
+  .code{font-size:10px;color:var(--muted);}
+
+  .tabs{display:flex;padding:10px 16px 2px;border-bottom:1px solid var(--border);gap:4px;}
+  .tab{flex:1;text-align:center;padding:9px 0;font-size:11px;font-weight:700;color:var(--muted);}
+  .tab.active{color:var(--primary);border-bottom:2px solid var(--primary);}
+
+  .section-head{display:flex;justify-content:space-between;align-items:center;padding:16px;}
+  .section-head b{font-size:14px;font-weight:800;}
+  .section-head span{font-size:11px;font-weight:700;color:var(--primary);border:1px solid var(--primary);
+    padding:5px 10px;border-radius:8px;}
+
+  .report{margin:0 16px 12px;background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:14px 15px;}
+  .report-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px;}
+  .report-title{display:flex;align-items:center;gap:7px;}
+  .report-title b{font-size:12.5px;font-weight:800;}
+  .report-meta{text-align:right;}
+  .report-meta .dl{font-size:13px;color:var(--primary);}
+  .report-meta .dt{font-size:9px;color:var(--muted);margin-top:2px;}
+  .badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px;}
+  .badge{font-size:9.5px;font-weight:700;background:var(--primary-dim);color:var(--primary);
+    padding:3px 8px;border-radius:999px;font-family:monospace;}
+  .report-body{font-size:11px;color:var(--muted);line-height:1.6;}
+  .report-body b{color:var(--text);}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="notch"></div>
+  <div class="statusbar"><span>21:48</span><span>🔋 📶 📡</span></div>
+
+  <div class="topbar">
+    <div class="tb-l">
+      <div class="back">←</div>
+      <div><b>Observatório CriptoEx</b><span>Estudos consolidados</span></div>
+    </div>
+    <span class="code">Código: 77***</span>
+  </div>
+
+  <div class="scroll">
+    <div class="tabs">
+      <div class="tab">📡 Operação</div>
+      <div class="tab">📊 Listas</div>
+      <div class="tab">📤 Enviar</div>
+      <div class="tab active">📋 Histórico</div>
+    </div>
+
+    <div class="section-head">
+      <b>📋 Histórico de Análises (3)</b>
+      <span>Selecionar</span>
+    </div>
+
+    <div class="report">
+      <div class="report-top">
+        <div class="report-title"><span>📄</span><b>04/10/2026 - Envio (13 linhas)</b></div>
+        <div class="report-meta"><span class="dl">⬇</span><div class="dt">04/10, 21:48</div></div>
+      </div>
+      <div class="badges">
+        <span class="badge">NEAR</span><span class="badge">AKT</span><span class="badge">STRK</span>
+        <span class="badge">SKY</span><span class="badge">SHIB</span>
+      </div>
+      <div class="report-body">
+        <b>Lista Geral (somatório)</b><br>
+        1. NEAR: 5 &nbsp; 2. AKT: 5 &nbsp; 3. STRK: 5
+      </div>
+    </div>
+
+    <div class="report">
+      <div class="report-top">
+        <div class="report-title"><span>📄</span><b>03/10/2026 - Envio (9 linhas)</b></div>
+        <div class="report-meta"><span class="dl">⬇</span><div class="dt">03/10, 21:48</div></div>
+      </div>
+      <div class="badges"><span class="badge">BTC</span><span class="badge">ETH</span></div>
+      <div class="report-body">
+        <b>Lista Geral (somatório)</b><br>
+        1. BTC: 4 &nbsp; 2. ETH: 3
+      </div>
+    </div>
+
+    <div class="report">
+      <div class="report-top">
+        <div class="report-title"><span>📄</span><b>02/10/2026 - Envio (15 linhas)</b></div>
+        <div class="report-meta"><span class="dl">⬇</span><div class="dt">02/10, 21:48</div></div>
+      </div>
+      <div class="badges"><span class="badge">SOL</span><span class="badge">ADA</span></div>
+      <div class="report-body">
+        <b>Lista Geral (somatório)</b><br>
+        1. SOL: 6 &nbsp; 2. ADA: 2
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
