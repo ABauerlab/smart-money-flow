@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Operação (Desktop)</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --bull:#10b981; --bull-dim:rgba(16,185,129,.15);
+    --bear:#ef4444; --bear-dim:rgba(239,68,68,.15); --warn:#f59e0b;
+    --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:28px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .window{width:1280px;background:var(--bg);color:var(--text);border-radius:14px;overflow:hidden;
+    border:1px solid var(--border);box-shadow:0 30px 80px rgba(0,0,0,.6);}
+  .chrome{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--card);
+    border-bottom:1px solid var(--border);}
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .url{margin-left:14px;background:var(--card2);color:var(--muted);font-size:11.5px;padding:6px 16px;
+    border-radius:8px;font-family:monospace;}
+
+  .topbar{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .logo{width:32px;height:32px;border-radius:9px;
+    background:conic-gradient(from 180deg,var(--primary),#3b82f6,var(--primary));
+    display:flex;align-items:center;justify-content:center;}
+  .brand b{font-size:16px;font-weight:800;color:var(--primary);display:block;}
+  .brand span{font-size:11px;color:var(--muted);}
+  .live-pill{display:flex;align-items:center;gap:6px;background:var(--bull-dim);color:var(--bull);
+    font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--bull);animation:p 1.6s infinite;}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .content{padding:24px 28px 32px;display:grid;grid-template-columns:1.1fr 1fr;gap:28px;}
+  .section-title{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.8px;
+    text-transform:uppercase;margin-bottom:14px;}
+
+  .status-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+  .status-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .status-label{font-size:12px;color:var(--muted);}
+  .status-value{font-size:13px;font-weight:700;}
+  .bar-track{height:7px;background:var(--card2);border-radius:999px;overflow:hidden;margin:8px 0 12px;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),#3b82f6);border-radius:999px;}
+  .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .stat-box{background:var(--card2);border-radius:10px;padding:10px 12px;}
+  .stat-box .n{font-size:18px;font-weight:800;}
+  .stat-box .l{font-size:10.5px;color:var(--muted);margin-top:1px;}
+
+  .leader-card{background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1.5px solid var(--primary);border-radius:16px;padding:18px;position:relative;overflow:hidden;}
+  .leader-top{display:flex;align-items:center;gap:13px;}
+  .leader-badge{display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#031018;
+    font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px;letter-spacing:.5px;margin-left:8px;}
+  .leader-icon{width:54px;height:54px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg,#00d4aa,#00a383);display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:16px;color:#031e16;border:2px solid rgba(255,255,255,.15);}
+  .leader-info{flex:1;min-width:0;}
+  .leader-info .sym{font-size:20px;font-weight:800;}
+  .leader-info .exch{font-size:11px;color:var(--muted);margin-top:2px;}
+  .leader-pct{text-align:right;flex-shrink:0;}
+  .leader-pct .n{font-size:26px;font-weight:800;color:var(--primary);line-height:1;}
+  .leader-pct .m{font-size:10.5px;color:var(--muted);margin-top:3px;}
+  .leader-bar{height:9px;background:var(--card2);border-radius:999px;margin-top:14px;overflow:hidden;}
+  .leader-bar-fill{height:100%;width:71%;background:linear-gradient(90deg,var(--primary),#60a5fa);border-radius:999px;}
+  .leader-foot{display:flex;justify-content:space-between;margin-top:11px;}
+  .trend-chip{display:inline-flex;align-items:center;gap:4px;background:var(--bull-dim);color:var(--bull);
+    font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:999px;}
+  .leader-foot .proj{font-size:10.5px;color:var(--muted);}
+
+  .right-col{display:flex;flex-direction:column;gap:9px;}
+  .list-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;
+    display:flex;align-items:center;gap:12px;}
+  .pos{width:22px;text-align:center;font-size:13px;font-weight:800;color:var(--muted2);flex-shrink:0;}
+  .pos.top{color:#eab308;}
+  .coin-icon{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;
+    justify-content:center;font-size:11px;font-weight:800;color:#07131a;}
+  .row-main{flex:1;min-width:0;}
+  .row-main .sym{font-size:14px;font-weight:700;}
+  .row-main .bartrack{height:4px;background:var(--card2);border-radius:999px;margin-top:6px;overflow:hidden;}
+  .row-main .barfill{height:100%;border-radius:999px;background:var(--primary);}
+  .row-right{text-align:right;flex-shrink:0;}
+  .row-right .cnt-main{font-size:14px;font-weight:800;}
+  .row-right .cnt{font-size:10px;color:var(--muted);margin-top:1px;}
+  .arrow{font-size:11px;margin-left:4px;}
+  .arrow.up{color:var(--bull);} .arrow.down{color:var(--bear);} .arrow.flat{color:var(--muted2);} .arrow.new{color:var(--primary);}
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="chrome">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="url">fluxodosmercados.com.br/analise-ia</span>
+  </div>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">◎</div>
+      <div><b>Observatório CriptoEx</b><span>Apuração ao vivo da rodada atual</span></div>
+    </div>
+    <div class="live-pill"><span class="live-dot"></span>Rodada consolidada às 21:48</div>
+  </div>
+
+  <div class="content">
+    <div>
+      <div class="section-title">Status da rodada</div>
+      <div class="status-card">
+        <div class="status-row"><span class="status-label">Envios consolidados</span><span class="status-value">4 de 4 relatórios</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%"></div></div>
+        <div class="status-grid">
+          <div class="stat-box"><div class="n">187</div><div class="l">Menções na rodada</div></div>
+          <div class="stat-box"><div class="n">8</div><div class="l">Ativos distintos</div></div>
+        </div>
+      </div>
+
+      <div class="section-title">Líder da rodada</div>
+      <div class="leader-card">
+        <div class="leader-top">
+          <div class="leader-icon">N</div>
+          <div class="leader-info"><div class="sym">NEAR <span class="leader-badge">★ LÍDER</span></div><div class="exch">Binance · Futuros USDT</div></div>
+          <div class="leader-pct"><div class="n">5</div><div class="m">menções na rodada</div></div>
+        </div>
+        <div class="leader-bar"><div class="leader-bar-fill"></div></div>
+        <div class="leader-foot">
+          <span class="trend-chip">▲ Liderando há 3 rodadas</span>
+          <span class="proj">Projeção: mantém #1</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-col">
+      <div class="section-title">Classificação da rodada</div>
+      <div class="list-item"><span class="pos top">2</span>
+        <div class="coin-icon" style="background:linear-gradient(135deg,#f7931a,#ffb04d);">A</div>
+        <div class="row-main"><div class="sym">AKT</div><div class="bartrack"><div class="barfill" style="width:100%"></div></div></div>
+        <div class="row-right"><div class="cnt-main">5<span class="arrow up">▲ 2</span></div><div class="cnt">menções</div></div></div>
+      <div class="list-item"><span class="pos top">3</span>
+        <div class="coin-icon" style="background:linear-gradient(135deg,#6c63ff,#8f88ff);">S</div>
+        <div class="row-main"><div class="sym">STRK</div><div class="bartrack"><div class="barfill" style="width:100%"></div></div></div>
+        <div class="row-right"><div class="cnt-main">5<span class="arrow flat">■</span></div><div class="cnt">menções</div></div></div>
+      <div class="list-item"><span class="pos">4</span>
+        <div class="coin-icon" style="background:linear-gradient(135deg,#00c2ff,#5ad1ff);color:#06202b;">S</div>
+        <div class="row-main"><div class="sym">SKY</div><div class="bartrack"><div class="barfill" style="width:100%"></div></div></div>
+        <div class="row-right"><div class="cnt-main">5<span class="arrow new">✦</span></div><div class="cnt">menções</div></div></div>
+      <div class="list-item"><span class="pos">5</span>
+        <div class="coin-icon" style="background:linear-gradient(135deg,#e6007a,#ff5ab1);">S</div>
+        <div class="row-main"><div class="sym">SHIB</div><div class="bartrack"><div class="barfill" style="width:100%"></div></div></div>
+        <div class="row-right"><div class="cnt-main">5<span class="arrow down">▼ 7</span></div><div class="cnt">menções</div></div></div>
+      <div class="list-item"><span class="pos">6</span>
+        <div class="coin-icon" style="background:linear-gradient(135deg,#ff6b35,#ff9558);">V</div>
+        <div class="row-main"><div class="sym">VVV</div><div class="bartrack"><div class="barfill" style="width:100%"></div></div></div>
+        <div class="row-right"><div class="cnt-main">5<span class="arrow up">▲ 4</span></div><div class="cnt">menções</div></div></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
