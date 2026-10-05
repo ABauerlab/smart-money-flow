@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Lista Geral (estilo apuração)</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --bull:#10b981; --bull-dim:rgba(16,185,129,.15);
+    --bear:#ef4444; --warn:#f59e0b;
+    --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:#000; display:flex; justify-content:center; padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+  }
+  .frame{
+    width:390px; height:844px; background:var(--bg); color:var(--text);
+    border-radius:44px; overflow:hidden; position:relative;
+    box-shadow:0 0 0 10px #1c1c1e, 0 20px 60px rgba(0,0,0,.6);
+    display:flex; flex-direction:column;
+  }
+  .notch{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:120px; height:30px; background:#000; border-radius:0 0 18px 18px; z-index:10;
+  }
+  .statusbar{
+    height:46px; display:flex; align-items:flex-end; justify-content:space-between;
+    padding:0 22px 6px; font-size:14px; font-weight:600; color:var(--text); flex-shrink:0;
+  }
+  .scroll{flex:1; overflow-y:auto; padding-bottom:20px;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  .topbar{
+    padding:10px 16px 14px; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--border);
+  }
+  .brand{display:flex; align-items:center; gap:8px;}
+  .brand .logo{
+    width:28px;height:28px;border-radius:8px;
+    background:conic-gradient(from 180deg, var(--primary), #3b82f6, var(--primary));
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+  }
+  .brand .name{font-size:13px;font-weight:800;letter-spacing:.3px;}
+  .brand .name span{display:block;font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.5px;}
+  .live-pill{
+    display:flex;align-items:center;gap:5px;background:var(--bull-dim);
+    color:var(--bull);font-size:10.5px;font-weight:700;padding:5px 9px;border-radius:999px;
+  }
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--bull);box-shadow:0 0 6px var(--bull);
+    animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .tabs{display:flex;gap:6px;padding:10px 16px 2px;}
+  .tab{
+    flex:1;text-align:center;padding:9px 0;border-radius:10px;font-size:12px;font-weight:700;
+    color:var(--muted);background:var(--card);border:1px solid var(--border);
+  }
+  .tab.active{background:var(--primary);color:#031018;border-color:var(--primary);}
+
+  .section-title{
+    padding:16px 16px 8px;font-size:11px;font-weight:700;color:var(--muted);
+    letter-spacing:.8px;text-transform:uppercase;
+  }
+
+  .status-card{
+    margin:0 16px 14px; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:14px 16px;
+  }
+  .status-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .status-label{font-size:11px;color:var(--muted);}
+  .status-value{font-size:12px;font-weight:700;}
+  .bar-track{height:6px;background:var(--card2);border-radius:999px;overflow:hidden;margin:6px 0 10px;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),#3b82f6);border-radius:999px;}
+  .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;}
+  .stat-box{background:var(--card2);border-radius:10px;padding:8px 10px;}
+  .stat-box .n{font-size:15px;font-weight:800;}
+  .stat-box .l{font-size:9.5px;color:var(--muted);margin-top:1px;}
+
+  .banner{
+    margin:0 16px 14px; background:linear-gradient(135deg,rgba(34,211,238,.12),rgba(16,185,129,.1));
+    border:1px solid rgba(34,211,238,.3); border-radius:14px; padding:11px 13px;
+    display:flex; gap:9px; align-items:flex-start;
+  }
+  .banner .ic{font-size:15px;line-height:1;}
+  .banner b{font-size:12px;display:block;margin-bottom:1px;}
+  .banner span{font-size:10.5px;color:var(--muted);line-height:1.4;}
+
+  .leader-card{
+    margin:0 16px 14px; background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1.5px solid var(--primary); border-radius:18px; padding:16px;
+    position:relative; overflow:hidden;
+  }
+  .leader-card::before{
+    content:"LÍDER"; position:absolute; top:12px; right:-30px; background:var(--primary);
+    color:#031018; font-size:9px; font-weight:800; padding:4px 32px; transform:rotate(35deg);
+    letter-spacing:1px;
+  }
+  .leader-top{display:flex; align-items:center; gap:12px;}
+  .leader-icon{
+    width:52px;height:52px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg,#f7931a,#ffb04d);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#1a1200;
+    border:2px solid rgba(255,255,255,.15);
+  }
+  .leader-info{flex:1;min-width:0;}
+  .leader-info .sym{font-size:18px;font-weight:800;}
+  .leader-info .exch{font-size:10.5px;color:var(--muted);margin-top:1px;}
+  .leader-pct{text-align:right;flex-shrink:0;}
+  .leader-pct .n{font-size:24px;font-weight:800;color:var(--primary);line-height:1;}
+  .leader-pct .m{font-size:10px;color:var(--muted);margin-top:3px;}
+  .leader-bar{height:8px;background:var(--card2);border-radius:999px;margin-top:12px;overflow:hidden;}
+  .leader-bar-fill{height:100%;width:78%;background:linear-gradient(90deg,var(--primary),#60a5fa);border-radius:999px;}
+  .leader-foot{display:flex;justify-content:space-between;margin-top:9px;}
+  .trend-chip{
+    display:inline-flex;align-items:center;gap:4px;background:var(--bull-dim);color:var(--bull);
+    font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;
+  }
+  .leader-foot .proj{font-size:10px;color:var(--muted);}
+
+  .list-item{
+    margin:0 16px 8px; background:var(--card); border:1px solid var(--border);
+    border-radius:13px; padding:11px 13px; display:flex; align-items:center; gap:11px;
+  }
+  .pos{
+    width:22px;text-align:center;font-size:12px;font-weight:800;color:var(--muted2);flex-shrink:0;
+  }
+  .pos.top{color:#eab308;}
+  .coin-icon{
+    width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    font-size:10.5px;font-weight:800;color:#07131a;
+  }
+  .row-main{flex:1;min-width:0;}
+  .row-main .sym{font-size:13.5px;font-weight:700;}
+  .row-main .bartrack{height:4px;background:var(--card2);border-radius:999px;margin-top:5px;overflow:hidden;}
+  .row-main .barfill{height:100%;border-radius:999px;}
+  .row-right{text-align:right;flex-shrink:0;}
+  .row-right .pct{font-size:13.5px;font-weight:800;}
+  .row-right .cnt{font-size:9.5px;color:var(--muted);margin-top:1px;}
+  .arrow{font-size:10px;margin-left:3px;}
+  .arrow.up{color:var(--bull);}
+  .arrow.down{color:var(--bear);}
+  .arrow.flat{color:var(--muted2);}
+
+  .tabbar{
+    display:flex; border-top:1px solid var(--border); background:var(--card);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .tabitem{flex:1;text-align:center;padding:4px 0;}
+  .tabitem .ic{font-size:18px;}
+  .tabitem .lb{font-size:9px;margin-top:2px;color:var(--muted);font-weight:600;}
+  .tabitem.active .ic,.tabitem.active .lb{color:var(--primary);}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="notch"></div>
+  <div class="statusbar"><span>21:13</span><span>🔋 📶 📡</span></div>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">◎</div>
+      <div class="name">FLUXO DOS MERCADOS<span>Observatório CriptoEx</span></div>
+    </div>
+    <div class="live-pill"><span class="live-dot"></span>AO VIVO</div>
+  </div>
+
+  <div class="scroll">
+    <div class="tabs">
+      <div class="tab active">Diária</div>
+      <div class="tab">Semanal</div>
+      <div class="tab">Mensal</div>
+    </div>
+
+    <div class="section-title">Apuração do dia · Hoje</div>
+
+    <div class="status-card">
+      <div class="status-row">
+        <span class="status-label">Última atualização</span>
+        <span class="status-value">21:13 (BRT)</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Envios consolidados</span>
+        <span class="status-value">9 de 12 rodadas</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:75%"></div></div>
+      <div class="status-grid">
+        <div class="stat-box"><div class="n">1.248</div><div class="l">Menções totais</div></div>
+        <div class="stat-box"><div class="n">37</div><div class="l">Ativos distintos</div></div>
+      </div>
+    </div>
+
+    <div class="banner">
+      <span class="ic">📊</span>
+      <div>
+        <b>Tendência consolidada</b>
+        <span>O líder atual concentra a maior parte das menções recentes — histórico aponta forte chance de permanência no topo até o fechamento do dia.</span>
+      </div>
+    </div>
+
+    <div class="leader-card">
+      <div class="leader-top">
+        <div class="leader-icon">₿</div>
+        <div class="leader-info">
+          <div class="sym">BTC</div>
+          <div class="exch">Binance · Futuros USDT</div>
+        </div>
+        <div class="leader-pct">
+          <div class="n">24,8%</div>
+          <div class="m">310 menções</div>
+        </div>
+      </div>
+      <div class="leader-bar"><div class="leader-bar-fill"></div></div>
+      <div class="leader-foot">
+        <span class="trend-chip">▲ Liderando há 6 rodadas</span>
+        <span class="proj">Projeção: mantém #1</span>
+      </div>
+    </div>
+
+    <div class="section-title">Classificação geral</div>
+
+    <div class="list-item">
+      <span class="pos top">2</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#8b9dc3,#627eea);">Ξ</div>
+      <div class="row-main">
+        <div class="sym">ETH</div>
+        <div class="bartrack"><div class="barfill" style="width:62%;background:var(--primary);"></div></div>
+      </div>
+      <div class="row-right"><div class="pct">15,6%<span class="arrow up">▲</span></div><div class="cnt">195 menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos top">3</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#9945ff,#c86bff);">S</div>
+      <div class="row-main">
+        <div class="sym">SOL</div>
+        <div class="bartrack"><div class="barfill" style="width:46%;background:var(--primary);"></div></div>
+      </div>
+      <div class="row-right"><div class="pct">11,4%<span class="arrow up">▲</span></div><div class="cnt">142 menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos">4</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#00d4aa,#00a383);">N</div>
+      <div class="row-main">
+        <div class="sym">NEAR</div>
+        <div class="bartrack"><div class="barfill" style="width:34%;background:var(--primary);"></div></div>
+      </div>
+      <div class="row-right"><div class="pct">8,2%<span class="arrow flat">■</span></div><div class="cnt">102 menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos">5</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#e6007a,#ff5ab1);">A</div>
+      <div class="row-main">
+        <div class="sym">AKT</div>
+        <div class="bartrack"><div class="barfill" style="width:28%;background:var(--primary);"></div></div>
+      </div>
+      <div class="row-right"><div class="pct">6,7%<span class="arrow down">▼</span></div><div class="cnt">84 menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos">6</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#ff6b35,#ff9558);">T</div>
+      <div class="row-main">
+        <div class="sym">STRK</div>
+        <div class="bartrack"><div class="barfill" style="width:22%;background:var(--primary);"></div></div>
+      </div>
+      <div class="row-right"><div class="pct">5,3%<span class="arrow down">▼</span></div><div class="cnt">66 menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos">7</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#f0b90b,#ffd45e);color:#2b2300;">B</div>
+      <div class="row-main">
+        <div class="sym">BNB</div>
+        <div class="bartrack"><div class="barfill" style="width:17%;background:var(--primary);"></div></div>
+      </div>
+      <div class="row-right"><div class="pct">4,1%<span class="arrow flat">■</span></div><div class="cnt">51 menções</div></div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tabitem"><div class="ic">📡</div><div class="lb">Operação</div></div>
+    <div class="tabitem active"><div class="ic">📊</div><div class="lb">Listas</div></div>
+    <div class="tabitem"><div class="ic">📤</div><div class="lb">Enviar</div></div>
+    <div class="tabitem"><div class="ic">📋</div><div class="lb">Histórico</div></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Ficha do Líder</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --bull:#10b981; --bull-dim:rgba(16,185,129,.15);
+    --bear:#ef4444; --warn:#f59e0b;
+    --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .frame{
+    width:390px;height:844px;background:var(--bg);color:var(--text);
+    border-radius:44px;overflow:hidden;position:relative;
+    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);
+    display:flex;flex-direction:column;
+  }
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
+  .scroll{flex:1;overflow-y:auto;padding-bottom:24px;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  .nav{display:flex;align-items:center;gap:10px;padding:8px 16px 14px;}
+  .back{width:32px;height:32px;border-radius:10px;background:var(--card);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .nav-title{font-size:13px;font-weight:700;color:var(--muted);}
+
+  .hero{
+    margin:0 16px 16px;background:radial-gradient(120% 140% at 20% 0%,rgba(247,147,26,.18),transparent 60%),
+    linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--border);border-radius:22px;padding:22px 18px;text-align:center;position:relative;
+  }
+  .hero-badge{
+    position:absolute;top:14px;right:14px;background:var(--primary);color:#031018;font-size:9.5px;
+    font-weight:800;padding:5px 10px;border-radius:999px;letter-spacing:.4px;
+  }
+  .hero-icon{
+    width:76px;height:76px;border-radius:50%;margin:0 auto 12px;
+    background:linear-gradient(135deg,#f7931a,#ffb04d);display:flex;align-items:center;justify-content:center;
+    font-size:30px;font-weight:800;color:#1a1200;border:3px solid rgba(255,255,255,.15);
+    box-shadow:0 0 0 6px rgba(247,147,26,.12);
+  }
+  .hero-sym{font-size:22px;font-weight:800;}
+  .hero-name{font-size:12px;color:var(--muted);margin-top:2px;}
+  .hero-pct{font-size:44px;font-weight:800;color:var(--primary);margin-top:14px;line-height:1;}
+  .hero-sub{font-size:11.5px;color:var(--muted);margin-top:6px;}
+
+  .quickgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 16px 16px;}
+  .qstat{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:11px 8px;text-align:center;}
+  .qstat .n{font-size:15px;font-weight:800;}
+  .qstat .l{font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:.2px;}
+  .qstat .n.bull{color:var(--bull);}
+
+  .section-title{padding:4px 16px 8px;font-size:11px;font-weight:700;color:var(--muted);
+    letter-spacing:.8px;text-transform:uppercase;}
+
+  .proj-card{
+    margin:0 16px 16px;background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(34,211,238,.08));
+    border:1px solid rgba(16,185,129,.35);border-radius:16px;padding:14px 15px;
+  }
+  .proj-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .proj-top b{font-size:12.5px;}
+  .proj-chip{background:var(--bull-dim);color:var(--bull);font-size:10px;font-weight:800;
+    padding:4px 9px;border-radius:999px;}
+  .proj-text{font-size:11px;color:var(--muted);line-height:1.5;}
+
+  .timeline{margin:0 16px 16px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;}
+  .tl-item{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);}
+  .tl-item:last-child{border-bottom:none;padding-bottom:0;}
+  .tl-item:first-child{padding-top:0;}
+  .tl-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);margin-top:4px;flex-shrink:0;
+    box-shadow:0 0 0 3px rgba(34,211,238,.18);}
+  .tl-time{font-size:10px;color:var(--muted2);width:42px;flex-shrink:0;margin-top:2px;}
+  .tl-text{font-size:11.5px;flex:1;}
+  .tl-text b{color:var(--primary);}
+
+  .history-chart{margin:0 16px 20px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;}
+  .hc-title{font-size:12px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;}
+  .hc-title span{font-size:10px;color:var(--muted);font-weight:600;}
+  .hc-bars{display:flex;align-items:flex-end;gap:7px;height:80px;}
+  .hc-bar{flex:1;background:linear-gradient(180deg,var(--primary),#0e7490);border-radius:5px 5px 2px 2px;position:relative;}
+  .hc-bar.now{background:linear-gradient(180deg,#60e8ff,var(--primary));}
+  .hc-labels{display:flex;gap:7px;margin-top:6px;}
+  .hc-labels span{flex:1;text-align:center;font-size:8.5px;color:var(--muted2);}
+
+  .tabbar{display:flex;border-top:1px solid var(--border);background:var(--card);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));}
+  .tabitem{flex:1;text-align:center;padding:4px 0;}
+  .tabitem .ic{font-size:18px;}
+  .tabitem .lb{font-size:9px;margin-top:2px;color:var(--muted);font-weight:600;}
+  .tabitem.active .ic,.tabitem.active .lb{color:var(--primary);}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="notch"></div>
+  <div class="statusbar"><span>21:14</span><span>🔋 📶 📡</span></div>
+
+  <div class="scroll">
+    <div class="nav">
+      <div class="back">←</div>
+      <div class="nav-title">Ficha do ativo · Diária</div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-badge">LÍDER #1</div>
+      <div class="hero-icon">₿</div>
+      <div class="hero-sym">BTC</div>
+      <div class="hero-name">Bitcoin · Binance Futuros USDT</div>
+      <div class="hero-pct">24,8%</div>
+      <div class="hero-sub">310 de 1.248 menções totais do dia</div>
+    </div>
+
+    <div class="quickgrid">
+      <div class="qstat"><div class="n bull">▲ 6</div><div class="l">RODADAS NO TOPO</div></div>
+      <div class="qstat"><div class="n">#1</div><div class="l">RANK ATUAL</div></div>
+      <div class="qstat"><div class="n bull">+3,1pp</div><div class="l">VS RODADA ANT.</div></div>
+    </div>
+
+    <div class="proj-card">
+      <div class="proj-top">
+        <b>📈 Projeção de permanência</b>
+        <span class="proj-chip">ALTA CHANCE</span>
+      </div>
+      <div class="proj-text">
+        Com base no padrão histórico de recortes diários, ativos que lideram por 5+ rodadas
+        consecutivas mantiveram a liderança até o fechamento em 82% dos casos observados.
+        Este é apenas um indicador estatístico de recorrência — não uma garantia nem recomendação.
+      </div>
+    </div>
+
+    <div class="section-title">Linha do tempo · hoje</div>
+    <div class="timeline">
+      <div class="tl-item">
+        <span class="tl-dot"></span>
+        <span class="tl-time">21:05</span>
+        <span class="tl-text">BTC segue na <b>1ª posição</b>, folga de 9,2pp para o 2º colocado</span>
+      </div>
+      <div class="tl-item">
+        <span class="tl-dot"></span>
+        <span class="tl-time">18:58</span>
+        <span class="tl-text">Nova rodada consolidada — BTC ganha <b>+14 menções</b></span>
+      </div>
+      <div class="tl-item">
+        <span class="tl-dot"></span>
+        <span class="tl-time">16:03</span>
+        <span class="tl-text">BTC ultrapassa ETH e assume a <b>liderança</b></span>
+      </div>
+      <div class="tl-item">
+        <span class="tl-dot"></span>
+        <span class="tl-time">15:45</span>
+        <span class="tl-text">Início do recorte diário — 1ª rodada consolidada</span>
+      </div>
+    </div>
+
+    <div class="section-title">Evolução por rodada</div>
+    <div class="history-chart">
+      <div class="hc-title">Menções acumuladas <span>7 rodadas</span></div>
+      <div class="hc-bars">
+        <div class="hc-bar" style="height:30%"></div>
+        <div class="hc-bar" style="height:42%"></div>
+        <div class="hc-bar" style="height:55%"></div>
+        <div class="hc-bar" style="height:61%"></div>
+        <div class="hc-bar" style="height:74%"></div>
+        <div class="hc-bar" style="height:88%"></div>
+        <div class="hc-bar now" style="height:100%"></div>
+      </div>
+      <div class="hc-labels">
+        <span>05h</span><span>08h</span><span>11h</span><span>14h</span><span>17h</span><span>19h</span><span>21h</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tabitem"><div class="ic">📡</div><div class="lb">Operação</div></div>
+    <div class="tabitem active"><div class="ic">📊</div><div class="lb">Listas</div></div>
+    <div class="tabitem"><div class="ic">📤</div><div class="lb">Enviar</div></div>
+    <div class="tabitem"><div class="ic">📋</div><div class="lb">Histórico</div></div>
+  </div>
+</div>
+</body>
+</html>
