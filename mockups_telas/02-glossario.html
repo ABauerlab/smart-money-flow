@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Glossário</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --bull:#10b981; --bull-dim:rgba(16,185,129,.15);
+    --bear:#ef4444; --bear-dim:rgba(239,68,68,.15); --warn:#f59e0b;
+    --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .frame{width:390px;height:844px;background:var(--bg);color:var(--text);
+    border-radius:44px;overflow:hidden;position:relative;
+    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
+  .scroll{flex:1;overflow-y:auto;padding-bottom:20px;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 14px;
+    border-bottom:1px solid var(--border);}
+  .nav-l{display:flex;align-items:center;gap:9px;}
+  .nav-l .ic{font-size:17px;}
+  .nav-l b{font-size:14px;font-weight:800;}
+  .back-link{font-size:10.5px;color:var(--primary);font-weight:700;}
+
+  .intro{padding:16px 18px;font-size:11.5px;color:var(--muted);line-height:1.6;}
+
+  .section-title{padding:6px 18px 10px;font-size:11px;font-weight:700;color:var(--muted);
+    letter-spacing:.8px;text-transform:uppercase;}
+
+  .term-card{margin:0 16px 10px;background:var(--card);border:1px solid var(--border);
+    border-radius:14px;padding:14px 15px;}
+  .term-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .term-ic{width:26px;height:26px;border-radius:8px;background:var(--primary-dim);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .term-name{font-size:12.5px;font-weight:800;}
+  .term-def{font-size:11px;color:var(--muted);line-height:1.55;}
+  .term-def code{background:var(--card2);color:var(--primary);padding:1px 5px;border-radius:5px;
+    font-size:10px;font-family:monospace;}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="notch"></div>
+  <div class="statusbar"><span>09:43</span><span>🔋 📶 📡</span></div>
+
+  <div class="scroll">
+    <div class="nav">
+      <div class="nav-l"><span class="ic">📖</span><b>Glossário Fluxo Dos Mercados</b></div>
+    </div>
+    <div style="padding:10px 16px 0"><span class="back-link">← Voltar ao Dashboard</span></div>
+
+    <div class="intro">
+      Entenda os termos e métricas usados na leitura do fluxo institucional antes de interpretar
+      os dados do dashboard.
+    </div>
+
+    <div class="section-title">Termos e métricas</div>
+
+    <div class="term-card">
+      <div class="term-top"><div class="term-ic">📊</div><div class="term-name">Volume Relativo</div></div>
+      <div class="term-def">Razão entre o volume atual e a média histórica. Valores acima de <code>1,2x</code> indicam atividade institucional fora do padrão.</div>
+    </div>
+
+    <div class="term-card">
+      <div class="term-top"><div class="term-ic">σ</div><div class="term-name">Z-Score</div></div>
+      <div class="term-def">Mede quantos desvios-padrão o volume atual está da média. Acima de <code>±1,5σ</code> é considerado extremo.</div>
+    </div>
+
+    <div class="term-card">
+      <div class="term-top"><div class="term-ic">📈</div><div class="term-name">Fluxo: Acumulação</div></div>
+      <div class="term-def">Padrão de compra institucional consistente, com volume crescente e preço estável ou em alta controlada.</div>
+    </div>
+
+    <div class="term-card">
+      <div class="term-top"><div class="term-ic">📉</div><div class="term-name">Fluxo: Distribuição</div></div>
+      <div class="term-def">Padrão de venda institucional — volume elevado acompanhado de pressão vendedora sustentada.</div>
+    </div>
+
+    <div class="term-card">
+      <div class="term-top"><div class="term-ic">⚠️</div><div class="term-name">Fluxo: Exaustão</div></div>
+      <div class="term-def">Queda abrupta de participação, com razão de volume abaixo de <code>0,7x</code> — sinal de esgotamento do movimento.</div>
+    </div>
+
+    <div class="term-card">
+      <div class="term-top"><div class="term-ic">🎯</div><div class="term-name">Convicção Institucional</div></div>
+      <div class="term-def">Score de 0 a 10 que combina volume, Z-Score e consistência direcional para medir a força do movimento.</div>
+    </div>
+
+    <div class="term-card">
+      <div class="term-top"><div class="term-ic">⚖️</div><div class="term-name">Risk-On / Risk-Off</div></div>
+      <div class="term-def">Regime de mercado: <code>Risk-On</code> = apetite por ativos de risco; <code>Risk-Off</code> = fuga para segurança.</div>
+    </div>
+
+    <div class="term-card">
+      <div class="term-top"><div class="term-ic">💰</div><div class="term-name">Dinheiro Grosso</div></div>
+      <div class="term-def">Capital institucional de grande porte (fundos, bancos) cujo movimento costuma preceder o mercado de varejo.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

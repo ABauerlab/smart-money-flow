@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Comparativo Semanal</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --bull:#10b981; --bull-dim:rgba(16,185,129,.15);
+    --bear:#ef4444; --warn:#f59e0b;
+    --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .frame{
+    width:390px;height:844px;background:var(--bg);color:var(--text);
+    border-radius:44px;overflow:hidden;position:relative;
+    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);
+    display:flex;flex-direction:column;
+  }
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
+  .scroll{flex:1;overflow-y:auto;padding-bottom:24px;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  .topbar{padding:10px 16px 6px;}
+  .topbar .t1{font-size:16px;font-weight:800;}
+  .topbar .t2{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  .weekpill{
+    margin:12px 16px 16px;display:flex;align-items:center;justify-content:space-between;
+    background:var(--card);border:1px solid var(--border);border-radius:14px;padding:11px 14px;
+  }
+  .weekpill b{font-size:12.5px;}
+  .weekpill span{font-size:10px;color:var(--muted);}
+  .weekpill .navbtn{width:26px;height:26px;border-radius:8px;background:var(--card2);
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);}
+
+  .podium{display:flex;align-items:flex-end;gap:8px;margin:0 16px 20px;padding:0 4px;}
+  .pod{flex:1;text-align:center;}
+  .pod-icon{width:46px;height:46px;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;
+    justify-content:center;font-weight:800;font-size:15px;border:2px solid rgba(255,255,255,.15);}
+  .pod-sym{font-size:11.5px;font-weight:800;}
+  .pod-pct{font-size:10px;color:var(--muted);margin-top:1px;}
+  .pod-bar{border-radius:10px 10px 0 0;margin-top:8px;display:flex;align-items:flex-start;justify-content:center;
+    padding-top:8px;font-weight:800;color:#07131a;}
+  .pod.p1 .pod-icon{width:58px;height:58px;font-size:19px;background:linear-gradient(135deg,#f7931a,#ffb04d);
+    box-shadow:0 0 0 5px rgba(247,147,26,.15);}
+  .pod.p1 .pod-bar{height:92px;background:linear-gradient(180deg,#ffd45e,#eab308);font-size:20px;}
+  .pod.p2 .pod-icon{background:linear-gradient(135deg,#8b9dc3,#627eea);}
+  .pod.p2 .pod-bar{height:66px;background:linear-gradient(180deg,#cbd5e1,#94a3b8);font-size:17px;}
+  .pod.p3 .pod-icon{background:linear-gradient(135deg,#9945ff,#c86bff);}
+  .pod.p3 .pod-bar{height:46px;background:linear-gradient(180deg,#d4a574,#b87333);font-size:16px;}
+
+  .section-title{padding:4px 16px 8px;font-size:11px;font-weight:700;color:var(--muted);
+    letter-spacing:.8px;text-transform:uppercase;}
+
+  .compare-list{margin:0 16px 16px;}
+  .crow{
+    display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--border);
+    border-radius:13px;padding:11px 13px;margin-bottom:8px;
+  }
+  .crow .pos{width:20px;text-align:center;font-size:11.5px;font-weight:800;color:var(--muted2);}
+  .crow .icon{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;
+    justify-content:center;font-size:9.5px;font-weight:800;color:#07131a;}
+  .crow .mid{flex:1;min-width:0;}
+  .crow .mid .sym{font-size:12.5px;font-weight:700;}
+  .crow .mid .wk{font-size:9.5px;color:var(--muted);margin-top:1px;}
+  .crow .delta{text-align:right;font-size:11px;font-weight:800;flex-shrink:0;}
+  .crow .delta.up{color:var(--bull);}
+  .crow .delta.down{color:var(--bear);}
+  .crow .delta .sub{font-size:8.5px;color:var(--muted);font-weight:600;margin-top:1px;}
+
+  .insight-card{
+    margin:0 16px 20px;background:linear-gradient(135deg,rgba(234,179,8,.12),rgba(34,211,238,.06));
+    border:1px solid rgba(234,179,8,.3);border-radius:16px;padding:14px 15px;
+  }
+  .insight-card b{font-size:12.5px;display:block;margin-bottom:6px;}
+  .insight-card p{font-size:11px;color:var(--muted);line-height:1.5;}
+
+  .tabbar{display:flex;border-top:1px solid var(--border);background:var(--card);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));}
+  .tabitem{flex:1;text-align:center;padding:4px 0;}
+  .tabitem .ic{font-size:18px;}
+  .tabitem .lb{font-size:9px;margin-top:2px;color:var(--muted);font-weight:600;}
+  .tabitem.active .ic,.tabitem.active .lb{color:var(--primary);}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="notch"></div>
+  <div class="statusbar"><span>21:14</span><span>🔋 📶 📡</span></div>
+
+  <div class="scroll">
+    <div class="topbar">
+      <div class="t1">Comparativo Semanal</div>
+      <div class="t2">Consolidado de segunda a sexta</div>
+    </div>
+
+    <div class="weekpill">
+      <div class="navbtn">‹</div>
+      <div style="text-align:center">
+        <b>SEMANA 1 · OUTUBRO</b>
+        <div><span>29/09 a 03/10 · fechada</span></div>
+      </div>
+      <div class="navbtn">›</div>
+    </div>
+
+    <div class="section-title">Pódio da semana</div>
+    <div class="podium">
+      <div class="pod p2">
+        <div class="pod-icon">Ξ</div>
+        <div class="pod-sym">ETH</div>
+        <div class="pod-pct">18,2%</div>
+        <div class="pod-bar">2</div>
+      </div>
+      <div class="pod p1">
+        <div class="pod-icon">₿</div>
+        <div class="pod-sym">BTC</div>
+        <div class="pod-pct">26,4%</div>
+        <div class="pod-bar">1</div>
+      </div>
+      <div class="pod p3">
+        <div class="pod-icon">S</div>
+        <div class="pod-sym">SOL</div>
+        <div class="pod-pct">13,7%</div>
+        <div class="pod-bar">3</div>
+      </div>
+    </div>
+
+    <div class="section-title">Ranking completo · variação vs semana anterior</div>
+    <div class="compare-list">
+      <div class="crow">
+        <span class="pos">1</span>
+        <div class="icon" style="background:linear-gradient(135deg,#f7931a,#ffb04d);">₿</div>
+        <div class="mid"><div class="sym">BTC</div><div class="wk">659 menções na semana</div></div>
+        <div class="delta up">▲ 4,1pp<div class="sub">manteve #1</div></div>
+      </div>
+      <div class="crow">
+        <span class="pos">2</span>
+        <div class="icon" style="background:linear-gradient(135deg,#8b9dc3,#627eea);">Ξ</div>
+        <div class="mid"><div class="sym">ETH</div><div class="wk">455 menções na semana</div></div>
+        <div class="delta down">▼ 1,3pp<div class="sub">manteve #2</div></div>
+      </div>
+      <div class="crow">
+        <span class="pos">3</span>
+        <div class="icon" style="background:linear-gradient(135deg,#9945ff,#c86bff);">S</div>
+        <div class="mid"><div class="sym">SOL</div><div class="wk">342 menções na semana</div></div>
+        <div class="delta up">▲ 2,0pp<div class="sub">subiu de #4</div></div>
+      </div>
+      <div class="crow">
+        <span class="pos">4</span>
+        <div class="icon" style="background:linear-gradient(135deg,#00d4aa,#00a383);">N</div>
+        <div class="mid"><div class="sym">NEAR</div><div class="wk">298 menções na semana</div></div>
+        <div class="delta down">▼ 0,8pp<div class="sub">caiu de #3</div></div>
+      </div>
+      <div class="crow">
+        <span class="pos">5</span>
+        <div class="icon" style="background:linear-gradient(135deg,#e6007a,#ff5ab1);">A</div>
+        <div class="mid"><div class="sym">AKT</div><div class="wk">211 menções na semana</div></div>
+        <div class="delta up">▲ 1,1pp<div class="sub">manteve #5</div></div>
+      </div>
+    </div>
+
+    <div class="insight-card">
+      <b>🏆 Padrão observado</b>
+      <p>BTC liderou 4 das 5 rodadas diárias desta semana e também fechou em 1º no consolidado —
+      reforçando a leitura de que a liderança nos recortes diários tende a se confirmar no
+      fechamento semanal quando a folga para o 2º colocado é consistente.</p>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tabitem"><div class="ic">📡</div><div class="lb">Operação</div></div>
+    <div class="tabitem active"><div class="ic">📊</div><div class="lb">Listas</div></div>
+    <div class="tabitem"><div class="ic">📤</div><div class="lb">Enviar</div></div>
+    <div class="tabitem"><div class="ic">📋</div><div class="lb">Histórico</div></div>
+  </div>
+</div>
+</body>
+</html>

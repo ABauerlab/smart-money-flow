@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Dashboard</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --bull:#10b981; --bull-dim:rgba(16,185,129,.15);
+    --bear:#ef4444; --bear-dim:rgba(239,68,68,.15); --warn:#f59e0b;
+    --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .frame{width:390px;height:844px;background:var(--bg);color:var(--text);
+    border-radius:44px;overflow:hidden;position:relative;
+    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
+  .scroll{flex:1;overflow-y:auto;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  .topbar{padding:8px 16px 10px;border-bottom:1px solid var(--border);}
+  .tb-row1{display:flex;justify-content:space-between;align-items:center;}
+  .brand{display:flex;align-items:center;gap:8px;}
+  .brand .logo{width:26px;height:26px;border-radius:8px;
+    background:conic-gradient(from 180deg,var(--primary),#3b82f6,var(--primary));
+    display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .brand b{font-size:12px;font-weight:800;}
+  .icons{display:flex;gap:10px;font-size:14px;color:var(--muted);}
+  .tb-row2{display:flex;justify-content:space-between;align-items:center;margin-top:7px;}
+  .tb-sub{font-size:9.5px;color:var(--muted);}
+  .live{display:flex;align-items:center;gap:5px;background:var(--bull-dim);color:var(--bull);
+    font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:999px;}
+  .live-dot{width:5px;height:5px;border-radius:50%;background:var(--bull);animation:p 1.6s infinite;}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .verdict{margin:14px 16px;background:linear-gradient(135deg,rgba(16,185,129,.14),rgba(34,211,238,.08));
+    border:1px solid rgba(16,185,129,.35);border-radius:16px;padding:14px 16px;}
+  .verdict-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .verdict-top b{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+  .verdict-badge{background:var(--bull);color:#04140d;font-size:10px;font-weight:800;padding:4px 10px;
+    border-radius:999px;}
+  .verdict-text{font-size:13px;font-weight:700;line-height:1.4;margin-bottom:10px;}
+  .verdict-grid{display:flex;gap:16px;}
+  .verdict-grid div{font-size:10px;color:var(--muted);}
+  .verdict-grid b{display:block;font-size:12px;color:var(--text);font-weight:700;margin-top:1px;}
+
+  .section-title{padding:4px 16px 8px;font-size:11px;font-weight:700;color:var(--muted);
+    letter-spacing:.8px;text-transform:uppercase;}
+
+  .mcard{margin:0 16px 10px;background:var(--card);border:1px solid var(--border);border-radius:15px;
+    padding:13px 14px;position:relative;}
+  .mcard.hot{border-color:rgba(245,158,11,.45);}
+  .hot-tag{position:absolute;top:10px;right:12px;background:var(--warn);color:#1a1200;font-size:8.5px;
+    font-weight:800;padding:3px 7px;border-radius:999px;}
+  .m-top{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+  .m-flag{font-size:17px;}
+  .m-name{font-size:12.5px;font-weight:700;}
+  .m-ticker{font-size:9.5px;color:var(--muted);}
+  .m-right{margin-left:auto;text-align:right;}
+  .m-price{font-size:13px;font-weight:800;}
+  .m-chg{font-size:10.5px;font-weight:700;margin-top:1px;}
+  .m-chg.up{color:var(--bull);} .m-chg.down{color:var(--bear);}
+  .m-vol-row{display:flex;justify-content:space-between;font-size:9.5px;color:var(--muted);margin-bottom:4px;}
+  .m-bar-track{height:5px;background:var(--card2);border-radius:999px;overflow:hidden;}
+  .m-bar-fill{height:100%;border-radius:999px;}
+  .m-foot{display:flex;justify-content:space-between;align-items:center;margin-top:9px;}
+  .zscore{font-size:10px;color:var(--muted);}
+  .zscore b{color:var(--text);}
+  .flow-badge{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:999px;}
+  .flow-badge.acc{background:var(--bull-dim);color:var(--bull);}
+  .flow-badge.dist{background:var(--bear-dim);color:var(--bear);}
+  .flow-badge.exh{background:rgba(245,158,11,.15);color:var(--warn);}
+  .flow-badge.neu{background:var(--card2);color:var(--muted);}
+
+  .mini-panel{margin:0 16px 10px;background:var(--card);border:1px solid var(--border);border-radius:15px;
+    padding:13px 14px;}
+  .mini-panel-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .mini-panel-h b{font-size:12px;}
+  .mini-panel-h span{font-size:9.5px;color:var(--muted);}
+  .rank-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;
+    border-bottom:1px solid var(--border);font-size:11px;}
+  .rank-row:last-child{border-bottom:none;}
+  .rank-row .n{color:var(--muted);width:16px;}
+  .rank-row .liq{font-weight:700;color:var(--primary);}
+
+  .alert-row{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start;}
+  .alert-row:last-child{border-bottom:none;}
+  .alert-ic{font-size:13px;}
+  .alert-row b{font-size:11px;display:block;}
+  .alert-row span{font-size:9.5px;color:var(--muted);}
+
+  .footer{padding:14px 20px 26px;text-align:center;border-top:1px solid var(--border);margin-top:4px;}
+  .footer-badge{display:inline-flex;align-items:center;gap:5px;background:var(--bull-dim);color:var(--bull);
+    font-size:9px;font-weight:800;padding:4px 10px;border-radius:999px;margin-bottom:8px;}
+  .footer p{font-size:9.5px;color:var(--muted2);}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="notch"></div>
+  <div class="statusbar"><span>09:42</span><span>🔋 📶 📡</span></div>
+
+  <div class="scroll">
+    <div class="topbar">
+      <div class="tb-row1">
+        <div class="brand"><div class="logo">◎</div><b>Flow Tracker</b></div>
+        <div class="icons">🏠 📖 🔗 🔔</div>
+      </div>
+      <div class="tb-row2">
+        <span class="tb-sub">Análise de Fluxo Institucional · 09:42:17</span>
+        <span class="live"><span class="live-dot"></span>LIVE</span>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="verdict-top">
+        <b>Veredito: onde está o dinheiro agora?</b>
+        <span class="verdict-badge">BUSCA POR RISCO</span>
+      </div>
+      <div class="verdict-text">Capital institucional rotacionando para ativos de risco — Nasdaq e Ibovespa concentram o volume acima da média.</div>
+      <div class="verdict-grid">
+        <div>Mercado mais ativo<b>NASDAQ</b></div>
+        <div>Fluxo global<b style="color:var(--bull)">Entrada de Capital</b></div>
+      </div>
+    </div>
+
+    <div class="section-title">Mercados globais</div>
+
+    <div class="mcard hot">
+      <span class="hot-tag">🔥 QUENTE</span>
+      <div class="m-top">
+        <span class="m-flag">🇺🇸</span>
+        <div><div class="m-name">Nasdaq</div><div class="m-ticker">IXIC</div></div>
+        <div class="m-right"><div class="m-price">18.942,15</div><div class="m-chg up">▲ 1,84%</div></div>
+      </div>
+      <div class="m-vol-row"><span>Volume 24h vs média</span><span>2,3x</span></div>
+      <div class="m-bar-track"><div class="m-bar-fill" style="width:92%;background:var(--bull);"></div></div>
+      <div class="m-foot">
+        <span class="zscore">Z-Score: <b>+2,14σ</b></span>
+        <span class="flow-badge acc">Acumulação</span>
+      </div>
+    </div>
+
+    <div class="mcard">
+      <div class="m-top">
+        <span class="m-flag">🇧🇷</span>
+        <div><div class="m-name">Ibovespa</div><div class="m-ticker">IBOV</div></div>
+        <div class="m-right"><div class="m-price">142.380</div><div class="m-chg up">▲ 0,97%</div></div>
+      </div>
+      <div class="m-vol-row"><span>Volume 24h vs média</span><span>1,4x</span></div>
+      <div class="m-bar-track"><div class="m-bar-fill" style="width:58%;background:var(--primary);"></div></div>
+      <div class="m-foot">
+        <span class="zscore">Z-Score: <b>+1,02σ</b></span>
+        <span class="flow-badge acc">Acumulação</span>
+      </div>
+    </div>
+
+    <div class="mcard">
+      <div class="m-top">
+        <span class="m-flag">🇺🇸</span>
+        <div><div class="m-name">S&amp;P 500</div><div class="m-ticker">SPX</div></div>
+        <div class="m-right"><div class="m-price">5.812,40</div><div class="m-chg down">▼ 0,32%</div></div>
+      </div>
+      <div class="m-vol-row"><span>Volume 24h vs média</span><span>0,9x</span></div>
+      <div class="m-bar-track"><div class="m-bar-fill" style="width:38%;background:var(--muted2);"></div></div>
+      <div class="m-foot">
+        <span class="zscore">Z-Score: <b>-0,41σ</b></span>
+        <span class="flow-badge neu">Neutro</span>
+      </div>
+    </div>
+
+    <div class="mcard">
+      <div class="m-top">
+        <span class="m-flag">🇯🇵</span>
+        <div><div class="m-name">Nikkei 225</div><div class="m-ticker">N225</div></div>
+        <div class="m-right"><div class="m-price">38.104</div><div class="m-chg down">▼ 1,12%</div></div>
+      </div>
+      <div class="m-vol-row"><span>Volume 24h vs média</span><span>0,6x</span></div>
+      <div class="m-bar-track"><div class="m-bar-fill" style="width:24%;background:var(--bear);"></div></div>
+      <div class="m-foot">
+        <span class="zscore">Z-Score: <b>-1,68σ</b></span>
+        <span class="flow-badge dist">Distribuição</span>
+      </div>
+    </div>
+
+    <div class="mcard">
+      <div class="m-top">
+        <span class="m-flag">💱</span>
+        <div><div class="m-name">USD/BRL</div><div class="m-ticker">Forex</div></div>
+        <div class="m-right"><div class="m-price">5,312</div><div class="m-chg up">▲ 0,18%</div></div>
+      </div>
+      <div class="m-vol-row"><span>Volume 24h vs média</span><span>1,1x</span></div>
+      <div class="m-bar-track"><div class="m-bar-fill" style="width:44%;background:var(--primary);"></div></div>
+      <div class="m-foot">
+        <span class="zscore">Z-Score: <b>+0,22σ</b></span>
+        <span class="flow-badge neu">Neutro</span>
+      </div>
+    </div>
+
+    <div class="section-title">Ranking de liquidez</div>
+    <div class="mini-panel">
+      <div class="rank-row"><span class="n">1</span><span>Nasdaq</span><span class="liq">Muito Alta</span></div>
+      <div class="rank-row"><span class="n">2</span><span>S&amp;P 500</span><span class="liq">Alta</span></div>
+      <div class="rank-row"><span class="n">3</span><span>Ibovespa</span><span class="liq">Alta</span></div>
+      <div class="rank-row"><span class="n">4</span><span>USD/BRL</span><span class="liq">Média</span></div>
+    </div>
+
+    <div class="section-title">Alertas recentes</div>
+    <div class="mini-panel">
+      <div class="alert-row"><span class="alert-ic">🔥</span><div><b>Nasdaq: volume 2,3x acima da média</b><span>há 4 min · acumulação confirmada</span></div></div>
+      <div class="alert-row"><span class="alert-ic">⚠️</span><div><b>Nikkei: Z-Score abaixo de -1,5σ</b><span>há 22 min · possível distribuição</span></div></div>
+      <div class="alert-row"><span class="alert-ic">📰</span><div><b>Nova notícia relevante: Fed sinaliza pausa</b><span>há 38 min</span></div></div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-badge">⬤ TERMINAL ATIVO</div>
+      <p>Fluxo Dos Mercados v2.6 · © 2026 BauerLab</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -185,10 +185,35 @@
   }
 
   .heat-bar {
-    background: linear-gradient(90deg, 
+    background: linear-gradient(90deg,
       hsl(215 15% 25%) 0%,
       hsl(187 85% 53%) 50%,
       hsl(0 72% 55%) 100%
     );
+  }
+
+  /* Hides the scrollbar on horizontally-scrollable rows (mobile card
+     carousels) while keeping the element natively scrollable/swipeable. */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Infinite horizontal loop for the landing page's market ticker. The
+     track is duplicated in the markup so -50% lands exactly on the seam. */
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .animate-marquee {
+    animation: marquee 28s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-marquee {
+      animation: none;
+    }
   }
 }
