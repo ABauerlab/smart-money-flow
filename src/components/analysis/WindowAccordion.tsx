@@ -69,7 +69,11 @@ const WindowRow = ({ periodType, windowIndex, label, defaultOpen }: {
                 onRefresh={() => refreshLists(periodType, windowIndex)}
                 isRefreshing={isRefreshingLists}
               />
-              <AiScreeningCard report={matchingReport} />
+              <AiScreeningCard
+                report={matchingReport}
+                onGenerate={() => refreshLists(periodType, windowIndex)}
+                isGenerating={isRefreshingLists}
+              />
             </div>
           </motion.div>
         )}

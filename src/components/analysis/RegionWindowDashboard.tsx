@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Trophy, TrendingUp, Loader2, RefreshCw } from 'lucide-react';
+import { Trophy, TrendingUp, Loader2, RefreshCw, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SeparateRanking { symbol: string; count: number; }
@@ -52,31 +52,52 @@ export const RegionWindowDashboard = ({
         </div>
       ) : (
         <div className="space-y-1.5">
-          {altaRankings.map((r, i) => (
-            <motion.div
-              key={r.symbol}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.03 }}
-              className="flex items-center gap-3 p-2 rounded-lg bg-card/50 border border-border/30"
-            >
-              <span className={`text-xs font-bold w-6 text-center ${i < 3 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
-                #{i + 1}
-              </span>
-              <span className="font-mono text-sm font-semibold text-foreground w-20">{r.symbol}</span>
-              <div className="flex-1">
-                <div className="h-2 bg-secondary/30 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(r.count / maxCount) * 100}%` }}
-                    transition={{ duration: 0.5, delay: i * 0.03 }}
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-500/60"
-                  />
-                </div>
+          {/* Leader highlight — same "apuração" treatment as a election-style leader card */}
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative overflow-hidden flex items-center gap-3 p-3 rounded-xl border-[1.5px] border-primary bg-gradient-to-b from-card to-card/60"
+          >
+            <span className="font-mono text-base font-extrabold text-foreground">{altaRankings[0].symbol}</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-extrabold tracking-wider text-primary-foreground shrink-0">
+              <Crown className="w-2.5 h-2.5" /> LÍDER
+            </span>
+            <div className="flex-1">
+              <div className="h-2 bg-secondary/30 rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-primary to-sky-500" style={{ width: '100%' }} />
               </div>
-              <span className="text-sm font-bold text-foreground w-8 text-right">{r.count}</span>
-            </motion.div>
-          ))}
+            </div>
+            <span className="text-base font-extrabold text-primary tabular-nums">{altaRankings[0].count}</span>
+          </motion.div>
+
+          {altaRankings.slice(1).map((r, idx) => {
+            const i = idx + 1;
+            return (
+              <motion.div
+                key={r.symbol}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.03 }}
+                className="flex items-center gap-3 p-2 rounded-lg bg-card/50 border border-border/30"
+              >
+                <span className={`text-xs font-bold w-6 text-center ${i < 3 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+                  #{i + 1}
+                </span>
+                <span className="font-mono text-sm font-semibold text-foreground w-20">{r.symbol}</span>
+                <div className="flex-1">
+                  <div className="h-2 bg-secondary/30 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(r.count / maxCount) * 100}%` }}
+                      transition={{ duration: 0.5, delay: i * 0.03 }}
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-500/60"
+                    />
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-foreground w-8 text-right">{r.count}</span>
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </div>
