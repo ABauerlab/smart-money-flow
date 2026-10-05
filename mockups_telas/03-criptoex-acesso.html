@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Acesso CriptoEx</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --text:#e8edf5; --muted:#8a93a6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .frame{width:390px;height:844px;background:var(--bg);color:var(--text);
+    border-radius:44px;overflow:hidden;position:relative;
+    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
+  .center{flex:1;display:flex;align-items:center;justify-content:center;padding:0 28px;}
+  .gate{width:100%;background:var(--card);border:1px solid var(--border);border-radius:18px;
+    padding:32px 24px;text-align:center;}
+  .gate-icon{width:52px;height:52px;border-radius:16px;background:var(--primary-dim);margin:0 auto 18px;
+    display:flex;align-items:center;justify-content:center;font-size:24px;}
+  .gate h1{font-size:16px;font-weight:800;margin-bottom:8px;}
+  .gate p{font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:22px;}
+  .gate input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;
+    padding:13px;color:var(--text);font-size:14px;text-align:center;letter-spacing:4px;margin-bottom:14px;}
+  .gate input::placeholder{letter-spacing:normal;color:var(--muted);}
+  .gate button{width:100%;background:var(--primary);color:#031018;font-size:13px;font-weight:800;
+    padding:13px;border-radius:10px;border:none;}
+  .gate .about{font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:18px;}
+  .gate .link{font-size:10.5px;color:var(--primary);font-weight:700;margin-top:10px;display:inline-block;}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="notch"></div>
+  <div class="statusbar"><span>21:48</span><span>🔋 📶 📡</span></div>
+  <div class="center">
+    <div class="gate">
+      <div class="gate-icon">🔗</div>
+      <h1>Laboratório de Dados CriptoEx</h1>
+      <p>Informe seu código pessoal para acessar os estudos e materiais da plataforma.</p>
+      <input type="text" placeholder="Código de acesso" value="••••••••••">
+      <button>Entrar</button>
+      <div class="about">
+        Participe da nossa comunidade. Um ambiente dedicado ao estudo de padrões, recorrências
+        e comportamentos observados no mercado de criptoativos.
+      </div>
+      <span class="link">Saiba mais sobre este espaço</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

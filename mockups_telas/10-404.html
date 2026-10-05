@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — 404</title>
+<style>
+  :root{ --bg:#0a0e17; --card:#121826; --border:#232b3d; --primary:#22d3ee; --text:#e8edf5; --muted:#8a93a6; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .frame{width:390px;height:844px;background:var(--bg);color:var(--text);
+    border-radius:44px;overflow:hidden;position:relative;
+    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
+  .center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:0 32px;}
+  .code{font-size:72px;font-weight:800;color:var(--primary);line-height:1;opacity:.85;}
+  .msg{font-size:14px;font-weight:700;margin-top:12px;}
+  .sub{font-size:11.5px;color:var(--muted);margin-top:6px;}
+  .btn{margin-top:26px;background:var(--primary);color:#031018;font-size:12.5px;font-weight:800;
+    padding:12px 24px;border-radius:10px;}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="notch"></div>
+  <div class="statusbar"><span>21:48</span><span>🔋 📶 📡</span></div>
+  <div class="center">
+    <div class="code">404</div>
+    <div class="msg">Página não encontrada</div>
+    <div class="sub">O endereço que você tentou acessar não existe ou foi movido.</div>
+    <div class="btn">← Voltar para a Home</div>
+  </div>
+</div>
+</body>
+</html>
