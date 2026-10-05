@@ -15,5 +15,7 @@ estilo visual do produto.
   08-criptoex-enviar.html
   09-criptoex-historico.html
   10-404.html
+  11-criptoex-triagem-desktop.html                (resultado da triagem IA, janela de navegador)
+  12-criptoex-triagem-mobile.html                 (resultado da triagem IA, formato iPhone)
 
 Abra qualquer .html direto no navegador para visualizar.

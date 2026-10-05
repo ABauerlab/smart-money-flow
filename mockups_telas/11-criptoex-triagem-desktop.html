@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Triagem IA (Desktop)</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --bull:#10b981; --bull-dim:rgba(16,185,129,.15);
+    --bear:#ef4444; --bear-dim:rgba(239,68,68,.15); --warn:#f59e0b;
+    --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:28px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .window{width:1280px;background:var(--bg);color:var(--text);border-radius:14px;overflow:hidden;
+    border:1px solid var(--border);box-shadow:0 30px 80px rgba(0,0,0,.6);}
+  .chrome{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--card);
+    border-bottom:1px solid var(--border);}
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .url{margin-left:14px;background:var(--card2);color:var(--muted);font-size:11.5px;padding:6px 16px;
+    border-radius:8px;font-family:monospace;}
+
+  .topbar{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .logo{width:32px;height:32px;border-radius:9px;
+    background:conic-gradient(from 180deg,var(--primary),#3b82f6,var(--primary));
+    display:flex;align-items:center;justify-content:center;}
+  .brand b{font-size:16px;font-weight:800;color:var(--primary);display:block;}
+  .brand span{font-size:11px;color:var(--muted);}
+  .live-pill{display:flex;align-items:center;gap:6px;background:var(--bull-dim);color:var(--bull);
+    font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--bull);animation:p 1.6s infinite;}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .content{padding:24px 28px 30px;}
+  .section-title{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.8px;
+    text-transform:uppercase;margin-bottom:14px;}
+
+  table{width:100%;border-collapse:collapse;margin-bottom:28px;}
+  th{text-align:left;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;
+    padding:0 12px 10px;font-weight:700;border-bottom:1px solid var(--border);}
+  td{padding:12px;font-size:12.5px;border-bottom:1px solid var(--border);}
+  tr:last-child td{border-bottom:none;}
+  .pos{font-weight:800;color:var(--muted2);}
+  .sym{font-weight:800;font-family:monospace;}
+  .status{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;display:inline-block;}
+  .status.fin{background:var(--bull-dim);color:var(--bull);}
+  .status.wait{background:rgba(245,158,11,.15);color:var(--warn);}
+  .status.mon{background:var(--card2);color:var(--muted);}
+  .status.rep{background:var(--bear-dim);color:var(--bear);}
+  .score{font-weight:800;font-size:13px;}
+
+  .finalists{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .fcard{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;}
+  .fcard.first{border-color:var(--primary);}
+  .frank{position:absolute;top:14px;right:16px;font-size:11px;font-weight:800;color:var(--primary);}
+  .fsym{font-size:19px;font-weight:800;margin-bottom:2px;}
+  .fname{font-size:11px;color:var(--muted);margin-bottom:12px;}
+  .fscore{font-size:30px;font-weight:800;color:var(--primary);line-height:1;}
+  .fscore span{font-size:11px;color:var(--muted);font-weight:600;}
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
+  .fitem{font-size:10.5px;color:var(--muted);}
+  .fitem b{display:block;font-size:12px;color:var(--text);font-weight:700;margin-top:2px;}
+  .fconf{margin-top:12px;font-size:10.5px;color:var(--muted);line-height:1.5;padding-top:10px;border-top:1px solid var(--border);}
+  .fconf b{color:var(--text);}
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="chrome">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="url">fluxodosmercados.com.br/analise-ia</span>
+  </div>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">◎</div>
+      <div><b>Observatório CriptoEx</b><span>Triagem técnica automática · 18 etapas</span></div>
+    </div>
+    <div class="live-pill"><span class="live-dot"></span>Análise concluída às 21:52</div>
+  </div>
+
+  <div class="content">
+    <div class="section-title">Classificação comparativa · 8 ativos triados</div>
+    <table>
+      <tr><th>Pos.</th><th>Cripto</th><th>Exchange / par</th><th>Liquidez</th><th>Estrutura</th><th>Nota final</th><th>Status</th></tr>
+      <tr><td class="pos">1</td><td class="sym">NEAR</td><td>Binance · Futuros USDT</td><td>Excelente</td><td>Rompimento confirmado</td><td class="score" style="color:var(--bull)">84</td><td><span class="status fin">Finalista</span></td></tr>
+      <tr><td class="pos">2</td><td class="sym">AKT</td><td>Binance · Futuros USDT</td><td>Boa</td><td>Reteste favorável</td><td class="score" style="color:var(--bull)">79</td><td><span class="status fin">Finalista</span></td></tr>
+      <tr><td class="pos">3</td><td class="sym">STRK</td><td>Bybit · Futuros USDT</td><td>Boa</td><td>Consolidação</td><td class="score" style="color:var(--primary)">76</td><td><span class="status fin">Finalista</span></td></tr>
+      <tr><td class="pos">4</td><td class="sym">SKY</td><td>Binance · Futuros USDT</td><td>Aceitável</td><td>Tendência inicial</td><td class="score">68</td><td><span class="status wait">Aguardando confirmação</span></td></tr>
+      <tr><td class="pos">5</td><td class="sym">SHIB</td><td>Binance · Futuros USDT</td><td>Boa</td><td>Range sem vantagem</td><td class="score">52</td><td><span class="status mon">Apenas monitorar</span></td></tr>
+      <tr><td class="pos">6</td><td class="sym">VVV</td><td>OKX · Futuros USDT</td><td>Fraca</td><td>Movimento estendido</td><td class="score">41</td><td><span class="status rep">Reprovada por liquidez</span></td></tr>
+    </table>
+
+    <div class="section-title">Três finalistas desta rodada</div>
+    <div class="finalists">
+      <div class="fcard first">
+        <span class="frank">#1</span>
+        <div class="fsym">NEAR</div>
+        <div class="fname">NEAR Protocol · Binance Futuros</div>
+        <div class="fscore">84<span>/100</span></div>
+        <div class="fgrid">
+          <div class="fitem">Confluência<b>Muito forte</b></div>
+          <div class="fitem">Risco-retorno<b>2,4 : 1</b></div>
+          <div class="fitem">Volume relativo<b>2,1x média</b></div>
+          <div class="fitem">Confiança<b>Alta</b></div>
+        </div>
+        <div class="fconf"><b>Gatilho:</b> reteste da região de rompimento com volume crescente. <b>Invalidação:</b> perda do suporte diário.</div>
+      </div>
+      <div class="fcard">
+        <span class="frank">#2</span>
+        <div class="fsym">AKT</div>
+        <div class="fname">Akash Network · Binance Futuros</div>
+        <div class="fscore">79<span>/100</span></div>
+        <div class="fgrid">
+          <div class="fitem">Confluência<b>Forte</b></div>
+          <div class="fitem">Risco-retorno<b>2,1 : 1</b></div>
+          <div class="fitem">Volume relativo<b>1,8x média</b></div>
+          <div class="fitem">Confiança<b>Média</b></div>
+        </div>
+        <div class="fconf"><b>Gatilho:</b> confirmação de volume no rompimento da resistência intradiária. <b>Invalidação:</b> fechamento abaixo da EMA 21.</div>
+      </div>
+      <div class="fcard">
+        <span class="frank">#3</span>
+        <div class="fsym">STRK</div>
+        <div class="fname">Starknet · Bybit Futuros</div>
+        <div class="fscore">76<span>/100</span></div>
+        <div class="fgrid">
+          <div class="fitem">Confluência<b>Moderada</b></div>
+          <div class="fitem">Risco-retorno<b>2,0 : 1</b></div>
+          <div class="fitem">Volume relativo<b>1,5x média</b></div>
+          <div class="fitem">Confiança<b>Média</b></div>
+        </div>
+        <div class="fconf"><b>Gatilho:</b> rompimento da consolidação com confirmação de derivativos. <b>Invalidação:</b> retorno ao range anterior.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
