@@ -10,8 +10,7 @@ import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Seo } from '@/components/Seo';
-import produtoDesktop from '@/assets/landing/produto-criptoex-ia.jpg';
-import produtoMobile from '@/assets/landing/produto-criptoex-ia-mobile.jpg';
+import produtoOperacaoDesktop from '@/assets/landing/produto-operacao-desktop.jpg';
 import produtoDashboard from '@/assets/landing/produto-dashboard.jpg';
 import produtoOperacao from '@/assets/landing/produto-operacao.jpg';
 import produtoGlossario from '@/assets/landing/produto-glossario.jpg';
@@ -64,7 +63,7 @@ const BENEFITS = [
     icon: Network,
     color: 'text-primary',
     title: 'Observatório CriptoEx',
-    desc: 'Envie relatórios de recorrência e deixe a triagem técnica de IA rodar sozinha, com rankings diários, semanais e mensais.',
+    desc: 'Envie relatórios de recorrência e acompanhe a apuração ao vivo, com rankings diários, semanais e mensais, estilo apuração eleitoral.',
     span: 'sm:col-span-2',
   },
   {
@@ -86,7 +85,7 @@ const BENEFITS = [
 const STEPS = [
   { num: '01', title: 'Acesse o Dashboard', desc: 'Sem cadastro, sem cartão. Abra o painel e veja todos os mercados ao vivo.' },
   { num: '02', title: 'Leia o Fluxo', desc: 'Veja em segundos onde está o volume, o Z-Score e o veredito do dia.' },
-  { num: '03', title: 'Use a IA de Cripto', desc: 'Envie seus relatórios e deixe a triagem técnica trabalhar por você.' },
+  { num: '03', title: 'Acompanhe o CriptoEx', desc: 'Envie seus relatórios e veja a apuração ao vivo da rodada, sem planilha.' },
 ];
 
 const FAQ_ITEMS = [
@@ -96,7 +95,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Preciso pagar ou criar conta?',
-    a: 'Não. O dashboard principal é de acesso livre, sem cadastro. O módulo de Análise IA usa um código de acesso pessoal, sem custo.',
+    a: 'Não. O dashboard principal é de acesso livre, sem cadastro. O Observatório CriptoEx usa um código de acesso pessoal, sem custo.',
   },
   {
     q: 'Preciso ter conta em alguma corretora?',
@@ -269,7 +268,7 @@ const Landing = () => {
                     className="w-full sm:w-auto h-14 sm:h-16 px-6 sm:px-8 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:scale-105 transition-all duration-300 rounded-none font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em] text-xs sm:text-sm"
                   >
                     <Network className="mr-2 w-4 h-4" />
-                    Testar a Análise IA
+                    Ver o Observatório CriptoEx
                   </Button>
                 </Link>
               </div>
@@ -458,21 +457,21 @@ const Landing = () => {
                 className="grid md:grid-cols-2 gap-6 md:gap-10 items-center"
               >
                 <img
-                  src={produtoDesktop}
-                  alt="Tela do Observatório CriptoEx mostrando o ranking de criptoativos e a triagem técnica de IA gerada automaticamente"
+                  src={produtoOperacaoDesktop}
+                  alt="Tela do Observatório CriptoEx mostrando a apuração ao vivo da rodada, com o ativo líder e o ranking em tempo real"
                   width={2560}
-                  height={1568}
+                  height={1102}
                   loading="lazy"
                   className="w-full rounded-lg border border-white/10 shadow-2xl"
                 />
                 <div>
                   <h3 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-tight mb-3">
-                    Triagem técnica automática
+                    Apuração ao vivo, rodada a rodada
                   </h3>
                   <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                    A cada envio, uma triagem de IA roda sozinha sobre os ativos mais recorrentes,
-                    com tabela comparativa, pontuação e os finalistas explicados ponto a ponto.
-                    Você só lê o resultado.
+                    A cada envio, o ranking é recalculado na hora: quem está liderando, há quantas
+                    rodadas, e a variação de cada ativo. Igual uma apuração eleitoral, só que para
+                    recorrência de mercado.
                   </p>
                 </div>
               </motion.article>
@@ -491,8 +490,8 @@ const Landing = () => {
                   </p>
                 </div>
                 <img
-                  src={produtoMobile}
-                  alt="Tela do Observatório CriptoEx aberta no celular, mostrando a triagem técnica de IA em formato responsivo"
+                  src={produtoOperacao}
+                  alt="Tela do Observatório CriptoEx aberta no celular, mostrando a apuração ao vivo em formato responsivo"
                   width={836}
                   height={1744}
                   loading="lazy"
