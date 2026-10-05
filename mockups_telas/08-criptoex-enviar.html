@@ -8,70 +8,113 @@
   :root{
     --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
     --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --bull:#10b981; --bull-dim:rgba(16,185,129,.15);
+    --bear:#ef4444; --bear-dim:rgba(239,68,68,.15); --warn:#f59e0b;
     --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:#000;display:flex;justify-content:center;padding:24px 0;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
-  .frame{width:390px;height:844px;background:var(--bg);color:var(--text);
-    border-radius:44px;overflow:hidden;position:relative;
-    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;}
-  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
-    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
-  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
-    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
-  .scroll{flex:1;overflow-y:auto;padding-bottom:20px;}
+  body{
+    background:#000; display:flex; justify-content:center; padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+  }
+  .frame{
+    width:390px; height:844px; background:var(--bg); color:var(--text);
+    border-radius:44px; overflow:hidden; position:relative;
+    box-shadow:0 0 0 10px #1c1c1e, 0 20px 60px rgba(0,0,0,.6);
+    display:flex; flex-direction:column;
+  }
+  .notch{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:120px; height:30px; background:#000; border-radius:0 0 18px 18px; z-index:10;
+  }
+  .statusbar{
+    height:46px; display:flex; align-items:flex-end; justify-content:space-between;
+    padding:0 22px 6px; font-size:14px; font-weight:600; flex-shrink:0;
+  }
+  .scroll{flex:1; overflow-y:auto; padding-bottom:20px;}
   .scroll::-webkit-scrollbar{display:none;}
 
-  .topbar{padding:10px 16px 12px;border-bottom:1px solid var(--border);
-    display:flex;align-items:center;justify-content:space-between;}
-  .tb-l{display:flex;align-items:center;gap:9px;}
-  .back{width:28px;height:28px;border-radius:9px;background:var(--card);border:1px solid var(--border);
-    display:flex;align-items:center;justify-content:center;font-size:13px;}
-  .tb-l b{font-size:13px;font-weight:800;color:var(--primary);display:block;}
-  .tb-l span{font-size:9px;color:var(--muted);}
-  .code{font-size:10px;color:var(--muted);}
+  .topbar{
+    padding:10px 16px 14px; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--border);
+  }
+  .brand{display:flex; align-items:center; gap:8px;}
+  .brand .logo{
+    width:28px;height:28px;border-radius:8px;
+    background:conic-gradient(from 180deg, var(--primary), #3b82f6, var(--primary));
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+  }
+  .brand .name{font-size:13px;font-weight:800;letter-spacing:.3px;}
+  .brand .name span{display:block;font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.5px;}
+  .live-pill{
+    display:flex;align-items:center;gap:5px;background:var(--bull-dim);
+    color:var(--bull);font-size:10.5px;font-weight:700;padding:5px 9px;border-radius:999px;
+  }
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--bull);box-shadow:0 0 6px var(--bull);
+    animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
-  .tabs{display:flex;padding:10px 16px 2px;border-bottom:1px solid var(--border);gap:4px;}
-  .tab{flex:1;text-align:center;padding:9px 0;font-size:11px;font-weight:700;color:var(--muted);}
-  .tab.active{color:var(--primary);border-bottom:2px solid var(--primary);}
+  .section-title{
+    padding:16px 16px 8px;font-size:11px;font-weight:700;color:var(--muted);
+    letter-spacing:.8px;text-transform:uppercase;
+  }
 
-  .info-card{margin:16px 16px 12px;background:var(--card);border:1px solid var(--border);
-    border-radius:12px;padding:12px 14px;}
-  .info-card b{font-size:12px;display:block;margin-bottom:3px;}
-  .info-card p{font-size:10.5px;color:var(--muted);line-height:1.5;}
-  .info-card code{color:var(--primary);font-weight:700;}
+  .banner{
+    margin:0 16px 14px; background:linear-gradient(135deg,rgba(34,211,238,.12),rgba(16,185,129,.1));
+    border:1px solid rgba(34,211,238,.3); border-radius:14px; padding:12px 14px;
+    display:flex; gap:9px; align-items:flex-start;
+  }
+  .banner .ic{font-size:15px;line-height:1;}
+  .banner b{font-size:12px;display:block;margin-bottom:2px;}
+  .banner span{font-size:10.5px;color:var(--muted);line-height:1.45;}
+  .banner code{background:var(--card2);color:var(--primary);padding:1px 5px;border-radius:5px;font-size:9.5px;font-family:monospace;}
 
-  .field{margin:0 16px 12px;}
-  .field label{font-size:11px;color:var(--muted);display:block;margin-bottom:6px;}
-  .field input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;
-    padding:11px 13px;color:var(--text);font-size:12.5px;}
-  .hint{font-size:9.5px;color:var(--muted2);margin-top:5px;line-height:1.4;}
+  .field{margin:0 16px 14px;}
+  .field label{font-size:11px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600;}
+  .field input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:12px 14px;color:var(--text);font-size:13px;font-weight:700;}
+  .hint{font-size:9.5px;color:var(--muted2);margin-top:6px;line-height:1.4;}
 
-  .upload-box{margin:4px 16px 16px;background:var(--card);border:1px solid var(--border);border-radius:14px;
-    padding:14px;}
+  .upload-box{margin:0 16px 14px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px;}
   .upload-top{display:flex;align-items:center;gap:9px;margin-bottom:12px;}
-  .upload-ic{width:30px;height:30px;border-radius:9px;background:var(--primary-dim);display:flex;
-    align-items:center;justify-content:center;font-size:14px;}
-  .upload-top b{font-size:12px;display:block;}
+  .upload-ic{width:32px;height:32px;border-radius:10px;background:var(--primary-dim);display:flex;
+    align-items:center;justify-content:center;font-size:15px;}
+  .upload-top b{font-size:12.5px;display:block;}
   .upload-top span{font-size:9.5px;color:var(--muted);}
   .upload-count{margin-left:auto;background:var(--card2);font-size:9.5px;font-weight:700;color:var(--primary);
-    padding:4px 9px;border-radius:999px;}
-  .dropzone{border:1.5px dashed var(--border);border-radius:12px;padding:28px 14px;text-align:center;}
+    padding:4px 9px;border-radius:999px;white-space:nowrap;}
+  .dropzone{border:1.5px dashed var(--border);border-radius:14px;padding:26px 14px;text-align:center;}
   .dropzone .dz-ic{font-size:26px;margin-bottom:10px;}
   .dropzone b{font-size:12px;color:var(--primary);}
   .dropzone p{font-size:10px;color:var(--muted);margin-top:4px;}
 
-  .file-row{margin:8px 16px;display:flex;align-items:center;gap:10px;background:var(--card);
-    border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
-  .file-ic{font-size:16px;}
+  .file-row{margin:0 16px 8px;display:flex;align-items:center;gap:10px;background:var(--card);
+    border:1px solid var(--border);border-radius:12px;padding:11px 13px;}
+  .file-ic{width:30px;height:30px;border-radius:9px;background:var(--bull-dim);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:13px;}
   .file-info{flex:1;min-width:0;}
   .file-info b{font-size:11.5px;display:block;}
   .file-info span{font-size:9.5px;color:var(--muted);}
-  .file-x{font-size:14px;color:var(--muted2);}
+  .file-ok{font-size:13px;color:var(--bull);}
 
-  .submit-btn{margin:16px;background:var(--primary);color:#031018;text-align:center;padding:14px;
-    border-radius:12px;font-size:13px;font-weight:800;}
+  .preview-card{margin:0 16px 14px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 15px;}
+  .preview-card b{font-size:11.5px;display:block;margin-bottom:8px;}
+  .preview-row{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;border-bottom:1px solid var(--border);}
+  .preview-row:last-child{border-bottom:none;}
+  .preview-row span:first-child{color:var(--muted);}
+  .preview-row span:last-child{font-weight:700;}
+
+  .submit-btn{margin:16px;background:var(--primary);color:#031018;text-align:center;padding:15px;
+    border-radius:14px;font-size:13.5px;font-weight:800;box-shadow:0 8px 24px rgba(34,211,238,.25);}
+
+  .tabbar{
+    display:flex; border-top:1px solid var(--border); background:var(--card);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .tabitem{flex:1;text-align:center;padding:4px 0;}
+  .tabitem .ic{font-size:18px;}
+  .tabitem .lb{font-size:9px;margin-top:2px;color:var(--muted);font-weight:600;}
+  .tabitem.active .ic,.tabitem.active .lb{color:var(--primary);}
 </style>
 </head>
 <body>
@@ -80,42 +123,35 @@
   <div class="statusbar"><span>21:48</span><span>🔋 📶 📡</span></div>
 
   <div class="topbar">
-    <div class="tb-l">
-      <div class="back">←</div>
-      <div><b>Observatório CriptoEx</b><span>Estudos consolidados</span></div>
+    <div class="brand">
+      <div class="logo">◎</div>
+      <div class="name">FLUXO DOS MERCADOS<span>Observatório CriptoEx</span></div>
     </div>
-    <span class="code">Código: 77***</span>
+    <div class="live-pill"><span class="live-dot"></span>AO VIVO</div>
   </div>
 
   <div class="scroll">
-    <div class="tabs">
-      <div class="tab">📡 Operação</div>
-      <div class="tab">📊 Listas</div>
-      <div class="tab active">📤 Enviar</div>
-      <div class="tab">📋 Histórico</div>
-    </div>
+    <div class="section-title">Envio de relatórios</div>
 
-    <div class="info-card">
-      <b>Envio de relatórios (.csv)</b>
-      <p>O sistema soma a coluna <code>REPETIÇÃO</code> de cada cripto, sem alterar valores. Colunas: CRIPTO, REPETIÇÃO, DATA, HORA, RANK.</p>
+    <div class="banner">
+      <span class="ic">ℹ️</span>
+      <div>
+        <b>Como funciona a soma</b>
+        <span>O sistema soma a coluna <code>REPETIÇÃO</code> de cada cripto automaticamente. Colunas esperadas: CRIPTO, REPETIÇÃO, DATA, HORA, RANK.</span>
+      </div>
     </div>
 
     <div class="field">
       <label>📅 Data de fechamento do pregão</label>
       <input type="text" value="04/10/2026" readonly>
-      <div class="hint">Vale para os 4 relatórios deste pregão (Londres, América e a Ásia da véspera).</div>
-    </div>
-
-    <div class="field">
-      <label>Título (opcional)</label>
-      <input type="text" placeholder="Gerado automaticamente">
+      <div class="hint">Vale para os 4 relatórios deste pregão (Londres, América x2 e a Ásia da véspera).</div>
     </div>
 
     <div class="upload-box">
       <div class="upload-top">
         <div class="upload-ic">📄</div>
         <div><b>Arquivos CSV</b><span>Anexe um ou mais relatórios</span></div>
-        <span class="upload-count">2 arquivos • 24 linhas</span>
+        <span class="upload-count">2 arquivos · 24 linhas</span>
       </div>
       <div class="dropzone">
         <div class="dz-ic">⬆️</div>
@@ -127,15 +163,32 @@
     <div class="file-row">
       <span class="file-ic">📄</span>
       <div class="file-info"><b>relatorio_2026-10-04_20-39.csv</b><span>13 linhas válidas</span></div>
-      <span class="file-x">✕</span>
+      <span class="file-ok">✓</span>
     </div>
     <div class="file-row">
       <span class="file-ic">📄</span>
       <div class="file-info"><b>relatorio_2026-10-04_18-58.csv</b><span>11 linhas válidas</span></div>
-      <span class="file-x">✕</span>
+      <span class="file-ok">✓</span>
     </div>
 
-    <div class="submit-btn">📤 Enviar (24 linhas)</div>
+    <div class="section-title">Prévia do somatório</div>
+    <div class="preview-card">
+      <b>Lista Geral · 24 linhas consolidadas</b>
+      <div class="preview-row"><span>1. NEAR</span><span>5 repetições</span></div>
+      <div class="preview-row"><span>2. AKT</span><span>5 repetições</span></div>
+      <div class="preview-row"><span>3. STRK</span><span>5 repetições</span></div>
+      <div class="preview-row"><span>4. SKY</span><span>5 repetições</span></div>
+      <div class="preview-row"><span>5. SHIB</span><span>5 repetições</span></div>
+    </div>
+
+    <div class="submit-btn">📤 Enviar e gerar análise (24 linhas)</div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tabitem"><div class="ic">📡</div><div class="lb">Operação</div></div>
+    <div class="tabitem"><div class="ic">📊</div><div class="lb">Listas</div></div>
+    <div class="tabitem active"><div class="ic">📤</div><div class="lb">Enviar</div></div>
+    <div class="tabitem"><div class="ic">📋</div><div class="lb">Histórico</div></div>
   </div>
 </div>
 </body>

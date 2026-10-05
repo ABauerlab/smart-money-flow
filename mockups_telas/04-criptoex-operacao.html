@@ -13,59 +13,134 @@
     --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:#000;display:flex;justify-content:center;padding:24px 0;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
-  .frame{width:390px;height:844px;background:var(--bg);color:var(--text);
-    border-radius:44px;overflow:hidden;position:relative;
-    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;}
-  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
-    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
-  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
-    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
-  .scroll{flex:1;overflow-y:auto;padding-bottom:20px;}
+  body{
+    background:#000; display:flex; justify-content:center; padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+  }
+  .frame{
+    width:390px; height:844px; background:var(--bg); color:var(--text);
+    border-radius:44px; overflow:hidden; position:relative;
+    box-shadow:0 0 0 10px #1c1c1e, 0 20px 60px rgba(0,0,0,.6);
+    display:flex; flex-direction:column;
+  }
+  .notch{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:120px; height:30px; background:#000; border-radius:0 0 18px 18px; z-index:10;
+  }
+  .statusbar{
+    height:46px; display:flex; align-items:flex-end; justify-content:space-between;
+    padding:0 22px 6px; font-size:14px; font-weight:600; flex-shrink:0;
+  }
+  .scroll{flex:1; overflow-y:auto; padding-bottom:20px;}
   .scroll::-webkit-scrollbar{display:none;}
 
-  .topbar{padding:10px 16px 12px;border-bottom:1px solid var(--border);
-    display:flex;align-items:center;justify-content:space-between;}
-  .tb-l{display:flex;align-items:center;gap:9px;}
-  .back{width:28px;height:28px;border-radius:9px;background:var(--card);border:1px solid var(--border);
-    display:flex;align-items:center;justify-content:center;font-size:13px;}
-  .tb-l b{font-size:13px;font-weight:800;color:var(--primary);display:block;}
-  .tb-l span{font-size:9px;color:var(--muted);}
-  .code{font-size:10px;color:var(--muted);}
+  .topbar{
+    padding:10px 16px 14px; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--border);
+  }
+  .brand{display:flex; align-items:center; gap:8px;}
+  .brand .logo{
+    width:28px;height:28px;border-radius:8px;
+    background:conic-gradient(from 180deg, var(--primary), #3b82f6, var(--primary));
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+  }
+  .brand .name{font-size:13px;font-weight:800;letter-spacing:.3px;}
+  .brand .name span{display:block;font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.5px;}
+  .live-pill{
+    display:flex;align-items:center;gap:5px;background:var(--bull-dim);
+    color:var(--bull);font-size:10.5px;font-weight:700;padding:5px 9px;border-radius:999px;
+  }
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--bull);box-shadow:0 0 6px var(--bull);
+    animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
-  .tabs{display:flex;padding:10px 16px 2px;border-bottom:1px solid var(--border);gap:4px;}
-  .tab{flex:1;text-align:center;padding:9px 0;font-size:11px;font-weight:700;color:var(--muted);}
-  .tab.active{color:var(--primary);border-bottom:2px solid var(--primary);}
+  .section-title{
+    padding:16px 16px 8px;font-size:11px;font-weight:700;color:var(--muted);
+    letter-spacing:.8px;text-transform:uppercase;
+  }
 
-  .disclaimer{padding:12px 16px;font-size:10px;color:var(--muted);line-height:1.5;
-    border-bottom:1px solid var(--border);}
+  .status-card{
+    margin:0 16px 14px; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:14px 16px;
+  }
+  .status-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .status-label{font-size:11px;color:var(--muted);}
+  .status-value{font-size:12px;font-weight:700;}
+  .bar-track{height:6px;background:var(--card2);border-radius:999px;overflow:hidden;margin:6px 0 10px;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),#3b82f6);border-radius:999px;}
+  .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;}
+  .stat-box{background:var(--card2);border-radius:10px;padding:8px 10px;}
+  .stat-box .n{font-size:15px;font-weight:800;}
+  .stat-box .l{font-size:9.5px;color:var(--muted);margin-top:1px;}
 
-  .status-card{margin:14px 16px;background:var(--card);border:1px solid var(--border);
-    border-radius:14px;padding:12px 14px;}
-  .status-top{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
-  .dot{width:7px;height:7px;border-radius:50%;background:var(--bull);box-shadow:0 0 6px var(--bull);
-    animation:p 1.6s infinite;}
-  @keyframes p{0%,100%{opacity:1}50%{opacity:.3}}
-  .status-top span{font-size:10px;font-weight:800;color:var(--bull);letter-spacing:.4px;text-transform:uppercase;}
-  .status-card b{font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px;}
-
-  .switcher{display:flex;gap:8px;padding:0 16px 14px;overflow-x-auto;}
-  .chip{padding:7px 14px;border-radius:10px;font-size:11px;font-weight:700;background:var(--card2);
+  .switcher{display:flex;gap:8px;padding:0 16px 14px;overflow-x:auto;}
+  .chip{white-space:nowrap;padding:7px 14px;border-radius:10px;font-size:11px;font-weight:700;background:var(--card2);
     color:var(--muted);border:1px solid var(--border);}
   .chip.active{background:var(--primary);color:#031018;border-color:var(--primary);}
 
-  .row{margin:0 16px 8px;display:flex;align-items:center;gap:11px;background:var(--card);
-    border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
-  .pos{width:24px;font-size:12px;font-weight:800;color:var(--muted2);}
+  .leader-card{
+    margin:0 16px 14px; background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1.5px solid var(--primary); border-radius:18px; padding:16px;
+    position:relative; overflow:hidden;
+  }
+  .leader-card::before{
+    content:"LÍDER"; position:absolute; top:12px; right:-30px; background:var(--primary);
+    color:#031018; font-size:9px; font-weight:800; padding:4px 32px; transform:rotate(35deg);
+    letter-spacing:1px;
+  }
+  .leader-top{display:flex; align-items:center; gap:12px;}
+  .leader-icon{
+    width:52px;height:52px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg,#00d4aa,#00a383);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#031e16;
+    border:2px solid rgba(255,255,255,.15);
+  }
+  .leader-info{flex:1;min-width:0;}
+  .leader-info .sym{font-size:18px;font-weight:800;}
+  .leader-info .exch{font-size:10.5px;color:var(--muted);margin-top:1px;}
+  .leader-pct{text-align:right;flex-shrink:0;}
+  .leader-pct .n{font-size:24px;font-weight:800;color:var(--primary);line-height:1;}
+  .leader-pct .m{font-size:10px;color:var(--muted);margin-top:3px;}
+  .leader-bar{height:8px;background:var(--card2);border-radius:999px;margin-top:12px;overflow:hidden;}
+  .leader-bar-fill{height:100%;width:71%;background:linear-gradient(90deg,var(--primary),#60a5fa);border-radius:999px;}
+  .leader-foot{display:flex;justify-content:space-between;margin-top:9px;}
+  .trend-chip{
+    display:inline-flex;align-items:center;gap:4px;background:var(--bull-dim);color:var(--bull);
+    font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;
+  }
+  .leader-foot .proj{font-size:10px;color:var(--muted);}
+
+  .list-item{
+    margin:0 16px 8px; background:var(--card); border:1px solid var(--border);
+    border-radius:13px; padding:11px 13px; display:flex; align-items:center; gap:11px;
+  }
+  .pos{width:22px;text-align:center;font-size:12px;font-weight:800;color:var(--muted2);flex-shrink:0;}
   .pos.top{color:#eab308;}
-  .sym{flex:1;font-size:13.5px;font-weight:700;font-family:monospace;}
-  .count{font-size:14px;font-weight:800;margin-right:8px;}
-  .trend{font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px;display:flex;align-items:center;gap:3px;}
-  .trend.up{background:var(--bull-dim);color:var(--bull);}
-  .trend.down{background:var(--bear-dim);color:var(--bear);}
-  .trend.flat{background:var(--card2);color:var(--muted);}
-  .trend.new{background:var(--primary-dim);color:var(--primary);}
+  .coin-icon{
+    width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    font-size:10.5px;font-weight:800;color:#07131a;
+  }
+  .row-main{flex:1;min-width:0;}
+  .row-main .sym{font-size:13.5px;font-weight:700;}
+  .row-main .bartrack{height:4px;background:var(--card2);border-radius:999px;margin-top:5px;overflow:hidden;}
+  .row-main .barfill{height:100%;border-radius:999px;background:var(--primary);}
+  .row-right{text-align:right;flex-shrink:0;}
+  .row-right .cnt-main{font-size:13.5px;font-weight:800;}
+  .row-right .cnt{font-size:9.5px;color:var(--muted);margin-top:1px;}
+  .arrow{font-size:10px;margin-left:3px;}
+  .arrow.up{color:var(--bull);}
+  .arrow.down{color:var(--bear);}
+  .arrow.flat{color:var(--muted2);}
+  .arrow.new{color:var(--primary);}
+
+  .tabbar{
+    display:flex; border-top:1px solid var(--border); background:var(--card);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .tabitem{flex:1;text-align:center;padding:4px 0;}
+  .tabitem .ic{font-size:18px;}
+  .tabitem .lb{font-size:9px;margin-top:2px;color:var(--muted);font-weight:600;}
+  .tabitem.active .ic,.tabitem.active .lb{color:var(--primary);}
 </style>
 </head>
 <body>
@@ -74,41 +149,137 @@
   <div class="statusbar"><span>21:48</span><span>🔋 📶 📡</span></div>
 
   <div class="topbar">
-    <div class="tb-l">
-      <div class="back">←</div>
-      <div><b>Observatório CriptoEx</b><span>Estudos consolidados</span></div>
+    <div class="brand">
+      <div class="logo">◎</div>
+      <div class="name">FLUXO DOS MERCADOS<span>Observatório CriptoEx</span></div>
     </div>
-    <span class="code">Código: 77***</span>
+    <div class="live-pill"><span class="live-dot"></span>AO VIVO</div>
   </div>
 
   <div class="scroll">
-    <div class="tabs">
-      <div class="tab active">📡 Operação</div>
-      <div class="tab">📊 Listas</div>
-      <div class="tab">📤 Enviar</div>
-      <div class="tab">📋 Histórico</div>
-    </div>
+    <div class="section-title">Apuração da rodada · Ásia 21h</div>
 
     <div class="status-card">
-      <div class="status-top"><span class="dot"></span><span>Dado fresco</span></div>
-      <b>🕐 Última leitura: 04/10, 21:48</b>
+      <div class="status-row">
+        <span class="status-label">Última atualização</span>
+        <span class="status-value">21:48 (BRT)</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Envios consolidados nesta rodada</span>
+        <span class="status-value">4 de 4 relatórios</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:100%"></div></div>
+      <div class="status-grid">
+        <div class="stat-box"><div class="n">187</div><div class="l">Menções na rodada</div></div>
+        <div class="stat-box"><div class="n">8</div><div class="l">Ativos distintos</div></div>
+      </div>
     </div>
 
     <div class="switcher">
-      <span class="chip active">Atual</span>
+      <span class="chip active">Rodada atual</span>
       <span class="chip">19:50</span>
       <span class="chip">17:48</span>
       <span class="chip">15:45</span>
+      <span class="chip">13:30</span>
     </div>
 
-    <div class="row"><span class="pos top">#1</span><span class="sym">NEAR</span><span class="count">5</span><span class="trend up">▲ 3</span></div>
-    <div class="row"><span class="pos top">#2</span><span class="sym">AKT</span><span class="count">5</span><span class="trend up">▲ 2</span></div>
-    <div class="row"><span class="pos top">#3</span><span class="sym">STRK</span><span class="count">5</span><span class="trend flat">— 5</span></div>
-    <div class="row"><span class="pos">#4</span><span class="sym">SKY</span><span class="count">5</span><span class="trend new">✦ Novo</span></div>
-    <div class="row"><span class="pos">#5</span><span class="sym">SHIB</span><span class="count">5</span><span class="trend down">▼ 7</span></div>
-    <div class="row"><span class="pos">#6</span><span class="sym">VVV</span><span class="count">5</span><span class="trend up">▲ 4</span></div>
-    <div class="row"><span class="pos">#7</span><span class="sym">DRV</span><span class="count">3</span><span class="trend flat">— 3</span></div>
-    <div class="row"><span class="pos">#8</span><span class="sym">XTZ</span><span class="count">3</span><span class="trend down">▼ 5</span></div>
+    <div class="leader-card">
+      <div class="leader-top">
+        <div class="leader-icon">N</div>
+        <div class="leader-info">
+          <div class="sym">NEAR</div>
+          <div class="exch">Binance · Futuros USDT</div>
+        </div>
+        <div class="leader-pct">
+          <div class="n">5</div>
+          <div class="m">menções na rodada</div>
+        </div>
+      </div>
+      <div class="leader-bar"><div class="leader-bar-fill"></div></div>
+      <div class="leader-foot">
+        <span class="trend-chip">▲ Liderando há 3 rodadas</span>
+        <span class="proj">Projeção: mantém #1</span>
+      </div>
+    </div>
+
+    <div class="section-title">Classificação da rodada</div>
+
+    <div class="list-item">
+      <span class="pos top">2</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#f7931a,#ffb04d);">A</div>
+      <div class="row-main">
+        <div class="sym">AKT</div>
+        <div class="bartrack"><div class="barfill" style="width:100%"></div></div>
+      </div>
+      <div class="row-right"><div class="cnt-main">5<span class="arrow up">▲ 2</span></div><div class="cnt">menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos top">3</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#6c63ff,#8f88ff);">S</div>
+      <div class="row-main">
+        <div class="sym">STRK</div>
+        <div class="bartrack"><div class="barfill" style="width:100%"></div></div>
+      </div>
+      <div class="row-right"><div class="cnt-main">5<span class="arrow flat">■</span></div><div class="cnt">menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos">4</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#00c2ff,#5ad1ff);color:#06202b;">S</div>
+      <div class="row-main">
+        <div class="sym">SKY</div>
+        <div class="bartrack"><div class="barfill" style="width:100%"></div></div>
+      </div>
+      <div class="row-right"><div class="cnt-main">5<span class="arrow new">✦</span></div><div class="cnt">menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos">5</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#e6007a,#ff5ab1);">S</div>
+      <div class="row-main">
+        <div class="sym">SHIB</div>
+        <div class="bartrack"><div class="barfill" style="width:100%"></div></div>
+      </div>
+      <div class="row-right"><div class="cnt-main">5<span class="arrow down">▼ 7</span></div><div class="cnt">menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos">6</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#ff6b35,#ff9558);">V</div>
+      <div class="row-main">
+        <div class="sym">VVV</div>
+        <div class="bartrack"><div class="barfill" style="width:100%"></div></div>
+      </div>
+      <div class="row-right"><div class="cnt-main">5<span class="arrow up">▲ 4</span></div><div class="cnt">menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos">7</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#f0b90b,#ffd45e);color:#2b2300;">D</div>
+      <div class="row-main">
+        <div class="sym">DRV</div>
+        <div class="bartrack"><div class="barfill" style="width:60%"></div></div>
+      </div>
+      <div class="row-right"><div class="cnt-main">3<span class="arrow flat">■</span></div><div class="cnt">menções</div></div>
+    </div>
+
+    <div class="list-item">
+      <span class="pos">8</span>
+      <div class="coin-icon" style="background:linear-gradient(135deg,#8b9dc3,#627eea);">X</div>
+      <div class="row-main">
+        <div class="sym">XTZ</div>
+        <div class="bartrack"><div class="barfill" style="width:60%"></div></div>
+      </div>
+      <div class="row-right"><div class="cnt-main">3<span class="arrow down">▼ 5</span></div><div class="cnt">menções</div></div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tabitem active"><div class="ic">📡</div><div class="lb">Operação</div></div>
+    <div class="tabitem"><div class="ic">📊</div><div class="lb">Listas</div></div>
+    <div class="tabitem"><div class="ic">📤</div><div class="lb">Enviar</div></div>
+    <div class="tabitem"><div class="ic">📋</div><div class="lb">Histórico</div></div>
   </div>
 </div>
 </body>
