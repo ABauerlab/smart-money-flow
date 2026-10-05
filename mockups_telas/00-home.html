@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM — Home</title>
+<style>
+  :root{
+    --bg:#0a0e17; --card:#121826; --card2:#161d2e; --border:#232b3d;
+    --primary:#22d3ee; --primary-dim:rgba(34,211,238,.15);
+    --bull:#10b981; --bull-dim:rgba(16,185,129,.15);
+    --bear:#ef4444; --warn:#f59e0b;
+    --text:#e8edf5; --muted:#8a93a6; --muted2:#5c6478;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#000;display:flex;justify-content:center;padding:24px 0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;}
+  .frame{width:390px;height:844px;background:var(--bg);color:var(--text);
+    border-radius:44px;overflow:hidden;position:relative;
+    box-shadow:0 0 0 10px #1c1c1e,0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:10;}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 22px 6px;font-size:14px;font-weight:600;flex-shrink:0;}
+  .scroll{flex:1;overflow-y:auto;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 14px;
+    border-bottom:1px solid var(--border);}
+  .brand{display:flex;align-items:center;gap:8px;}
+  .brand .logo{width:28px;height:28px;border-radius:8px;
+    background:conic-gradient(from 180deg,var(--primary),#3b82f6,var(--primary));
+    display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .brand .name{font-size:12px;font-weight:800;}
+  .brand .v{font-size:9px;color:var(--muted);font-weight:600;}
+  .cta-top{background:var(--primary);color:#031018;font-size:11px;font-weight:800;
+    padding:7px 13px;border-radius:999px;}
+
+  .hero{padding:34px 22px 26px;text-align:center;}
+  .eyebrow{display:inline-flex;align-items:center;gap:6px;background:var(--primary-dim);
+    color:var(--primary);font-size:10px;font-weight:700;padding:6px 12px;border-radius:999px;
+    border:1px solid rgba(34,211,238,.3);margin-bottom:18px;}
+  .hero h1{font-size:28px;font-weight:800;line-height:1.2;}
+  .hero h1 .accent{background:linear-gradient(135deg,var(--primary),#3b82f6);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .hero p{font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:14px;}
+  .hero p b{color:var(--text);}
+  .hero-ctas{display:flex;flex-direction:column;gap:9px;margin-top:22px;}
+  .btn-primary{background:var(--primary);color:#031018;font-size:13px;font-weight:800;
+    padding:13px;border-radius:12px;text-align:center;}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);
+    font-size:13px;font-weight:700;padding:13px;border-radius:12px;text-align:center;}
+  .trust{display:flex;justify-content:center;gap:14px;margin-top:20px;flex-wrap:wrap;}
+  .trust span{font-size:9.5px;color:var(--muted);display:flex;align-items:center;gap:4px;}
+
+  .section{padding:8px 20px 4px;}
+  .section-h{font-size:10px;font-weight:700;color:var(--primary);letter-spacing:1px;
+    text-transform:uppercase;text-align:center;margin-bottom:6px;}
+  .section-t{font-size:19px;font-weight:800;text-align:center;margin-bottom:20px;}
+
+  .feature-card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:16px;margin-bottom:11px;display:flex;gap:12px;}
+  .feature-ic{width:38px;height:38px;border-radius:11px;flex-shrink:0;display:flex;
+    align-items:center;justify-content:center;font-size:17px;background:var(--primary-dim);}
+  .feature-card h3{font-size:13px;font-weight:700;margin-bottom:3px;}
+  .feature-card p{font-size:11px;color:var(--muted);line-height:1.5;}
+
+  .steps{padding:20px 20px 6px;}
+  .step{display:flex;gap:14px;margin-bottom:18px;}
+  .step-n{width:30px;height:30px;border-radius:50%;background:var(--card2);border:1px solid var(--primary);
+    color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:12px;
+    font-weight:800;flex-shrink:0;}
+  .step h4{font-size:12.5px;font-weight:700;}
+  .step p{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4;}
+
+  .final-cta{margin:24px 20px 26px;background:linear-gradient(135deg,rgba(34,211,238,.12),rgba(59,130,246,.08));
+    border:1px solid rgba(34,211,238,.3);border-radius:18px;padding:24px 18px;text-align:center;}
+  .final-cta h3{font-size:16px;font-weight:800;margin-bottom:6px;}
+  .final-cta p{font-size:11px;color:var(--muted);margin-bottom:16px;}
+
+  .footer{padding:18px 20px 30px;text-align:center;border-top:1px solid var(--border);}
+  .footer p{font-size:10px;color:var(--muted2);line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="notch"></div>
+  <div class="statusbar"><span>09:41</span><span>🔋 📶 📡</span></div>
+
+  <div class="scroll">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">◎</div>
+        <div><div class="name">FLUXO DOS MERCADOS</div><div class="v">v2.6</div></div>
+      </div>
+      <div class="cta-top">Dashboard</div>
+    </div>
+
+    <div class="hero">
+      <span class="eyebrow">📡 Análise de Fluxo Institucional em Tempo Real</span>
+      <h1>Veja o <span class="accent">dinheiro institucional</span> antes do mercado.</h1>
+      <p>Rastreamos volume, preço e fluxo dos principais ativos do <b>Brasil, EUA, Europa, Ásia e Forex</b>
+      em tempo real. Identifique acumulação, distribuição e exaustão antes que o movimento aconteça.</p>
+      <div class="hero-ctas">
+        <div class="btn-primary">Abrir o Dashboard →</div>
+        <div class="btn-outline">🔗 Análise IA</div>
+      </div>
+      <div class="trust">
+        <span>✅ Dados em tempo real</span>
+        <span>🛡️ LGPD Compliant</span>
+        <span>🌐 Mercados Globais</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-h">Funcionalidades</div>
+      <div class="section-t">Tudo que você precisa</div>
+
+      <div class="feature-card">
+        <div class="feature-ic">📊</div>
+        <div><h3>Volume Institucional</h3><p>Z-Score e volume relativo (ratio) identificam atividade fora do padrão em tempo real.</p></div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">🌊</div>
+        <div><h3>Fluxo dos Mercados</h3><p>Classificação automática: acumulação, distribuição, exaustão ou neutro.</p></div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">🌍</div>
+        <div><h3>Mercados Globais</h3><p>Ibovespa, S&amp;P 500, Nasdaq, Nikkei, Europa, Petrobras, USD/BRL, EUR/BRL.</p></div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">₿</div>
+        <div><h3>Observatório CriptoEx</h3><p>Envie relatórios e acompanhe rankings diário, semanal e mensal de criptoativos.</p></div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">📰</div>
+        <div><h3>Notícias em Tempo Real</h3><p>Feed de notícias relevantes em português, direto no seu dashboard.</p></div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">🔔</div>
+        <div><h3>Alertas Inteligentes</h3><p>Seja notificado quando um mercado sair do padrão habitual.</p></div>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="section-h">Como funciona</div>
+      <div class="section-t">3 passos simples</div>
+      <div class="step"><div class="step-n">01</div><div><h4>Acesse o Dashboard</h4><p>Sem cadastro, sem fricção — os dados já estão carregados.</p></div></div>
+      <div class="step"><div class="step-n">02</div><div><h4>Leia o Fluxo</h4><p>Veredito claro: onde está o dinheiro institucional agora.</p></div></div>
+      <div class="step"><div class="step-n">03</div><div><h4>Use a IA de Cripto</h4><p>Triagem técnica automática dos ativos mais recorrentes.</p></div></div>
+    </div>
+
+    <div class="final-cta">
+      <h3>Pronto para ler o mercado?</h3>
+      <p>Acesso imediato. Sem cadastro. Dados reais.</p>
+      <div class="btn-primary">Acessar Agora</div>
+    </div>
+
+    <div class="footer">
+      <p>© 2026 Fluxo Dos Mercados<br>fluxodosmercados@gmail.com<br>Desenvolvido por BauerLab</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>
