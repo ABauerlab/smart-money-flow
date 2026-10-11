@@ -130,29 +130,29 @@ export const OperationalDashboard = () => {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <p className="text-lg font-extrabold text-foreground truncate">{leader.symbol}</p>
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-extrabold tracking-wider text-primary-foreground shrink-0">
+                <p className="text-xl font-extrabold text-foreground truncate">{leader.symbol}</p>
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider text-primary-foreground shrink-0">
                   <Crown className="w-2.5 h-2.5" /> LÍDER
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Posição #{leader.rank} nesta rodada</p>
+              <p className="text-[13px] text-muted-foreground">Posição #{leader.rank} nesta rodada</p>
             </div>
             <div className="text-right shrink-0">
               <p className="text-2xl font-extrabold text-primary leading-none tabular-nums">{leader.count}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">menções</p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">menções</p>
             </div>
           </div>
           <div className="mt-3 h-2 rounded-full bg-secondary/30 overflow-hidden">
             <div className="h-full rounded-full bg-gradient-to-r from-primary to-sky-500" style={{ width: '100%' }} />
           </div>
           <div className="mt-2.5 flex items-center justify-between">
-            <span className="inline-flex items-center gap-1 rounded-full bg-bullish/10 border border-bullish/30 px-2 py-0.5 text-[10px] font-bold text-bullish">
+            <span className="inline-flex items-center gap-1 rounded-full bg-bullish/10 border border-bullish/30 px-2 py-0.5 text-[12px] font-bold text-bullish">
               {leader.trend === 'up' && '▲ Subindo'}
               {leader.trend === 'down' && '▼ Caindo'}
               {leader.trend === 'flat' && '■ Estável no topo'}
               {leader.trend === 'new' && '✦ Nova liderança'}
             </span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[12px] text-muted-foreground">
               {leader.previousCount !== null ? `Rodada anterior: ${leader.previousCount}` : 'Sem rodada anterior'}
             </span>
           </div>
@@ -178,14 +178,14 @@ export const OperationalDashboard = () => {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="font-mono text-sm font-bold text-foreground">{r.symbol}</span>
+                  <span className="font-mono text-base font-bold text-foreground">{r.symbol}</span>
                   <span className="text-sm font-bold text-foreground tabular-nums shrink-0">{r.count}</span>
                 </div>
                 <div className="h-1 rounded-full bg-secondary/30 overflow-hidden">
                   <div className="h-full rounded-full bg-primary/70" style={{ width: `${barPct}%` }} />
                 </div>
               </div>
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold shrink-0 ${style.bg} ${style.color}`}>
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[12px] font-semibold shrink-0 ${style.bg} ${style.color}`}>
                 <Icon className="w-3 h-3" />
                 {r.previousCount !== null ? r.previousCount : style.label}
               </span>

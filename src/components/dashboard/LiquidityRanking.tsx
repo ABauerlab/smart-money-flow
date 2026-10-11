@@ -53,7 +53,7 @@ export const LiquidityRanking = ({ markets }: LiquidityRankingProps) => {
               <div className="flex items-center gap-3">
                 <span className="text-xl">{market.flag}</span>
                 <span className="font-semibold">{market.name}</span>
-                <span className="text-xs font-mono text-muted-foreground">({market.ticker})</span>
+                <span className="text-sm font-mono text-muted-foreground">({market.ticker})</span>
               </div>
               
               <div className="text-right">

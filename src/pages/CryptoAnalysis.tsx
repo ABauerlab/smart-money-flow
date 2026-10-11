@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Network, Loader2, Send, LogOut, FileSpreadsheet, CalendarDays, Radio } from 'lucide-react';
+import { ArrowLeft, Mail, Network, Loader2, Send, LogOut, FileSpreadsheet, CalendarDays, Radio } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CsvUploader, type ParsedCsvFile } from '@/components/analysis/CsvUploader';
 import { AnalysisReport } from '@/components/analysis/AnalysisReport';
@@ -21,13 +21,14 @@ import { formatBRDate } from '@/lib/brTime';
 const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
   const [code, setCode] = useState('');
   const [showAbout, setShowAbout] = useState(false);
+  const [showContact, setShowContact] = useState(false);
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-xs rounded-xl border border-border/60 bg-card/60 backdrop-blur p-6 space-y-4 text-center">
         <Network className="w-9 h-9 text-primary mx-auto" />
         <h1 className="text-base font-bold gradient-text">Laboratório de Dados CriptoEx</h1>
-        <p className="text-xs text-muted-foreground -mt-2">Informe seu código pessoal para acessar os estudos e materiais da plataforma.</p>
+        <p className="text-sm text-muted-foreground -mt-2">Informe seu código pessoal para acessar os estudos e materiais da plataforma.</p>
         <Input
           placeholder="Código de acesso"
           value={code}
@@ -38,19 +39,33 @@ const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
           inputMode="numeric"
         />
         <Button onClick={() => onAccess(code)} disabled={code.length < 4} className="w-full">Entrar</Button>
-        <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+        <div className="space-y-2">
+          <Button type="button" variant="outline" onClick={() => setShowContact(v => !v)} className="w-full gap-2">
+            <Mail className="w-4 h-4" /> Solicitar acesso
+          </Button>
+          {showContact && (
+            <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="text-sm text-muted-foreground leading-relaxed">
+              Para desbloquear o acesso, envie um e-mail para{' '}
+              <a href="mailto:fluxodosmercados@gmail.com?subject=Solicita%C3%A7%C3%A3o%20de%20acesso%20ao%20Laborat%C3%B3rio" className="text-primary font-semibold hover:underline break-all">
+                fluxodosmercados@gmail.com
+              </a>{' '}
+              e liberaremos seu código.
+            </motion.p>
+          )}
+        </div>
+        <p className="text-[13px] text-muted-foreground/80 leading-relaxed">
           Participe da nossa comunidade. Um ambiente dedicado ao estudo de padrões, recorrências e comportamentos observados no mercado de criptoativos.
         </p>
         <button
           type="button"
           onClick={() => setShowAbout(v => !v)}
-          className="text-[11px] text-primary hover:underline"
+          className="text-sm text-primary hover:underline"
         >
           {showAbout ? 'Ocultar' : 'Saiba mais sobre este espaço'}
         </button>
         {showAbout && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-            className="text-left text-[11px] text-muted-foreground/80 leading-relaxed space-y-3 overflow-hidden">
+            className="text-left text-[13px] text-muted-foreground/80 leading-relaxed space-y-3 overflow-hidden">
             <div>
               <p className="font-semibold text-foreground text-xs">Observatório dos Mercados Digitais</p>
               <p className="text-foreground/70">Ambiente de Aprendizagem e Pesquisa.</p>
@@ -79,7 +94,7 @@ const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
                 <li>🌐 Espaço para aprendizado e discussão sobre o ecossistema de ativos digitais.</li>
               </ul>
             </div>
-            <p className="text-[10px] text-muted-foreground/60">
+            <p className="text-[12px] text-muted-foreground/60">
               O conteúdo não constitui recomendação de investimento, consultoria financeira, análise individualizada, oferta, intermediação ou promessa de resultado.
             </p>
           </motion.div>
@@ -165,7 +180,7 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
       </motion.header>
 
       <main className="container py-6 max-w-5xl">
-        <p className="text-[11px] text-muted-foreground/70 mb-4 leading-relaxed">
+        <p className="text-[13px] text-muted-foreground/70 mb-4 leading-relaxed">
           Observatório CriptoEx: ambiente de aprendizagem e pesquisa sobre padrões e recorrências observados no mercado de criptoativos. O conteúdo não constitui recomendação de investimento, consultoria financeira, análise individualizada, oferta, intermediação ou promessa de resultado.
         </p>
         <Tabs defaultValue="operacao" className="space-y-6">
@@ -220,7 +235,7 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
               </label>
               <Input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)}
                 className="bg-card border-border/50 w-full sm:w-56" />
-              <p className="text-[11px] text-muted-foreground/70">
+              <p className="text-[13px] text-muted-foreground/70">
                 Vale para os 4 relatórios deste pregão (Londres, América e a Ásia da véspera). Todas as linhas entram nesta data: escolha o dia de fechamento (Londres/América).
               </p>
             </div>
@@ -233,7 +248,7 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
                   <div className="p-2 rounded-lg bg-primary/20"><FileSpreadsheet className="w-5 h-5 text-primary" /></div>
                   <div>
                     <h3 className="text-sm font-bold text-foreground">Arquivos CSV</h3>
-                    <p className="text-[11px] text-muted-foreground">Anexe um ou mais relatórios .CSV</p>
+                    <p className="text-[13px] text-muted-foreground">Anexe um ou mais relatórios .CSV</p>
                   </div>
                 </div>
                 <span className="text-xs font-mono px-2 py-1 rounded-md bg-primary/15 text-primary">

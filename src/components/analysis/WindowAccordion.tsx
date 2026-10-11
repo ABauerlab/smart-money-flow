@@ -46,7 +46,7 @@ const WindowRow = ({ periodType, windowIndex, label, defaultOpen }: {
         </div>
         <div className="flex items-center gap-2">
           {open && altaRankings.length > 0 && (
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">
+            <span className="text-[12px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">
               {altaRankings.length} ativos
             </span>
           )}

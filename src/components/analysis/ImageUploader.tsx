@@ -94,7 +94,7 @@ export const ImageUploader = ({ images, onImagesChange, disabled }: ImageUploade
                   <X className="w-3 h-3" />
                 </button>
                 <div className="absolute bottom-0 inset-x-0 bg-background/80 px-2 py-1">
-                  <p className="text-[10px] text-foreground/70 truncate">{img.name}</p>
+                  <p className="text-[12px] text-foreground/70 truncate">{img.name}</p>
                 </div>
               </motion.div>
             ))}
