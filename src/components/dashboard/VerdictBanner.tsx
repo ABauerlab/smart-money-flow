@@ -57,7 +57,7 @@ export const VerdictBanner = ({ metrics }: VerdictBannerProps) => {
             <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Veredito: Onde está o dinheiro agora?
             </h2>
-            <div className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border text-[10px] sm:text-xs font-bold ${getSentimentColor()}`}>
+            <div className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border text-xs sm:text-sm font-bold ${getSentimentColor()}`}>
               {getSentimentIcon()}
               <span className="whitespace-nowrap">{getSentimentLabel()}</span>
             </div>
@@ -69,11 +69,11 @@ export const VerdictBanner = ({ metrics }: VerdictBannerProps) => {
           
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/50">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">Mercado Mais Ativo:</span>
+              <span className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider whitespace-nowrap">Mercado Mais Ativo:</span>
               <span className="text-xs sm:text-sm font-semibold text-primary truncate">{metrics.hotMarket}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">Fluxo Global:</span>
+              <span className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider whitespace-nowrap">Fluxo Global:</span>
               <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap ${
                 metrics.dominantFlow === 'inflow' ? 'text-bullish' : 
                 metrics.dominantFlow === 'outflow' ? 'text-bearish' : 'text-warning'

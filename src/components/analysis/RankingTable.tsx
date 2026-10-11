@@ -40,7 +40,7 @@ export const RankingTable = ({ rows, type, maxRows = 30 }: RankingTableProps) =>
         <span className="ml-auto text-muted-foreground font-normal normal-case tracking-normal">{rows.length} criptos</span>
       </div>
 
-      <div className="grid grid-cols-[36px_minmax(60px,80px)_1fr_56px] gap-2 px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/30 bg-secondary/20">
+      <div className="grid grid-cols-[36px_minmax(60px,80px)_1fr_56px] gap-2 px-3 py-1.5 text-[12px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/30 bg-secondary/20">
         <span>Pos</span>
         <span>Cripto</span>
         <span>Distribuição</span>
@@ -61,7 +61,7 @@ export const RankingTable = ({ rows, type, maxRows = 30 }: RankingTableProps) =>
               <span className="text-xs font-bold text-muted-foreground tabular-nums">
                 {String(i + 1).padStart(2, '0')}
               </span>
-              <span className="font-mono text-sm font-bold text-foreground truncate">{r.symbol}</span>
+              <span className="font-mono text-base font-bold text-foreground truncate">{r.symbol}</span>
               <div className="h-2 bg-secondary/20 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
@@ -79,7 +79,7 @@ export const RankingTable = ({ rows, type, maxRows = 30 }: RankingTableProps) =>
       </div>
 
       {rows.length > maxRows && (
-        <div className="px-3 py-1.5 text-[10px] text-muted-foreground bg-secondary/10 border-t border-border/20">
+        <div className="px-3 py-1.5 text-[12px] text-muted-foreground bg-secondary/10 border-t border-border/20">
           Exibindo {maxRows} de {rows.length} criptos
         </div>
       )}

@@ -164,7 +164,7 @@ const Landing = () => {
               <span className="font-black tracking-tighter text-white leading-none text-sm sm:text-base truncate">
                 FLUXO DOS MERCADOS
               </span>
-              <span className="text-[8px] sm:text-[10px] text-primary font-mono tracking-[0.2em]">
+              <span className="text-[10px] sm:text-[12px] text-primary font-mono tracking-[0.2em]">
                 v2.6
               </span>
             </div>
@@ -172,7 +172,7 @@ const Landing = () => {
 
           <Link to="/dashboard">
             <Button
-              className="bg-primary text-black hover:bg-primary/90 hover:scale-105 transition-transform text-[10px] sm:text-xs uppercase tracking-widest rounded-none h-9 px-3 sm:px-5 font-bold"
+              className="bg-primary text-black hover:bg-primary/90 hover:scale-105 transition-transform text-[12px] sm:text-xs uppercase tracking-widest rounded-none h-9 px-3 sm:px-5 font-bold"
             >
               <span className="hidden sm:inline">Acessar Dashboard</span>
               <span className="sm:hidden">Dashboard</span>
@@ -226,7 +226,7 @@ const Landing = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] sm:tracking-[0.3em] text-primary mb-6 sm:mb-8">
+              <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-[11px] sm:text-[12px] uppercase tracking-[0.2em] sm:tracking-[0.3em] text-primary mb-6 sm:mb-8">
                 <Activity className="w-3 h-3" />
                 Dado institucional, não palpite de grupo
               </div>
@@ -276,19 +276,19 @@ const Landing = () => {
               <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-8 opacity-70">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-bullish" />
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">Dados em tempo real</span>
+                  <span className="text-[11px] sm:text-[12px] font-bold uppercase tracking-widest">Dados em tempo real</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <UserX className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">Sem cadastro</span>
+                  <span className="text-[11px] sm:text-[12px] font-bold uppercase tracking-widest">Sem cadastro</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">LGPD Compliant</span>
+                  <span className="text-[11px] sm:text-[12px] font-bold uppercase tracking-widest">LGPD Compliant</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Globe className="w-3 h-3 sm:w-4 sm:h-4 text-warning" />
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">Mercados Globais</span>
+                  <span className="text-[11px] sm:text-[12px] font-bold uppercase tracking-widest">Mercados Globais</span>
                 </div>
               </div>
             </motion.div>
@@ -316,7 +316,7 @@ const Landing = () => {
           <div className="absolute top-0 right-[10%] w-[250px] h-[250px] bg-bearish/5 blur-[100px] rounded-full pointer-events-none" />
           <div className="container relative px-4 max-w-3xl mx-auto text-center">
             <motion.div {...fadeUp}>
-              <span className="text-[10px] uppercase tracking-[0.3em] text-bearish font-bold">O problema</span>
+              <span className="text-[12px] uppercase tracking-[0.3em] text-bearish font-bold">O problema</span>
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4 mb-10">
                 Call de grupo é opinião. <br />
                 <span className="text-primary">Você precisa de dado.</span>
@@ -346,7 +346,7 @@ const Landing = () => {
           <div className="container relative px-4">
             <div className="max-w-3xl mx-auto text-center mb-10">
               <motion.div {...fadeUp}>
-                <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">O mecanismo</span>
+                <span className="text-[12px] uppercase tracking-[0.3em] text-primary font-bold">O mecanismo</span>
                 <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4 mb-6">
                   Não é opinião. <br />
                   <span className="text-primary">É volume, Z-Score e fluxo, direto da fonte.</span>
@@ -365,15 +365,15 @@ const Landing = () => {
             >
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs font-bold text-white uppercase tracking-wide">BTC/USDT</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-bullish/15 text-bullish font-bold uppercase">Acumulação</span>
+                <span className="text-[12px] px-2 py-0.5 rounded-full bg-bullish/15 text-bullish font-bold uppercase">Acumulação</span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-left">
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Z-Score</p>
+                  <p className="text-[12px] text-muted-foreground uppercase tracking-widest">Z-Score</p>
                   <p className="text-xl font-black text-bullish font-mono">+2,41</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Vol. relativo</p>
+                  <p className="text-[12px] text-muted-foreground uppercase tracking-widest">Vol. relativo</p>
                   <p className="text-xl font-black text-white font-mono">184%</p>
                 </div>
               </div>
@@ -390,7 +390,7 @@ const Landing = () => {
         <section className="py-16 sm:py-24 lg:py-32 border-t border-white/5">
           <div className="container px-4">
             <div className="text-center mb-12 sm:mb-16 max-w-3xl mx-auto">
-              <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">O que você tem acesso</span>
+              <span className="text-[12px] uppercase tracking-[0.3em] text-primary font-bold">O que você tem acesso</span>
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4">
                 Todas as ferramentas <br />
                 <span className="text-primary">para ler o mercado.</span>
@@ -444,7 +444,7 @@ const Landing = () => {
         <section className="py-16 sm:py-24 border-t border-white/5 bg-white/[0.01]">
           <div className="container px-4">
             <div className="text-center mb-12 max-w-2xl mx-auto">
-              <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">Sem enfeite, é a tela real</span>
+              <span className="text-[12px] uppercase tracking-[0.3em] text-primary font-bold">Sem enfeite, é a tela real</span>
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4">
                 O produto rodando, <br />
                 <span className="text-primary">não um protótipo.</span>
@@ -526,7 +526,7 @@ const Landing = () => {
                   </div>
                   <figcaption className="p-3">
                     <p className="text-xs font-bold text-white uppercase tracking-tight">{screen.title}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{screen.desc}</p>
+                    <p className="text-[13px] text-muted-foreground mt-0.5 leading-snug">{screen.desc}</p>
                   </figcaption>
                 </figure>
               ))}
@@ -555,7 +555,7 @@ const Landing = () => {
                   </div>
                   <figcaption className="p-3">
                     <p className="text-xs font-bold text-white uppercase tracking-tight">{screen.title}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{screen.desc}</p>
+                    <p className="text-[13px] text-muted-foreground mt-0.5 leading-snug">{screen.desc}</p>
                   </figcaption>
                 </motion.figure>
               ))}
@@ -568,7 +568,7 @@ const Landing = () => {
           <div className="absolute top-10 right-[15%] w-[220px] h-[220px] bg-warning/5 blur-[100px] rounded-full pointer-events-none" />
           <div className="container relative px-4">
             <div className="text-center mb-12 max-w-2xl mx-auto">
-              <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">Como funciona</span>
+              <span className="text-[12px] uppercase tracking-[0.3em] text-primary font-bold">Como funciona</span>
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mt-4">
                 Três passos. <br />
                 <span className="text-primary">Zero fricção.</span>
@@ -599,7 +599,7 @@ const Landing = () => {
           <div className="absolute bottom-0 left-[20%] w-[240px] h-[240px] bg-primary/5 blur-[110px] rounded-full pointer-events-none" />
           <div className="container relative px-4 max-w-2xl mx-auto">
             <div className="text-center mb-10">
-              <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-bold">Dúvidas frequentes</span>
+              <span className="text-[12px] uppercase tracking-[0.3em] text-primary font-bold">Dúvidas frequentes</span>
               <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mt-4">
                 Antes de perguntar no grupo
               </h2>
@@ -651,12 +651,12 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8">
-        <div className="container px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] sm:text-xs text-muted-foreground uppercase tracking-widest">
+        <div className="container px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px] sm:text-xs text-muted-foreground uppercase tracking-widest">
           <span>© 2026 Fluxo Dos Mercados</span>
           <a href="mailto:fluxodosmercados@gmail.com" className="hover:text-primary hover:underline normal-case tracking-normal">
             fluxodosmercados@gmail.com
           </a>
-          <span className="normal-case tracking-normal text-[10px] opacity-50 hover:opacity-100 transition-opacity duration-300">
+          <span className="normal-case tracking-normal text-[12px] opacity-50 hover:opacity-100 transition-opacity duration-300">
             Desenvolvido por{' '}
             <a
               href="https://bauerlab.com.br"

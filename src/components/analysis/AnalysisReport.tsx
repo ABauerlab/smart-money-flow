@@ -319,7 +319,7 @@ export const AnalysisReport = ({ title, summary, createdAt, cryptoSymbols, image
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {Object.entries(infoSection.meta).map(([key, val]) => (
                 <div key={key} className="p-2 rounded-lg bg-secondary/20 border border-border/30">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{key}</p>
+                  <p className="text-[12px] text-muted-foreground uppercase tracking-wider">{key}</p>
                   <p className="text-sm font-semibold text-foreground">{val}</p>
                 </div>
               ))}

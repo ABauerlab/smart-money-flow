@@ -59,7 +59,7 @@ export const RegionWindowDashboard = ({
             className="relative overflow-hidden flex items-center gap-3 p-3 rounded-xl border-[1.5px] border-primary bg-gradient-to-b from-card to-card/60"
           >
             <span className="font-mono text-base font-extrabold text-foreground">{altaRankings[0].symbol}</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-extrabold tracking-wider text-primary-foreground shrink-0">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider text-primary-foreground shrink-0">
               <Crown className="w-2.5 h-2.5" /> LÍDER
             </span>
             <div className="flex-1">
@@ -83,7 +83,7 @@ export const RegionWindowDashboard = ({
                 <span className={`text-xs font-bold w-6 text-center ${i < 3 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
                   #{i + 1}
                 </span>
-                <span className="font-mono text-sm font-semibold text-foreground w-20">{r.symbol}</span>
+                <span className="font-mono text-base font-semibold text-foreground w-24">{r.symbol}</span>
                 <div className="flex-1">
                   <div className="h-2 bg-secondary/30 rounded-full overflow-hidden">
                     <motion.div

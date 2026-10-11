@@ -35,7 +35,7 @@ export const AiScreeningCard = ({ report, onGenerate, isGenerating }: AiScreenin
           <button
             onClick={onGenerate}
             disabled={isGenerating}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary/15 border border-primary/30 px-2.5 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/25 transition-colors disabled:opacity-60"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary/15 border border-primary/30 px-2.5 py-1.5 text-[13px] font-semibold text-primary hover:bg-primary/25 transition-colors disabled:opacity-60"
           >
             {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
             {isGenerating ? 'Gerando...' : 'Gerar agora'}
@@ -69,10 +69,10 @@ export const AiScreeningCard = ({ report, onGenerate, isGenerating }: AiScreenin
       </button>
       {open && (
         <div className="p-3 pt-0 border-t border-primary/10 space-y-2">
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-[12px] text-muted-foreground">
             Gerado em {formatBRDateTime(report.created_at)}
           </p>
-          <div className="prose prose-sm prose-invert max-w-none text-xs sm:text-sm text-foreground/80 leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:bg-primary/20 [&_th]:text-primary [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-[11px] [&_th]:font-semibold [&_th]:whitespace-nowrap [&_td]:px-2 [&_td]:py-1 [&_td]:text-[11px] [&_td]:border-t [&_td]:border-border/30 [&_td]:whitespace-nowrap [&_tr:hover]:bg-secondary/10">
+          <div className="prose prose-sm prose-invert max-w-none text-xs sm:text-sm text-foreground/80 leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:bg-primary/20 [&_th]:text-primary [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-[13px] [&_th]:font-semibold [&_th]:whitespace-nowrap [&_td]:px-2 [&_td]:py-1 [&_td]:text-[13px] [&_td]:border-t [&_td]:border-border/30 [&_td]:whitespace-nowrap [&_tr:hover]:bg-secondary/10">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{

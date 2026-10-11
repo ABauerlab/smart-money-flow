@@ -40,7 +40,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
     >
       {isHot && (
         <div className="absolute top-2 right-2 sm:top-3 sm:right-3">
-          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] sm:text-xs font-bold animate-pulse">
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs sm:text-sm font-bold animate-pulse">
             <Activity className="w-3 h-3" />
             QUENTE
           </span>
@@ -51,13 +51,13 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
         <span className="text-xl sm:text-2xl flex-shrink-0">{market.flag}</span>
         <div className="min-w-0">
           <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{market.name}</h3>
-          <span className="text-[10px] sm:text-xs font-mono text-muted-foreground">{market.ticker}</span>
+          <span className="text-xs sm:text-sm font-mono text-muted-foreground">{market.ticker}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-4">
         <div className="min-w-0">
-          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Preço Atual</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-0.5 sm:mb-1">Preço Atual</p>
           <p className={`font-semibold font-mono truncate ${market.price >= 10000 ? 'text-xs sm:text-sm' : 'text-sm sm:text-lg'}`}>
             {formatPrice(market.price, market.currency)}
           </p>
@@ -68,11 +68,11 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
         </div>
         
         <div className="min-w-0">
-          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Volume 24h</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-0.5 sm:mb-1">Volume 24h</p>
           <p className="text-sm sm:text-lg font-semibold font-mono truncate">
             {market.currentVolume > 0 ? formatVolume(market.currentVolume) : '-'}
           </p>
-          <p className="text-[10px] sm:text-xs text-muted-foreground font-mono truncate">
+          <p className="text-xs sm:text-sm text-muted-foreground font-mono truncate">
             {market.averageVolume > 0 ? `Média: ${formatVolume(market.averageVolume)}` : ''}
           </p>
         </div>
@@ -80,7 +80,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
 
       <div className="space-y-2 sm:space-y-3">
         <div>
-          <div className="flex items-center justify-between text-[10px] sm:text-xs mb-1">
+          <div className="flex items-center justify-between text-xs sm:text-sm mb-1">
             <span className="text-muted-foreground">Volume vs Média</span>
             <span className={`font-mono font-semibold ${
               market.volumeRatio > 1.2 ? 'text-bullish' : 
@@ -105,7 +105,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
         <div className="flex items-center justify-between pt-2 sm:pt-3 border-t border-border/50 gap-2">
           <div className="flex items-center gap-1 sm:gap-2 min-w-0">
             <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Z-Score:</span>
+            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Z-Score:</span>
             <span className={`text-xs sm:text-sm font-mono font-semibold whitespace-nowrap ${
               market.zScore > 1.5 ? 'text-bullish' : 
               market.zScore < -1.5 ? 'text-bearish' : 'text-foreground'
@@ -114,7 +114,7 @@ export const MarketCard = ({ market, index }: MarketCardProps) => {
             </span>
           </div>
           
-          <span className={`px-1.5 sm:px-2 py-0.5 rounded-md border text-[10px] sm:text-xs font-semibold whitespace-nowrap flex-shrink-0 ${getFlowColor()}`}>
+          <span className={`px-1.5 sm:px-2 py-0.5 rounded-md border text-xs sm:text-sm font-semibold whitespace-nowrap flex-shrink-0 ${getFlowColor()}`}>
             {getFlowTypeLabel(market.flowType)}
           </span>
         </div>
