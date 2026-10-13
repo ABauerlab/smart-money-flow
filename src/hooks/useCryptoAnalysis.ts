@@ -80,6 +80,13 @@ export const useCryptoAnalysis = ({ periodType = 'weekly', windowIndex = 0 }: Us
       return resp.json();
     },
     staleTime: 60000,
+    // A tab/PWA left open across a daily/weekly/monthly rollover (e.g. idle
+    // through Sunday 21h) never refetches on its own without this: React
+    // Query only refetches on mount/focus/reconnect, none of which fire for
+    // a session that's just sitting open. Matches useOperationalRound's
+    // polling so "current window" windowIndex=0 picks up the new period
+    // without the user needing to background/reopen the app.
+    refetchInterval: 60000,
   });
 
   const rankingsQuery = useQuery<{ altaRankings: SeparateRanking[]; window: any; totalMentions: number }>({
@@ -93,6 +100,7 @@ export const useCryptoAnalysis = ({ periodType = 'weekly', windowIndex = 0 }: Us
       return resp.json();
     },
     staleTime: 30000,
+    refetchInterval: 60000,
   });
 
   const submitCsv = async (rows: CsvRow[], reportDate: string, title: string, fileCount: number) => {
