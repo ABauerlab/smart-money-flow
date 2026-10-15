@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { fetchAllRows } from "./pagination.ts";
 
 // ---- CORS allowlist ----
 // Only browsers on these origins may read the response. CORS doesn't stop a
@@ -719,6 +720,22 @@ function resolveWindow(periodType: string, windowIndex: number, now = new Date()
   return { start: fmtDate(start), end: fmtDate(end), label: `${MONTHS_PT[start.getUTCMonth()]} ${start.getUTCFullYear()}` };
 }
 
+// Every crypto_mentions row of a window, read to the end. Never use a bare
+// .select() for this: PostgREST silently truncates at 1000 rows (see pagination.ts),
+// which made the weekly/monthly sums stop growing once a window passed ~1000 rows.
+function fetchWindowMentions(supabase: any, accessCode: string, win: { start: string; end: string }) {
+  return fetchAllRows<any>((from, to) =>
+    supabase
+      .from('crypto_mentions')
+      .select('symbol, repetition, report_date, report_time')
+      .eq('access_code', accessCode)
+      .gte('report_date', win.start)
+      .lte('report_date', win.end)
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
+}
+
 // Shared by the manual "generate-periodic" action and by the automatic call
 // fired after every CSV ingestion (analyze-csv), so a report produced by the
 // Make.com/VPS pipeline goes through the exact same 18-step AI screening as
@@ -728,13 +745,7 @@ async function generateAIPeriodicReport(
 ): Promise<{ report: any; aiModelUsed: string }> {
   const win = resolveWindow(periodType, windowIndex);
 
-  const { data: mentions, error: mError } = await supabase
-    .from('crypto_mentions')
-    .select('symbol, repetition, report_date, report_time')
-    .eq('access_code', accessCode)
-    .gte('report_date', win.start)
-    .lte('report_date', win.end);
-  if (mError) throw mError;
+  const mentions = await fetchWindowMentions(supabase, accessCode, win);
 
   const altaRankings = sumMentions(mentions || []);
   const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
@@ -928,7 +939,7 @@ serve(async (req) => {
     // round ever recorded when nothing has landed yet today, so the dashboard never
     // goes blank while waiting for the next Make.com run.
     if (action === 'latest-round') {
-      const today = fmtDate(new Date());
+      const today = fmtDate(businessDateBR(new Date()));
 
       const roundCols = 'id, created_at, report_date, source_file_name, source_modified_time, crypto_analyses(title)';
       const { data: todayRounds, error: todayErr } = await supabase
@@ -966,13 +977,16 @@ serve(async (req) => {
 
       // Group by symbol in case a round's raw rows include repeats for the same symbol.
       async function groupedMentions(submissionId: string): Promise<Map<string, { count: number; rank: number | null }>> {
-        const { data, error } = await supabase
-          .from('crypto_mentions')
-          .select('symbol, repetition, rank')
-          .eq('submission_id', submissionId);
-        if (error) throw error;
+        const data = await fetchAllRows<any>((from, to) =>
+          supabase
+            .from('crypto_mentions')
+            .select('symbol, repetition, rank')
+            .eq('submission_id', submissionId)
+            .order('id', { ascending: true })
+            .range(from, to),
+        );
         const map = new Map<string, { count: number; rank: number | null }>();
-        for (const m of data || []) {
+        for (const m of data) {
           const cur = map.get(m.symbol);
           if (cur) { cur.count += Number(m.repetition) || 0; }
           else { map.set(m.symbol, { count: Number(m.repetition) || 0, rank: m.rank ?? null }); }
@@ -1019,18 +1033,16 @@ serve(async (req) => {
     // ========== RANKINGS (single market, summed by repetition + window) ==========
     if (action === 'rankings') {
       const periodType = (reqBody.periodType || 'weekly') as string;
+      if (!['daily','weekly','monthly'].includes(periodType)) {
+        return new Response(JSON.stringify({ error: 'periodType deve ser daily, weekly ou monthly' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
       const windowIndex = Number(reqBody.windowIndex || 0);
       const win = resolveWindow(periodType, windowIndex);
 
-      const { data: mentions, error } = await supabase
-        .from('crypto_mentions')
-        .select('symbol, repetition, report_date, report_time')
-        .eq('access_code', accessCode)
-        .gte('report_date', win.start)
-        .lte('report_date', win.end);
-      if (error) throw error;
+      const mentions = await fetchWindowMentions(supabase, accessCode, win);
 
-      const altaRankings = sumMentions(mentions || []);
+      const altaRankings = sumMentions(mentions);
 
       return new Response(JSON.stringify({
         altaRankings,
@@ -1042,15 +1054,43 @@ serve(async (req) => {
     // ========== PERIODIC REPORTS LIST ==========
     if (action === 'periodic-reports') {
       const region = reqBody.region ? normalizeRegion(reqBody.region) : null;
-      let q = supabase
+      // Every CSV ingestion (4/day) and every "Reprocessar + IA" inserts a NEW report
+      // for its window, so a plain "newest 40 rows" fills up with near-identical daily
+      // reports within ~10 days and pushes the AI screening of earlier weeks/months
+      // out of the list (their card then shows "no screening yet"). Keep only the
+      // newest report per (type, start, end) window, then return the 40 newest windows.
+      // The dedupe runs on light columns so the large ai_analysis text is only
+      // fetched for the rows that are actually returned.
+      let idxQ = supabase
         .from('crypto_periodic_reports')
-        .select('*')
+        .select('id, period_type, period_start, period_end')
         .eq('access_code', accessCode)
         .order('created_at', { ascending: false })
-        .limit(40);
-      if (region) q = q.eq('region', region);
-      const { data, error } = await q;
-      if (error) throw error;
+        .limit(1000);
+      if (region) idxQ = idxQ.eq('region', region);
+      const { data: index, error: idxErr } = await idxQ;
+      if (idxErr) throw idxErr;
+
+      const seen = new Set<string>();
+      const keepIds: string[] = [];
+      for (const r of index || []) {
+        const key = `${r.period_type}|${r.period_start}|${r.period_end}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        keepIds.push(r.id);
+        if (keepIds.length >= 40) break;
+      }
+
+      let data: any[] = [];
+      if (keepIds.length > 0) {
+        const { data: full, error } = await supabase
+          .from('crypto_periodic_reports')
+          .select('*')
+          .in('id', keepIds)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        data = full || [];
+      }
       return new Response(JSON.stringify({ reports: data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -1239,7 +1279,15 @@ serve(async (req) => {
 
       if (submission) {
         const toInsert = mentionRows.map(m => ({ ...m, submission_id: submission.id }));
-        await supabase.from('crypto_mentions').insert(toInsert);
+        const { error: mentionsError } = await supabase.from('crypto_mentions').insert(toInsert);
+        if (mentionsError) {
+          // Without this check a failed insert left a "ghost" round (analysis +
+          // submission, zero mentions) that the source_file_id idempotency check would
+          // then treat as already ingested, so the automation could never retry it.
+          // Deleting the analysis cascades to the submission.
+          await supabase.from('crypto_analyses').delete().eq('id', analysis.id);
+          throw mentionsError;
+        }
       }
 
       // Run the same 18-step AI screening that "Listas" triggers by hand, but for
@@ -1271,13 +1319,7 @@ serve(async (req) => {
       const windowIndex = Number(reqBody.windowIndex || 0);
       const win = resolveWindow(periodType, windowIndex);
 
-      const { data: mentions, error: mErr } = await supabase
-        .from('crypto_mentions')
-        .select('symbol, repetition, report_date, report_time')
-        .eq('access_code', accessCode)
-        .gte('report_date', win.start)
-        .lte('report_date', win.end);
-      if (mErr) throw mErr;
+      const mentions = await fetchWindowMentions(supabase, accessCode, win);
 
       const altaRankings = sumMentions(mentions || []);
       const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));

@@ -46,9 +46,16 @@ const headers = {
 interface UseCryptoAnalysisOpts {
   periodType?: PeriodType;
   windowIndex?: number;
+  // Lets a caller (e.g. a collapsed accordion row) skip the rankings fetch/polling
+  // until it is actually visible. Defaults to on.
+  rankingsEnabled?: boolean;
+  // The history list is only needed by the Histórico tab; window rows turn it off.
+  historyEnabled?: boolean;
 }
 
-export const useCryptoAnalysis = ({ periodType = 'weekly', windowIndex = 0 }: UseCryptoAnalysisOpts = {}) => {
+export const useCryptoAnalysis = ({
+  periodType = 'weekly', windowIndex = 0, rankingsEnabled = true, historyEnabled = true,
+}: UseCryptoAnalysisOpts = {}) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -68,6 +75,7 @@ export const useCryptoAnalysis = ({ periodType = 'weekly', windowIndex = 0 }: Us
       return resp.json();
     },
     staleTime: 60000,
+    enabled: historyEnabled,
   });
 
   const periodicReportsQuery = useQuery<{ reports: PeriodicReport[] }>({
@@ -101,6 +109,7 @@ export const useCryptoAnalysis = ({ periodType = 'weekly', windowIndex = 0 }: Us
     },
     staleTime: 30000,
     refetchInterval: 60000,
+    enabled: rankingsEnabled,
   });
 
   const submitCsv = async (rows: CsvRow[], reportDate: string, title: string, fileCount: number) => {
