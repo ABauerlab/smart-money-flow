@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -385,6 +385,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      crypto_window_sums: {
+        Args: { p_access_code: string; p_end: string; p_start: string }
+        Returns: {
+          last_stamp: string
+          symbol: string
+          total: number
+        }[]
+      }
       rl_check: {
         Args: { p_key: string; p_max: number; p_window_seconds: number }
         Returns: {
