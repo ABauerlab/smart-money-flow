@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { fetchAllRows } from "./pagination.ts";
 import { manualUploadFingerprint } from "./dedupe.ts";
+import { businessDateBR, getISOWeek, fmtDate, sumMentions, resolveWindow } from "./windows.ts";
 
 // ---- CORS allowlist ----
 // Only browsers on these origins may read the response. CORS doesn't stop a
@@ -42,51 +43,6 @@ function nowInBrasilia(): Date {
   const get = (t: string) => parts.find(p => p.type === t)?.value ?? '00';
   return new Date(`${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`);
 }
-
-// Crypto trades 24/7, so the daily/weekly/monthly report cycle rolls over at
-// 21:00 Brasília time (lined up with the VPS's daily Ásia session) instead of
-// local midnight — any moment at or after 21:00 belongs to the NEXT calendar
-// day's business date. Weekly closes with that Sunday's 21:00 rollover, and
-// monthly closes with the 21:00 rollover of the month's last day, both for
-// free since they're derived from this same adjusted date.
-function businessDateBR(instant: Date): Date {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
-  }).formatToParts(instant);
-  const get = (t: string) => parts.find(p => p.type === t)?.value ?? '0';
-  const y = Number(get('year')), mo = Number(get('month')), d = Number(get('day')), h = Number(get('hour'));
-  const base = new Date(Date.UTC(y, mo - 1, d));
-  if (h >= 21) base.setUTCDate(base.getUTCDate() + 1);
-  return base;
-}
-
-function getISOWeek(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
-
-// Monday->Sunday window for the week containing `ref` (crypto trades every day,
-// so the week runs the full 7 days and closes with Sunday's 21:00 rollover —
-// pass a businessDateBR-adjusted `ref` so that rollover is already baked in).
-function getWeekRange(ref: Date): { start: Date; end: Date } {
-  const d = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()));
-  const dow = d.getUTCDay() || 7; // 1=Mon..7=Sun
-  const monday = new Date(d); monday.setUTCDate(d.getUTCDate() - (dow - 1));
-  const sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
-  return { start: monday, end: sunday };
-}
-
-// Week-of-month index (1..5), based on the calendar day of the week's Monday.
-// Not capped: a Monday on the 29th-31st is a genuine 5th week, and capping it to 4
-// gave two different weeks the same "SEMANA 4" label in the weekly list.
-function weekOfMonth(d: Date): number {
-  return Math.ceil(d.getUTCDate() / 7);
-}
-
-function fmtDate(d: Date): string { return d.toISOString().split('T')[0]; }
 
 // The VPS names each export with its own generation timestamp, e.g.
 // "relatorio_2026-09-25_18-39-54.csv". That's the authoritative moment the
@@ -153,27 +109,6 @@ function normalizeRegion(r: any): 'asia' | 'west' {
 }
 
 const REGION_LABEL: Record<string,string> = { asia: 'Mercado Asiático', west: 'Mercado Ocidental (Europa + Américas)' };
-
-const MONTHS_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-
-// Sum the REPETIÇÃO column per symbol; tie-break by most recent date/time.
-function sumMentions(mentions: any[]): { symbol: string; count: number }[] {
-  const agg: Record<string, { count: number; last: string }> = {};
-  for (const m of mentions) {
-    const sym = String(m.symbol || '').toUpperCase();
-    if (!sym) continue;
-    const rep = Number(m.repetition);
-    const value = Number.isFinite(rep) && rep > 0 ? rep : 1;
-    const stamp = `${m.report_date || ''} ${m.report_time || ''}`.trim();
-    if (!agg[sym]) agg[sym] = { count: 0, last: '' };
-    agg[sym].count += value;
-    if (stamp > agg[sym].last) agg[sym].last = stamp;
-  }
-  return Object.entries(agg)
-    .map(([symbol, v]) => ({ symbol, count: v.count, last: v.last }))
-    .sort((a, b) => (b.count - a.count) || (b.last > a.last ? 1 : -1))
-    .map(({ symbol, count }) => ({ symbol, count }));
-}
 
 // Two-stage pipeline: sumMentions() below already does the CSV consolidation
 // (sum REPETIÇÃO per symbol, rank descending) in plain code, not via the AI —
@@ -693,36 +628,6 @@ function auditLog(supabase: any, entry: { ip: string; code: string; action: stri
   }).then(({ error }: any) => { if (error) console.error('audit log insert failed:', error.message); });
 }
 
-// Resolve a date window from periodType + windowIndex (relative to "now").
-// periodType: 'daily' | 'weekly' | 'monthly'
-// windowIndex semantics:
-//   daily   : 0 = today (current 21:00-21:00 business day), 1 = the previous one, ... up to ~30
-//   weekly  : 0 = current week (Mon-Sun, closing Sunday 21:00); 1..N = previous weeks
-//   monthly : 0 = current month (closing the last day's 21:00); 1..N = previous calendar months
-function resolveWindow(periodType: string, windowIndex: number, now = new Date()): { start: string; end: string; label: string } {
-  const idx = Math.max(0, Math.min(60, Number(windowIndex) || 0));
-  const businessNow = businessDateBR(now);
-  if (periodType === 'daily') {
-    const d = new Date(businessNow);
-    d.setUTCDate(d.getUTCDate() - idx);
-    const s = fmtDate(d);
-    return { start: s, end: s, label: idx === 0 ? 'Hoje' : `D-${idx}` };
-  }
-  if (periodType === 'weekly') {
-    const ref = new Date(businessNow); ref.setUTCDate(ref.getUTCDate() - idx * 7);
-    const { start, end } = getWeekRange(ref);
-    const wom = weekOfMonth(start);
-    const label = `SEMANA ${wom} - ${MONTHS_PT[start.getUTCMonth()]}`;
-    return { start: fmtDate(start), end: fmtDate(end), label };
-  }
-  // monthly
-  const y = businessNow.getUTCFullYear();
-  const m = businessNow.getUTCMonth() - idx;
-  const start = new Date(Date.UTC(y, m, 1));
-  const end = new Date(Date.UTC(y, m + 1, 0));
-  return { start: fmtDate(start), end: fmtDate(end), label: `${MONTHS_PT[start.getUTCMonth()]} ${start.getUTCFullYear()}` };
-}
-
 // Every crypto_mentions row of a window, read to the end. Never use a bare
 // .select() for this: PostgREST silently truncates at 1000 rows (see pagination.ts),
 // which made the weekly/monthly sums stop growing once a window passed ~1000 rows.
@@ -758,6 +663,24 @@ async function getWindowRanking(
   const mentions = await fetchWindowMentions(supabase, accessCode, win);
   const ranking = sumMentions(mentions);
   return { ranking, total: ranking.reduce((s, r) => s + r.count, 0) };
+}
+
+// Every ingestion/reprocess inserts a NEW periodic report for its window, and only
+// the newest per (type, start, end) is ever shown. Once a new report carries an AI
+// screening, older ones for the same window are dead weight, so they are removed to
+// keep the table from growing by ~4 rows/day forever. A new report WITHOUT analysis
+// (AI call failed) never deletes anything, so a good older screening isn't lost.
+async function pruneSupersededReports(supabase: any, accessCode: string, report: any) {
+  if (!report?.id || !report.ai_analysis) return;
+  const { error } = await supabase
+    .from('crypto_periodic_reports')
+    .delete()
+    .eq('access_code', accessCode)
+    .eq('period_type', report.period_type)
+    .eq('period_start', report.period_start)
+    .eq('period_end', report.period_end)
+    .neq('id', report.id);
+  if (error) console.error('prune superseded reports failed:', error.message);
 }
 
 // Shared by the manual "generate-periodic" action and by the automatic call
@@ -801,6 +724,7 @@ async function generateAIPeriodicReport(
     .select()
     .single();
   if (insertErr) throw insertErr;
+  await pruneSupersededReports(supabase, accessCode, report);
 
   return { report, aiModelUsed };
 }
@@ -1050,6 +974,37 @@ serve(async (req) => {
           sourceFileName: r.source_file_name,
         })),
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ========== HEALTH (reconciliation check) ==========
+    // Compares the database-side aggregate against an independent paginated read of
+    // the raw rows for the current daily and weekly windows, and reports how old the
+    // last ingested round is. A mismatch means the numbers shown in "Listas" are wrong
+    // (exactly what the 1000-row truncation did, silently, for days). Read-only.
+    if (action === 'health') {
+      const checks = [] as Array<{ window: string; start: string; end: string; aggregateTotal: number; rowsTotal: number; match: boolean }>;
+      for (const periodType of ['daily', 'weekly'] as const) {
+        const win = resolveWindow(periodType, 0);
+        const { total: aggregateTotal } = await getWindowRanking(supabase, accessCode, win);
+        const rows = await fetchWindowMentions(supabase, accessCode, win);
+        const rowsTotal = sumMentions(rows).reduce((sum, r) => sum + r.count, 0);
+        checks.push({ window: win.label, start: win.start, end: win.end, aggregateTotal, rowsTotal, match: aggregateTotal === rowsTotal });
+      }
+      const { data: last } = await supabase
+        .from('crypto_report_submissions')
+        .select('created_at, source_modified_time')
+        .eq('access_code', accessCode)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const lastAt = last?.[0]?.source_modified_time || last?.[0]?.created_at || null;
+      const minutesSinceLastRound = lastAt ? Math.round((Date.now() - new Date(lastAt).getTime()) / 60000) : null;
+      // 9h = longest normal gap between the 4 daily reports (21:00 -> 05:00) plus slack.
+      const stale = minutesSinceLastRound === null || minutesSinceLastRound > 9 * 60;
+      const ok = checks.every(c => c.match) && !stale;
+      return new Response(JSON.stringify({ ok, stale, minutesSinceLastRound, lastRoundAt: lastAt, checks }), {
+        status: ok ? 200 : 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // ========== RANKINGS (single market, summed by repetition + window) ==========
@@ -1391,6 +1346,7 @@ serve(async (req) => {
         .select()
         .single();
       if (insertErr) throw insertErr;
+      await pruneSupersededReports(supabase, accessCode, report);
 
       return new Response(JSON.stringify({
         success: true, altaRankings, report, aiModelUsed,

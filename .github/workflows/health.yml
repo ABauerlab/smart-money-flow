@@ -1,0 +1,38 @@
+name: Health check (listas)
+
+# Every 2 hours, asks the crypto-analysis function to reconcile the summed totals
+# (database aggregate vs. raw rows) and to report how old the last ingested round is.
+# The job FAILS when totals diverge or no report arrived for more than 9h, so GitHub
+# emails the repo owners: the client no longer has to be the one who notices.
+#
+# Needs one repository secret: HEALTH_ACCESS_CODE (an active client access code).
+# Without it the job is skipped instead of failing.
+
+on:
+  schedule:
+    - cron: "17 */2 * * *"
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    env:
+      HEALTH_ACCESS_CODE: ${{ secrets.HEALTH_ACCESS_CODE }}
+      # Public values, already embedded in the client bundle (.env).
+      FUNCTION_URL: https://xinzvskuxnxgjrcqncmy.supabase.co/functions/v1/crypto-analysis
+      PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Check
+        run: |
+          if [ -z "$HEALTH_ACCESS_CODE" ]; then
+            echo "HEALTH_ACCESS_CODE not set, skipping."; exit 0
+          fi
+          status=$(curl -sS -m 90 -o health.json -w '%{http_code}' -X POST "$FUNCTION_URL?action=health" \
+            -H "Authorization: Bearer $PUBLISHABLE_KEY" -H "Content-Type: application/json" \
+            -d "{\"accessCode\":\"$HEALTH_ACCESS_CODE\"}")
+          python3 - <<'PY'
+          import json
+          d = json.load(open("health.json"))
+          print(json.dumps({k: v for k, v in d.items()}, indent=2))
+          PY
+          [ "$status" = "200" ] || { echo "::error::Health check failed (HTTP $status)"; exit 1; }
