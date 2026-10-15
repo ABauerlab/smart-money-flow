@@ -102,7 +102,7 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
             </Select>
           </div>
 
-          <Tabs value={viewType} onValueChange={(v) => setViewType(v as any)} className="w-auto">
+          <Tabs value={viewType} onValueChange={(v) => setViewType(v as 'daily' | 'monthly')} className="w-auto">
             <TabsList className="h-8 bg-secondary/30 border border-border/50">
               <TabsTrigger value="daily" className="text-xs h-6">Diário</TabsTrigger>
               <TabsTrigger value="monthly" className="text-xs h-6">Mensal</TabsTrigger>
@@ -143,11 +143,13 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                 }}
                 labelStyle={{ color: 'hsl(var(--foreground))' }}
                 itemStyle={{ color: 'hsl(var(--foreground))' }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recharts tooltip payload is loosely typed
                 labelFormatter={(label: string, payload: any) => {
                   const p = payload?.[0]?.payload;
                   const dateStr = p?.date ? formatBRDate(p.date) : '';
                   return dateStr ? `${label} (${dateStr})` : label;
                 }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recharts tooltip item is loosely typed
                 formatter={(v: number, _n: any, item: any) => {
                   const status = v > 120 ? 'Alta atividade' : v < 80 ? 'Baixa atividade' : 'Normal';
                   const proxyTag = item?.payload?.source === 'proxy' ? ' (proxy)' : '';
@@ -163,10 +165,10 @@ export const VolumeCharts = ({ markets }: VolumeChartsProps) => {
                   { value: 'Alta (>120%)', type: 'square', color: 'hsl(var(--bullish))' },
                   { value: 'Normal', type: 'square', color: 'hsl(var(--primary))' },
                   { value: 'Baixa (<80%)', type: 'square', color: 'hsl(var(--bearish))' },
-                ] as any}
+                ] as never}
               />
               <Bar dataKey="ratio" radius={[6, 6, 0, 0]} maxBarSize={60}>
-                {chartData.map((entry: any, index: number) => (
+                {(chartData as { ratio: number }[]).map((entry, index) => (
                   <Cell 
                     key={`cell-${index}`} 
                     fill={entry.ratio > 120 ? 'hsl(var(--bullish))' : entry.ratio < 80 ? 'hsl(var(--bearish))' : 'hsl(var(--primary))'} 

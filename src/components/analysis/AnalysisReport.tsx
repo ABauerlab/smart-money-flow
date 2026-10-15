@@ -178,7 +178,7 @@ function exportReportPdf(title: string, summary: string, createdAt: string, cryp
       headStyles: { fillColor: [16, 185, 129], textColor: [0, 0, 0], fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [20, 24, 38] },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
   }
 
   if (baixaSection?.rows && baixaSection.rows.length > 0) {
@@ -197,7 +197,7 @@ function exportReportPdf(title: string, summary: string, createdAt: string, cryp
       headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [20, 24, 38] },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
   }
 
   // Summary text

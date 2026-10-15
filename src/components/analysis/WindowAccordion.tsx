@@ -17,7 +17,13 @@ const WindowRow = ({ periodType, windowIndex, label, defaultOpen }: {
 }) => {
   const [open, setOpen] = useState(!!defaultOpen);
   const { altaRankings, isLoadingRankings, rankingsWindow, totalMentions, refreshLists, isRefreshingLists, periodicReports } =
-    useCryptoAnalysis({ periodType, windowIndex });
+    useCryptoAnalysis({ periodType, windowIndex, rankingsEnabled: open, historyEnabled: false });
+
+  // The server resolves the window with the 21h (Brasília) rollover; the label
+  // computed client-side from the browser clock can lag it (e.g. Sunday 21h-24h,
+  // when the server is already in the next week). Prefer the server's label once
+  // loaded so the title always matches the dates and numbers shown below it.
+  const displayLabel = rankingsWindow?.label || label;
 
   // The periodic-reports list isn't scoped by window server-side, so match
   // the report whose own period_type/start/end lines up with this window's
@@ -37,7 +43,7 @@ const WindowRow = ({ periodType, windowIndex, label, defaultOpen }: {
         className="w-full flex items-center justify-between p-3 hover:bg-secondary/20 transition-colors text-left"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-foreground">{label}</span>
+          <span className="text-sm font-semibold text-foreground">{displayLabel}</span>
           {open && rankingsWindow && (
             <span className="text-xs text-muted-foreground font-mono">
               {rankingsWindow.start}{rankingsWindow.start !== rankingsWindow.end ? ` → ${rankingsWindow.end}` : ''}
