@@ -18,17 +18,22 @@ language sql
 stable
 set search_path = public
 as $$
-  select
-    upper(m.symbol) as symbol,
-    sum(case when coalesce(m.repetition, 0) > 0 then m.repetition else 1 end)::bigint as total,
-    max(btrim(m.report_date::text || ' ' || coalesce(m.report_time, ''))) as last_stamp
-  from public.crypto_mentions m
-  where m.access_code = p_access_code
-    and m.report_date >= p_start
-    and m.report_date <= p_end
-    and btrim(coalesce(m.symbol, '')) <> ''
-  group by upper(m.symbol)
-  order by total desc, last_stamp collate "C" desc;
+  select s.symbol, s.total, s.last_stamp
+  from (
+    select
+      upper(m.symbol) as symbol,
+      sum(case when coalesce(m.repetition, 0) > 0 then m.repetition else 1 end)::bigint as total,
+      max(btrim(m.report_date::text || ' ' || coalesce(m.report_time, ''))) as last_stamp
+    from public.crypto_mentions m
+    where m.access_code = p_access_code
+      and m.report_date >= p_start
+      and m.report_date <= p_end
+      and btrim(coalesce(m.symbol, '')) <> ''
+    group by upper(m.symbol)
+  ) s
+  -- Subquery so the output aliases can be used inside an ORDER BY expression
+  -- (ORDER BY ... COLLATE on a bare alias is rejected by Postgres).
+  order by s.total desc, s.last_stamp collate "C" desc;
 $$;
 
 -- Only the edge function (service role) may call it.
