@@ -100,7 +100,7 @@ export function exportPeriodicReportPdf(report: PeriodicReport) {
       },
     });
 
-    y = (doc as any).lastAutoTable.finalY + 12;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 12;
   }
 
   // AI Analysis

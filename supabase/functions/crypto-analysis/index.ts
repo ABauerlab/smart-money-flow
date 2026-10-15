@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { fetchAllRows } from "./pagination.ts";
+import { manualUploadFingerprint } from "./dedupe.ts";
 
 // ---- CORS allowlist ----
 // Only browsers on these origins may read the response. CORS doesn't stop a
@@ -78,9 +79,11 @@ function getWeekRange(ref: Date): { start: Date; end: Date } {
   return { start: monday, end: sunday };
 }
 
-// Week-of-month index (1..4), based on calendar day, capping a 5th week into 4.
+// Week-of-month index (1..5), based on the calendar day of the week's Monday.
+// Not capped: a Monday on the 29th-31st is a genuine 5th week, and capping it to 4
+// gave two different weeks the same "SEMANA 4" label in the weekly list.
 function weekOfMonth(d: Date): number {
-  return Math.min(4, Math.ceil(d.getUTCDate() / 7));
+  return Math.ceil(d.getUTCDate() / 7);
 }
 
 function fmtDate(d: Date): string { return d.toISOString().split('T')[0]; }
@@ -736,6 +739,27 @@ function fetchWindowMentions(supabase: any, accessCode: string, win: { start: st
   );
 }
 
+// Summed ranking of a window plus its total repetitions. Prefers the database-side
+// aggregate (crypto_window_sums: one row per symbol, so it is immune to the 1000-row
+// cap and much cheaper than shipping every mention). Falls back to the paginated row
+// read if the function isn't deployed yet or returns a full 1000-row page (which
+// PostgREST could have truncated), so the numbers are right either way.
+async function getWindowRanking(
+  supabase: any, accessCode: string, win: { start: string; end: string },
+): Promise<{ ranking: { symbol: string; count: number }[]; total: number }> {
+  const { data, error } = await supabase.rpc('crypto_window_sums', {
+    p_access_code: accessCode, p_start: win.start, p_end: win.end,
+  });
+  if (!error && Array.isArray(data) && data.length < 1000) {
+    const ranking = data.map((r: any) => ({ symbol: String(r.symbol), count: Number(r.total) }));
+    return { ranking, total: ranking.reduce((s: number, r: { count: number }) => s + r.count, 0) };
+  }
+  if (error) console.error('crypto_window_sums unavailable, using paginated fallback:', error.message);
+  const mentions = await fetchWindowMentions(supabase, accessCode, win);
+  const ranking = sumMentions(mentions);
+  return { ranking, total: ranking.reduce((s, r) => s + r.count, 0) };
+}
+
 // Shared by the manual "generate-periodic" action and by the automatic call
 // fired after every CSV ingestion (analyze-csv), so a report produced by the
 // Make.com/VPS pipeline goes through the exact same 18-step AI screening as
@@ -745,9 +769,7 @@ async function generateAIPeriodicReport(
 ): Promise<{ report: any; aiModelUsed: string }> {
   const win = resolveWindow(periodType, windowIndex);
 
-  const mentions = await fetchWindowMentions(supabase, accessCode, win);
-
-  const altaRankings = sumMentions(mentions || []);
+  const { ranking: altaRankings, total: totalRepetitions } = await getWindowRanking(supabase, accessCode, win);
   const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
 
   let aiAnalysis = '';
@@ -758,7 +780,7 @@ async function generateAIPeriodicReport(
     const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
     const aiResult = await callAI([
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
+      { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${totalRepetitions}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
     ]);
     if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
   }
@@ -1040,14 +1062,12 @@ serve(async (req) => {
       const windowIndex = Number(reqBody.windowIndex || 0);
       const win = resolveWindow(periodType, windowIndex);
 
-      const mentions = await fetchWindowMentions(supabase, accessCode, win);
-
-      const altaRankings = sumMentions(mentions);
+      const { ranking: altaRankings, total: totalMentions } = await getWindowRanking(supabase, accessCode, win);
 
       return new Response(JSON.stringify({
         altaRankings,
         window: { ...win, periodType, windowIndex },
-        totalMentions: (mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0),
+        totalMentions,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -1115,7 +1135,7 @@ serve(async (req) => {
     if (action === 'analyze' || action === 'analyze-csv') {
       const { rows: rowsIn, csvText, title: titleRaw, reportDate: fallbackDate, fileCount } = reqBody;
       const title = typeof titleRaw === 'string' ? titleRaw.slice(0, 200) : titleRaw;
-      const sourceFileId = typeof reqBody.sourceFileId === 'string' ? reqBody.sourceFileId.slice(0, 200) : null;
+      let sourceFileId = typeof reqBody.sourceFileId === 'string' ? reqBody.sourceFileId.slice(0, 200) : null;
       const sourceFileName = typeof reqBody.sourceFileName === 'string' ? reqBody.sourceFileName.slice(0, 300) : null;
       const driveModifiedTime = typeof reqBody.sourceModifiedTime === 'string' && !isNaN(Date.parse(reqBody.sourceModifiedTime))
         ? new Date(reqBody.sourceModifiedTime).toISOString()
@@ -1208,6 +1228,26 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Nenhuma linha válida encontrada no CSV.' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
+
+      // Manual uploads (web "Enviar" tab) carry no Drive file id, so a repeated send of
+      // the same file used to double that round's counts. Fingerprint the content
+      // (+ access code + report date) and reuse the source_file_id uniqueness the
+      // automation already relies on: an identical re-send returns the existing round.
+      if (!sourceFileId) {
+        sourceFileId = await manualUploadFingerprint(accessCode, defaultDate, mentionRows);
+        const { data: existing } = await supabase
+          .from('crypto_report_submissions')
+          .select('id, analysis_id, crypto_analyses(id, title, summary, crypto_symbols, created_at)')
+          .eq('source_file_id', sourceFileId)
+          .eq('access_code', accessCode)
+          .maybeSingle();
+        if (existing) {
+          return new Response(JSON.stringify({
+            duplicate: true,
+            analysis: existing.crypto_analyses,
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
       }
 
       // Summed view of this upload (single market).
@@ -1319,9 +1359,7 @@ serve(async (req) => {
       const windowIndex = Number(reqBody.windowIndex || 0);
       const win = resolveWindow(periodType, windowIndex);
 
-      const mentions = await fetchWindowMentions(supabase, accessCode, win);
-
-      const altaRankings = sumMentions(mentions || []);
+      const { ranking: altaRankings, total: totalRepetitions } = await getWindowRanking(supabase, accessCode, win);
       const rankings = altaRankings.map(r => ({ symbol: r.symbol, total: r.count, alta: r.count, baixa: 0, volume: 0 }));
 
       let aiAnalysis = '';
@@ -1332,7 +1370,7 @@ serve(async (req) => {
         const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
         const aiResult = await callAI([
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Atualização de listas.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos: ${rankings.length}\nTotal de repetições: ${(mentions || []).reduce((s: number, m: any) => s + (Number(m.repetition) || 0), 0)}\n\nReanalise os padrões atuais deste recorte isolado. Não use emojis.` },
+          { role: 'user', content: `Atualização de listas.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos: ${rankings.length}\nTotal de repetições: ${totalRepetitions}\n\nReanalise os padrões atuais deste recorte isolado. Não use emojis.` },
         ]);
         if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
       }

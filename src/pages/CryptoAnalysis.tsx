@@ -7,6 +7,7 @@ import { AnalysisReport } from '@/components/analysis/AnalysisReport';
 import { AnalysisHistory } from '@/components/analysis/AnalysisHistory';
 import { WindowAccordion } from '@/components/analysis/WindowAccordion';
 import { OperationalDashboard } from '@/components/analysis/OperationalDashboard';
+import { StaleDataBanner } from '@/components/analysis/StaleDataBanner';
 import { useCryptoAnalysis, type PeriodType } from '@/hooks/useCryptoAnalysis';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -104,6 +105,14 @@ const AccessCodeGate = ({ onAccess }: { onAccess: (code: string) => void }) => {
   );
 };
 
+interface CurrentReport {
+  title: string;
+  summary: string;
+  created_at: string;
+  crypto_symbols?: string[];
+  detectedCryptos?: string[];
+}
+
 const MONTHS_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 
 // Build window list per period type
@@ -124,7 +133,7 @@ function buildWindows(periodType: PeriodType): { index: number; label: string }[
       const ref = new Date(now); ref.setDate(ref.getDate() - i * 7);
       const dow = ref.getDay() || 7;
       const monday = new Date(ref); monday.setDate(ref.getDate() - (dow - 1));
-      const wom = Math.min(4, Math.ceil(monday.getDate() / 7));
+      const wom = Math.ceil(monday.getDate() / 7);
       out.push({ index: i, label: `SEMANA ${wom} - ${MONTHS_PT[monday.getMonth()]}` });
     }
     return out;
@@ -142,7 +151,7 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
   const [files, setFiles] = useState<ParsedCsvFile[]>([]);
   const [title, setTitle] = useState('');
   const [reportDate, setReportDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [currentReport, setCurrentReport] = useState<any>(null);
+  const [currentReport, setCurrentReport] = useState<CurrentReport | null>(null);
   const [periodType, setPeriodType] = useState<PeriodType>('weekly');
 
   const { isAnalyzing, submitCsv, history, isLoadingHistory, deleteAnalyses, isDeleting } = useCryptoAnalysis();
@@ -203,6 +212,8 @@ const AnalysisPanel = ({ accessCode, onLogout }: { accessCode: string; onLogout:
               <p>Cadência: <strong>4 relatórios/dia</strong>, 05:00 Londres, 10:30 América, 13:30 América, 21:00 Ásia (consolidados ~15h).</p>
               <p>A semana vai de <strong>segunda a domingo</strong>; o somatório fecha às 21h de domingo e recomeça do zero.</p>
             </div>
+
+            <StaleDataBanner />
 
             <div className="flex gap-2">
               {(['daily','weekly','monthly'] as PeriodType[]).map(p => (

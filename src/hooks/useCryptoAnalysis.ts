@@ -24,6 +24,14 @@ interface CryptoAnalysis {
 
 interface SeparateRanking { symbol: string; count: number; }
 
+export interface RankingsWindow {
+  start: string;
+  end: string;
+  label: string;
+  periodType: PeriodType;
+  windowIndex: number;
+}
+
 export interface PeriodicReport {
   id: string;
   period_type: string;
@@ -97,7 +105,7 @@ export const useCryptoAnalysis = ({
     refetchInterval: 60000,
   });
 
-  const rankingsQuery = useQuery<{ altaRankings: SeparateRanking[]; window: any; totalMentions: number }>({
+  const rankingsQuery = useQuery<{ altaRankings: SeparateRanking[]; window: RankingsWindow; totalMentions: number }>({
     queryKey: ['crypto-rankings', periodType, windowIndex],
     queryFn: async () => {
       const resp = await fetch(`${BASE_URL}?action=rankings`, {
@@ -122,7 +130,11 @@ export const useCryptoAnalysis = ({
       if (resp.status === 429) { toast({ title: 'Limite atingido', description: 'Tente novamente em alguns minutos.', variant: 'destructive' }); return null; }
       if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'Erro no envio'); }
       const data = await resp.json();
-      toast({ title: 'Relatórios somados!', description: `${data.analysis?.totalRows || 0} linhas processadas.` });
+      if (data.duplicate) {
+        toast({ title: 'Arquivo já enviado', description: 'Esse conteúdo já foi somado para esta data, então não foi contado de novo.' });
+      } else {
+        toast({ title: 'Relatórios somados!', description: `${data.analysis?.totalRows || 0} linhas processadas.` });
+      }
       queryClient.invalidateQueries({ queryKey: ['crypto-analyses'] });
       queryClient.invalidateQueries({ queryKey: ['crypto-rankings'] });
       return data.analysis;
