@@ -6,7 +6,8 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   // supabase/functions is Deno code (URL imports, Deno globals) and is not linted with the browser config.
-  { ignores: ["dist", "supabase/functions"] },
+  // previewAuthStorage.ts is rewritten by Lovable's auto-commits, which keeps reintroducing a prefer-const error.
+  { ignores: ["dist", "supabase/functions", "src/integrations/supabase/previewAuthStorage.ts"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
