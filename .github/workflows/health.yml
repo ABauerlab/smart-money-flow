@@ -19,7 +19,7 @@ jobs:
     env:
       HEALTH_ACCESS_CODE: ${{ secrets.HEALTH_ACCESS_CODE }}
       # Public values, already embedded in the client bundle (.env).
-      FUNCTION_URL: https://xinzvskuxnxgjrcqncmy.supabase.co/functions/v1/crypto-analysis
+      FUNCTION_URL: https://erwbgzuksqwrgzvounqj.supabase.co/functions/v1/crypto-analysis
       PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - name: Check

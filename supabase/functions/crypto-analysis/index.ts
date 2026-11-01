@@ -806,7 +806,19 @@ serve(async (req) => {
         .then(({ error }: any) => { if (error) console.error('last_used_at update failed:', error.message); });
     }
 
-    if (expensiveActions.has(action)) {
+    // Bulk history import (skipAi): inserts rounds without calling the AI, so it does
+    // not carry the AI-cost risk. It gets its own, larger budget (DB writes only).
+    const bulkImport = (action === 'analyze' || action === 'analyze-csv') && reqBody.skipAi === true;
+
+    if (bulkImport) {
+      const bulkRl = await rateLimitBucket(supabase, `bulk:${accessCode}`, 120);
+      if (!bulkRl.ok) {
+        return new Response(
+          JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${bulkRl.retryAfter}s.` }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(bulkRl.retryAfter) } },
+        );
+      }
+    } else if (expensiveActions.has(action)) {
       const [rl, codeRl] = await Promise.all([
         rateLimit(supabase, `${accessCode}:${ip}:${action}`),
         codeRateLimit(supabase, accessCode),
@@ -1310,7 +1322,7 @@ serve(async (req) => {
       // person happens to click. Backgrounded via waitUntil: it can take several
       // seconds (AI call), and must not delay the response back to the VPS macro's
       // synchronous HTTP request or Make's module timeout.
-      if (submission) {
+      if (submission && !bulkImport) {
         const bgReport = generateAIPeriodicReport(supabase, accessCode, 'daily', 0)
           .catch((e) => console.error('Background daily AI report failed:', e));
         // @ts-ignore EdgeRuntime is a Deno Deploy/Supabase global, not in the TS lib defs.
