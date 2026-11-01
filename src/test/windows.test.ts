@@ -70,3 +70,14 @@ describe("sumMentions", () => {
     expect(out.map(r => r.symbol)).toEqual(["BBB", "AAA"]);
   });
 });
+
+describe("sumMentions blank/padded symbols (must match crypto_window_sums SQL)", () => {
+  it("skips whitespace-only symbols and merges padded ones", () => {
+    const out = sumMentions([
+      { symbol: "  ", repetition: 3 },
+      { symbol: " btc ", repetition: 2 },
+      { symbol: "BTC", repetition: 1 },
+    ]);
+    expect(out).toEqual([{ symbol: "BTC", count: 3 }]);
+  });
+});

@@ -982,26 +982,45 @@ serve(async (req) => {
     // last ingested round is. A mismatch means the numbers shown in "Listas" are wrong
     // (exactly what the 1000-row truncation did, silently, for days). Read-only.
     if (action === 'health') {
-      const checks = [] as Array<{ window: string; start: string; end: string; aggregateTotal: number; rowsTotal: number; match: boolean }>;
-      for (const periodType of ['daily', 'weekly'] as const) {
-        const win = resolveWindow(periodType, 0);
+      type Check = { window: string; start: string; end: string; aggregateTotal: number; rowsTotal: number; match: boolean; retried?: boolean };
+      const reconcile = async (win: { start: string; end: string; label: string }): Promise<Check> => {
         const { total: aggregateTotal } = await getWindowRanking(supabase, accessCode, win);
         const rows = await fetchWindowMentions(supabase, accessCode, win);
         const rowsTotal = sumMentions(rows).reduce((sum, r) => sum + r.count, 0);
-        checks.push({ window: win.label, start: win.start, end: win.end, aggregateTotal, rowsTotal, match: aggregateTotal === rowsTotal });
+        return { window: win.label, start: win.start, end: win.end, aggregateTotal, rowsTotal, match: aggregateTotal === rowsTotal };
+      };
+      const checks: Check[] = [];
+      for (const periodType of ['daily', 'weekly'] as const) {
+        const win = resolveWindow(periodType, 0);
+        let check = await reconcile(win);
+        // A round ingested between the two reads makes them differ for a moment;
+        // that is not a data problem. Look again before calling it a mismatch.
+        if (!check.match) {
+          await new Promise(r => setTimeout(r, 2000));
+          check = { ...(await reconcile(win)), retried: true };
+        }
+        checks.push(check);
       }
-      const { data: last } = await supabase
+      // Order by the report's own timestamp (what "stale" is about), not by insert time,
+      // so a late reprocess of an old file cannot hide a stopped pipeline.
+      const { data: last, error: lastErr } = await supabase
         .from('crypto_report_submissions')
         .select('created_at, source_modified_time')
         .eq('access_code', accessCode)
+        .order('source_modified_time', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(1);
+      // A failed query is NOT "no round yet": surface it as a real error (caught below, HTTP 500).
+      if (lastErr) throw lastErr;
       const lastAt = last?.[0]?.source_modified_time || last?.[0]?.created_at || null;
       const minutesSinceLastRound = lastAt ? Math.round((Date.now() - new Date(lastAt).getTime()) / 60000) : null;
       // 9h = longest normal gap between the 4 daily reports (21:00 -> 05:00) plus slack.
-      const stale = minutesSinceLastRound === null || minutesSinceLastRound > 9 * 60;
-      const ok = checks.every(c => c.match) && !stale;
-      return new Response(JSON.stringify({ ok, stale, minutesSinceLastRound, lastRoundAt: lastAt, checks }), {
+      const noRounds = lastAt === null;
+      const stale = noRounds || (minutesSinceLastRound as number) > 9 * 60;
+      const mismatch = checks.some(c => !c.match);
+      const ok = !mismatch && !stale;
+      const reason = ok ? 'ok' : noRounds ? 'no_rounds' : stale && mismatch ? 'stale_and_mismatch' : stale ? 'stale' : 'mismatch';
+      return new Response(JSON.stringify({ ok, reason, stale, noRounds, minutesSinceLastRound, lastRoundAt: lastAt, checks }), {
         status: ok ? 200 : 503,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
