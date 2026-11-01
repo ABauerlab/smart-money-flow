@@ -545,18 +545,35 @@ async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promis
   const body: any = { contents, tools: [{ googleSearch: {} }] };
   if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
 
-  const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-  );
-  if (resp.ok) {
-    const data = await resp.json();
-    const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
-    return { ok: true, status: 200, content, model: `google/${model} (official)` };
+  // Gemini sometimes answers HTTP 200 with no text at all (finishReason MAX_TOKENS/OTHER,
+  // or only grounding metadata). That used to be stored as an "AI report" with an empty
+  // analysis. Treat an empty answer as a failure and retry, then fall back to the
+  // same request without the search tool, before giving up.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  let lastStatus = 200;
+  let lastError = '';
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const payload = attempt === 3 ? { ...body, tools: undefined } : body;
+    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (resp.ok) {
+      const data = await resp.json();
+      const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
+      if (content.trim().length > 0) {
+        return { ok: true, status: 200, content, model: `google/${model} (official)` };
+      }
+      lastStatus = 200;
+      lastError = `empty answer (finishReason=${data.candidates?.[0]?.finishReason ?? 'none'}, blockReason=${data.promptFeedback?.blockReason ?? 'none'})`;
+      console.error(`Gemini attempt ${attempt}/3 returned no text:`, lastError);
+    } else {
+      lastStatus = resp.status;
+      lastError = await resp.text();
+      console.error(`Gemini attempt ${attempt}/3 error:`, resp.status, lastError);
+      // Quota/auth problems will not fix themselves within seconds: stop retrying.
+      if (resp.status === 400 || resp.status === 401 || resp.status === 403) break;
+    }
+    if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
   }
-  const errText = await resp.text();
-  console.error('Gemini official error:', resp.status, errText);
-  return { ok: false, status: resp.status, content: '', model: `google/${model} (official)`, error: errText };
+  return { ok: false, status: lastStatus, content: '', model: `google/${model} (official)`, error: lastError || 'no text' };
 }
 
 async function callLovableGateway(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {

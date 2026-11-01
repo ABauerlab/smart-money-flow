@@ -2,7 +2,7 @@
   Gera de novo os relatorios periodicos com a triagem de IA (Gemini) no banco novo,
   a partir das rodadas ja importadas. Rode UMA vez depois do import-history.ps1.
 
-  Janelas geradas (a mais nova primeiro): diario D0..D2, semanal S0..S5, mensal M0..M1.
+  Janelas geradas (a mais nova primeiro): diario D0..D2, semanal S0..S4, mensal M0..M1.
   Cada chamada usa a IA e leva de 20 a 90 segundos; o script espera entre elas para
   respeitar o limite de 8 chamadas por minuto.
 
@@ -13,7 +13,7 @@ param(
   [Parameter(Mandatory = $true)][string]$AccessCode,
   [string]$Url = "https://erwbgzuksqwrgzvounqj.supabase.co/functions/v1/crypto-analysis?action=generate-periodic",
   [int]$Daily = 3,
-  [int]$Weekly = 6,
+  [int]$Weekly = 5,
   [int]$Monthly = 2
 )
 
