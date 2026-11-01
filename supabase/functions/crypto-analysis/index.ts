@@ -1013,18 +1013,21 @@ serve(async (req) => {
         }
         checks.push(check);
       }
-      // Order by the report's own timestamp (what "stale" is about), not by insert time,
-      // so a late reprocess of an old file cannot hide a stopped pipeline.
+      // "Stale" = no round has ARRIVED recently. Measure from the insert time (created_at),
+      // not from the timestamp in the file name: the VPS clock is not guaranteed to be in
+      // Brasília time (it is currently 4h ahead), which would put the last round in the
+      // future and delay the alert by hours. Rows loaded by the history import
+      // (source_file_id 'import:...') are ignored so a bulk load cannot hide a stopped pipeline.
       const { data: last, error: lastErr } = await supabase
         .from('crypto_report_submissions')
-        .select('created_at, source_modified_time')
+        .select('created_at')
         .eq('access_code', accessCode)
-        .order('source_modified_time', { ascending: false, nullsFirst: false })
+        .or('source_file_id.is.null,source_file_id.not.like.import:%')
         .order('created_at', { ascending: false })
         .limit(1);
       // A failed query is NOT "no round yet": surface it as a real error (caught below, HTTP 500).
       if (lastErr) throw lastErr;
-      const lastAt = last?.[0]?.source_modified_time || last?.[0]?.created_at || null;
+      const lastAt = last?.[0]?.created_at || null;
       const minutesSinceLastRound = lastAt ? Math.round((Date.now() - new Date(lastAt).getTime()) / 60000) : null;
       // 9h = longest normal gap between the 4 daily reports (21:00 -> 05:00) plus slack.
       const noRounds = lastAt === null;
