@@ -214,3 +214,7 @@ revoke all on function public.crypto_window_sums(text, date, date) from public, 
 grant execute on function public.crypto_window_sums(text, date, date) to service_role;
 revoke all on function public.rl_check(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.rl_check(text, integer, integer) to service_role;
+
+-- Lookup used by the "same file name already ingested" idempotency check.
+create index if not exists crypto_report_submissions_code_filename_idx
+  on public.crypto_report_submissions (access_code, source_file_name);

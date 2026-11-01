@@ -1128,6 +1128,24 @@ serve(async (req) => {
         : null;
       const sourceModifiedTime = extractTimestampFromFilename(sourceFileName) || driveModifiedTime;
 
+      // Same file name already ingested for this code (e.g. history imported by name,
+      // then the Drive/VPS automation sends the same file under its Drive id): the VPS
+      // stamps every export with its own generation time, so a name is unique per round.
+      if (sourceFileName) {
+        const { data: sameName } = await supabase
+          .from('crypto_report_submissions')
+          .select('id, analysis_id, crypto_analyses(id, title, summary, crypto_symbols, created_at)')
+          .eq('source_file_name', sourceFileName)
+          .eq('access_code', accessCode)
+          .limit(1);
+        if (sameName && sameName.length > 0) {
+          return new Response(JSON.stringify({
+            duplicate: true,
+            analysis: sameName[0].crypto_analyses,
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+
       // Idempotency: an automation (Make.com) re-polling the same Drive file must not
       // create a second round. One unique index on source_file_id enforces this at the
       // DB level too — this check just returns the existing round instead of erroring.
