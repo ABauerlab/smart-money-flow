@@ -1151,6 +1151,12 @@ serve(async (req) => {
         }
       }
 
+      // One canonical id per exported file, whatever path delivered it (VPS webhook or
+      // Drive polling). The unique index on source_file_id then makes a double delivery
+      // impossible even when both arrive at the same moment (the name check above is only
+      // the fast path; this is the atomic guarantee).
+      if (sourceFileName) sourceFileId = `file:${sourceFileName}`;
+
       // Idempotency: an automation (Make.com) re-polling the same Drive file must not
       // create a second round. One unique index on source_file_id enforces this at the
       // DB level too — this check just returns the existing round instead of erroring.
