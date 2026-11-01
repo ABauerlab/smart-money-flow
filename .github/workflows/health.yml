@@ -19,7 +19,7 @@ jobs:
     env:
       HEALTH_ACCESS_CODE: ${{ secrets.HEALTH_ACCESS_CODE }}
       # Public values, already embedded in the client bundle (.env).
-      FUNCTION_URL: https://xinzvskuxnxgjrcqncmy.supabase.co/functions/v1/crypto-analysis
+      FUNCTION_URL: https://erwbgzuksqwrgzvounqj.supabase.co/functions/v1/crypto-analysis
       PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - name: Check
@@ -27,12 +27,15 @@ jobs:
           if [ -z "$HEALTH_ACCESS_CODE" ]; then
             echo "HEALTH_ACCESS_CODE not set, skipping."; exit 0
           fi
-          status=$(curl -sS -m 90 -o health.json -w '%{http_code}' -X POST "$FUNCTION_URL?action=health" \
-            -H "Authorization: Bearer $PUBLISHABLE_KEY" -H "Content-Type: application/json" \
-            -d "{\"accessCode\":\"$HEALTH_ACCESS_CODE\"}")
-          python3 - <<'PY'
-          import json
-          d = json.load(open("health.json"))
-          print(json.dumps({k: v for k, v in d.items()}, indent=2))
-          PY
-          [ "$status" = "200" ] || { echo "::error::Health check failed (HTTP $status)"; exit 1; }
+          # Up to 3 attempts: cold starts, a transient network blip or a round landing
+          # mid-check must not page anyone. Only a persistent failure fails the job.
+          status=000
+          for attempt in 1 2 3; do
+            status=$(curl -sS -m 90 -o health.json -w '%{http_code}' -X POST "$FUNCTION_URL?action=health" \
+              -H "Authorization: Bearer $PUBLISHABLE_KEY" -H "Content-Type: application/json" \
+              -d "{\"accessCode\":\"$HEALTH_ACCESS_CODE\"}" || echo 000)
+            [ "$status" = "200" ] && break
+            echo "Attempt $attempt returned HTTP $status"; sleep $((attempt * 20))
+          done
+          cat health.json 2>/dev/null || true; echo
+          [ "$status" = "200" ] || { echo "::error::Health check failed (HTTP $status). See body above: reason=stale/no_rounds means the pipeline stopped sending, mismatch means wrong totals, 5xx means the function itself failed."; exit 1; }
