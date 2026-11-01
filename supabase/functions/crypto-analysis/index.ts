@@ -1146,12 +1146,22 @@ serve(async (req) => {
       // the Drive automation posts { sourceFileName, sourceModifiedTime, ... }. Accept both
       // so the same file arriving through both paths is recognised by name and not counted twice.
       const nameRaw = reqBody.sourceFileName ?? reqBody.fileName;
-      const modRaw = reqBody.sourceModifiedTime ?? reqBody.modifiedTime;
       const sourceFileName = typeof nameRaw === 'string' ? nameRaw.slice(0, 300) : null;
-      const driveModifiedTime = typeof modRaw === 'string' && !isNaN(Date.parse(modRaw))
-        ? new Date(modRaw).toISOString()
+      const driveModifiedTime = typeof reqBody.sourceModifiedTime === 'string' && !isNaN(Date.parse(reqBody.sourceModifiedTime))
+        ? new Date(reqBody.sourceModifiedTime).toISOString()
         : null;
-      const sourceModifiedTime = extractTimestampFromFilename(sourceFileName) || driveModifiedTime;
+      // Which clock decides WHEN a round happened (and therefore its 21:00 Brasília day)?
+      // Never the VPS clock: its time zone has been wrong before (4h ahead of Brasília), which
+      // moved the daily/weekly/monthly rollover by hours.
+      //  1. Drive automation: sourceModifiedTime is the file's real modified time in UTC.
+      //  2. VPS macro webhook (fileName + modifiedTime in VPS local time, no zone): the file
+      //     was written seconds ago, so the moment of arrival is the accurate one.
+      //  3. Anything else (history import, manual upload): the time in the file name, read as
+      //     Brasília time (-03:00).
+      const fromVpsMacro = reqBody.sourceFileName === undefined && reqBody.sourceModifiedTime === undefined
+        && typeof reqBody.fileName === 'string';
+      const sourceModifiedTime = driveModifiedTime
+        || (fromVpsMacro ? new Date().toISOString() : extractTimestampFromFilename(sourceFileName));
 
       // Same file name already ingested for this code (e.g. history imported by name,
       // then the Drive/VPS automation sends the same file under its Drive id): the VPS
