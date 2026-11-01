@@ -1,0 +1,61 @@
+name: Deploy edge functions (Supabase)
+
+# Deploys supabase/functions/* to the project's own Supabase (replaces Lovable's
+# auto-deploy). Runs on every push to main that touches the functions, and can be
+# re-run from the Actions tab.
+#
+# One-time setup (repo Settings > Secrets and variables > Actions > Secrets):
+#   SUPABASE_ACCESS_TOKEN  personal token from https://supabase.com/dashboard/account/tokens
+# Optional (same place): GEMINI_API_KEY, BRAPI_API_KEY, ALPHA_VANTAGE_API_KEY,
+#   COINMARKETCAP_API_KEY, NEWS_API_KEY. If set, they are pushed as function secrets.
+
+on:
+  push:
+    branches: [main, claude/blissful-gates-3yd6wv]
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+      - ".github/workflows/deploy-functions.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: erwbgzuksqwrgzvounqj
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check token
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::Secret SUPABASE_ACCESS_TOKEN is missing. Add it in Settings > Secrets and variables > Actions, then re-run this job."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Push function secrets (only those that are set)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BRAPI_API_KEY: ${{ secrets.BRAPI_API_KEY }}
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          COINMARKETCAP_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+        run: |
+          args=()
+          for k in GEMINI_API_KEY BRAPI_API_KEY ALPHA_VANTAGE_API_KEY COINMARKETCAP_API_KEY NEWS_API_KEY; do
+            v="${!k}"
+            [ -n "$v" ] && args+=("$k=$v")
+          done
+          if [ ${#args[@]} -gt 0 ]; then
+            supabase secrets set "${args[@]}" --project-ref "$PROJECT_REF"
+          else
+            echo "No optional secrets provided; set them in the Supabase dashboard instead."
+          fi
+
+      - name: Deploy functions
+        run: supabase functions deploy --project-ref "$PROJECT_REF"
