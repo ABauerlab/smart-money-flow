@@ -3,6 +3,24 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { fetchAllRows } from "./pagination.ts";
 import { manualUploadFingerprint } from "./dedupe.ts";
 import { businessDateBR, getISOWeek, fmtDate, sumMentions, resolveWindow } from "./windows.ts";
+import { evaluateHealth, needsReportRepair, pickReportIds } from "./health.ts";
+
+// Every outbound call (Binance, Gemini, AI gateway) goes through this: an external
+// service that hangs must never hang the report generation (or the isolate) with it.
+// The body is read inside the timeout window too, so a stalled stream is also cut.
+async function fetchTextWithTimeout(
+  url: string, init: RequestInit, timeoutMs: number,
+): Promise<{ ok: boolean; status: number; text: string }> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { ...init, signal: ctrl.signal });
+    return { ok: resp.ok, status: resp.status, text: await resp.text() };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // ---- CORS allowlist ----
 // Only browsers on these origins may read the response. CORS doesn't stop a
@@ -479,9 +497,9 @@ CRYPTOS_DETECTED: BTC,ETH,SOL,...`;
 // numbers without needing paid Google Search grounding.
 async function fetchLivePriceData(symbols: string[]): Promise<Record<string, { price: string; changePct: string; quoteVolume: string }>> {
   try {
-    const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr');
+    const resp = await fetchTextWithTimeout('https://api.binance.com/api/v3/ticker/24hr', {}, 15_000);
     if (!resp.ok) return {};
-    const all = await resp.json();
+    const all = JSON.parse(resp.text);
     if (!Array.isArray(all)) return {};
     const wanted = new Set(symbols.map(s => `${s}USDT`));
     const out: Record<string, { price: string; changePct: string; quoteVolume: string }> = {};
@@ -545,42 +563,68 @@ async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promis
   const body: any = { contents, tools: [{ googleSearch: {} }] };
   if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
 
-  const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-  );
-  if (resp.ok) {
-    const data = await resp.json();
-    const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
-    return { ok: true, status: 200, content, model: `google/${model} (official)` };
+  const label = `google/${model} (official)`;
+  let status = 0;
+  let error = '';
+  // Two attempts: overload (429/5xx), timeouts and network blips are routinely
+  // transient. A thrown fetch error used to escape callAI and skip the gateway
+  // fallback entirely, so the night's report was never even written.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetchTextWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+        100_000,
+      );
+      status = r.status;
+      if (r.ok) {
+        const data = JSON.parse(r.text);
+        const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
+        // 200 with no text (safety block, empty candidate) is a failure, not a report.
+        if (content.trim()) return { ok: true, status: 200, content, model: label };
+        error = `empty response (finishReason=${data.candidates?.[0]?.finishReason ?? 'n/a'})`;
+      } else {
+        error = r.text;
+        if (r.status !== 429 && r.status < 500) break; // 4xx other than 429: retrying won't help
+      }
+    } catch (e) {
+      status = 0;
+      error = (e as Error).message || String(e);
+    }
+    console.error('Gemini official error (attempt', attempt + 1, '):', status, error.slice(0, 500));
+    if (attempt === 0) await sleep(3000);
   }
-  const errText = await resp.text();
-  console.error('Gemini official error:', resp.status, errText);
-  return { ok: false, status: resp.status, content: '', model: `google/${model} (official)`, error: errText };
+  return { ok: false, status, content: '', model: label, error };
 }
 
 async function callLovableGateway(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) return { ok: false, status: 500, content: '', model: 'none', error: 'Lovable AI Gateway não configurado' };
   const model = wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
-  const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages }),
-  });
-  if (resp.ok) {
-    const data = await resp.json();
-    const content = data.choices?.[0]?.message?.content || '';
-    return { ok: true, status: 200, content, model: `${model} (gateway)` };
+  try {
+    const r = await fetchTextWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages }),
+    }, 100_000);
+    if (r.ok) {
+      const data = JSON.parse(r.text);
+      const content = data.choices?.[0]?.message?.content || '';
+      if (content.trim()) return { ok: true, status: 200, content, model: `${model} (gateway)` };
+      return { ok: false, status: 200, content: '', model, error: 'empty response' };
+    }
+    console.error('Lovable AI error:', r.status, r.text.slice(0, 500));
+    return { ok: false, status: r.status, content: '', model, error: r.text };
+  } catch (e) {
+    console.error('Lovable AI request failed:', e);
+    return { ok: false, status: 0, content: '', model, error: (e as Error).message || String(e) };
   }
-  const errText = await resp.text();
-  console.error('Lovable AI error:', resp.status, errText);
-  return { ok: false, status: resp.status, content: '', model, error: errText };
 }
 
 async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
   const wantsVision = !!opts.wantsVision;
-  const official = await callGeminiOfficial(messages, wantsVision);
+  const official = await callGeminiOfficial(messages, wantsVision).catch((e): Awaited<ReturnType<typeof callGeminiOfficial>> =>
+    ({ ok: false, status: 0, content: '', model: 'none', error: (e as Error).message || String(e) }));
   if (official.ok) return official;
   if (official.error && official.error !== 'no key') {
     console.log('Falling back to Lovable Gateway after official Gemini error:', official.status);
@@ -681,6 +725,33 @@ async function pruneSupersededReports(supabase: any, accessCode: string, report:
     .eq('period_end', report.period_end)
     .neq('id', report.id);
   if (error) console.error('prune superseded reports failed:', error.message);
+}
+
+// State of the CURRENT window's stored reports: how much data it has, how many of its
+// reports carry an AI analysis, and when the last one was written. Head-only counts,
+// so the large ai_analysis text is never shipped.
+async function reportStatus(
+  supabase: any, accessCode: string, periodType: 'daily' | 'weekly' | 'monthly',
+): Promise<{ total: number; withAnalysis: number; lastCreatedAt: string | null }> {
+  const win = resolveWindow(periodType, 0);
+  const { total } = await getWindowRanking(supabase, accessCode, win);
+  const scoped = () => supabase
+    .from('crypto_periodic_reports')
+    .select('id', { count: 'exact', head: true })
+    .eq('access_code', accessCode)
+    .eq('period_type', periodType)
+    .eq('period_start', win.start)
+    .eq('period_end', win.end);
+  const [good, last] = await Promise.all([
+    scoped().neq('ai_analysis', ''),
+    supabase.from('crypto_periodic_reports').select('created_at')
+      .eq('access_code', accessCode).eq('period_type', periodType)
+      .eq('period_start', win.start).eq('period_end', win.end)
+      .order('created_at', { ascending: false }).limit(1),
+  ]);
+  if (good.error) throw new Error(good.error.message);
+  if (last.error) throw new Error(last.error.message);
+  return { total, withAnalysis: good.count ?? 0, lastCreatedAt: last.data?.[0]?.created_at ?? null };
 }
 
 // Shared by the manual "generate-periodic" action and by the automatic call
@@ -797,7 +868,7 @@ serve(async (req) => {
     // the AI model. analyze-csv runs the same background generateAIPeriodicReport
     // as generate-periodic/refresh-lists on every CSV submission, so it carries the
     // exact same AI-cost risk and must share the same rate budget.
-    const expensiveActions = new Set(['analyze', 'analyze-csv', 'generate-periodic', 'refresh-lists']);
+    const expensiveActions = new Set(['analyze', 'analyze-csv', 'generate-periodic', 'refresh-lists', 'repair']);
     // Audit only meaningful (mutating) successful actions, to keep log volume sane
     // against the dashboard's 60s polling of read-only actions like latest-round.
     if (expensiveActions.has(action) || action === 'delete') {
@@ -981,29 +1052,73 @@ serve(async (req) => {
     // the raw rows for the current daily and weekly windows, and reports how old the
     // last ingested round is. A mismatch means the numbers shown in "Listas" are wrong
     // (exactly what the 1000-row truncation did, silently, for days). Read-only.
+    // Always answers with structured JSON (never a bare 500): a database hiccup is
+    // itself a diagnosis ("db_unreachable"), so the caller can tell "the check could
+    // not run" from "the check ran and found a problem" and act on `problems`.
     if (action === 'health') {
       const checks = [] as Array<{ window: string; start: string; end: string; aggregateTotal: number; rowsTotal: number; match: boolean }>;
-      for (const periodType of ['daily', 'weekly'] as const) {
-        const win = resolveWindow(periodType, 0);
-        const { total: aggregateTotal } = await getWindowRanking(supabase, accessCode, win);
-        const rows = await fetchWindowMentions(supabase, accessCode, win);
-        const rowsTotal = sumMentions(rows).reduce((sum, r) => sum + r.count, 0);
-        checks.push({ window: win.label, start: win.start, end: win.end, aggregateTotal, rowsTotal, match: aggregateTotal === rowsTotal });
+      let dbError: string | null = null;
+      let lastAt: string | null = null;
+      let dailyTotal = 0;
+      let dailyReportsWithAnalysis = 0;
+      try {
+        for (const periodType of ['daily', 'weekly'] as const) {
+          const win = resolveWindow(periodType, 0);
+          const { total: aggregateTotal } = await getWindowRanking(supabase, accessCode, win);
+          const rows = await fetchWindowMentions(supabase, accessCode, win);
+          const rowsTotal = sumMentions(rows).reduce((sum, r) => sum + r.count, 0);
+          checks.push({ window: win.label, start: win.start, end: win.end, aggregateTotal, rowsTotal, match: aggregateTotal === rowsTotal });
+          if (periodType === 'daily') dailyTotal = aggregateTotal;
+        }
+        const { data: last, error: lastErr } = await supabase
+          .from('crypto_report_submissions')
+          .select('created_at, source_modified_time')
+          .eq('access_code', accessCode)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (lastErr) throw new Error(lastErr.message);
+        lastAt = last?.[0]?.source_modified_time || last?.[0]?.created_at || null;
+        dailyReportsWithAnalysis = (await reportStatus(supabase, accessCode, 'daily')).withAnalysis;
+      } catch (e) {
+        dbError = (e as Error).message || String(e);
+        console.error('health check failed:', dbError);
       }
-      const { data: last } = await supabase
-        .from('crypto_report_submissions')
-        .select('created_at, source_modified_time')
-        .eq('access_code', accessCode)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      const lastAt = last?.[0]?.source_modified_time || last?.[0]?.created_at || null;
       const minutesSinceLastRound = lastAt ? Math.round((Date.now() - new Date(lastAt).getTime()) / 60000) : null;
-      // 9h = longest normal gap between the 4 daily reports (21:00 -> 05:00) plus slack.
-      const stale = minutesSinceLastRound === null || minutesSinceLastRound > 9 * 60;
-      const ok = checks.every(c => c.match) && !stale;
-      return new Response(JSON.stringify({ ok, stale, minutesSinceLastRound, lastRoundAt: lastAt, checks }), {
+      const problems = evaluateHealth({ dbError, checks, minutesSinceLastRound, dailyTotal, dailyReportsWithAnalysis });
+      const ok = problems.length === 0;
+      const stale = problems.some(p => p.code === 'stale' || p.code === 'no_round');
+      return new Response(JSON.stringify({ ok, stale, minutesSinceLastRound, lastRoundAt: lastAt, checks, problems, dailyReportsWithAnalysis }), {
         status: ok ? 200 : 503,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ========== REPAIR (self-heal, idempotent) ==========
+    // Regenerates, from the data already stored, the current daily/weekly/monthly
+    // report of every window that has data but no AI analysis (the AI call failed
+    // when it was first generated). Runs in the background and answers 202 at once;
+    // a window attempted in the last few minutes is skipped so repeated alerts cannot
+    // stack AI calls. It cannot invent data: if the VPS/Make stopped sending, health
+    // keeps reporting "stale" and a person has to look at that pipeline.
+    if (action === 'repair') {
+      const queued: string[] = [];
+      const skipped: string[] = [];
+      for (const periodType of ['daily', 'weekly', 'monthly'] as const) {
+        const s = await reportStatus(supabase, accessCode, periodType);
+        if (needsReportRepair(s)) queued.push(periodType); else skipped.push(periodType);
+      }
+      if (queued.length > 0) {
+        const job = (async () => {
+          for (const periodType of queued) {
+            try { await generateAIPeriodicReport(supabase, accessCode, periodType, 0); }
+            catch (e) { console.error(`repair ${periodType} failed:`, e); }
+          }
+        })();
+        // @ts-ignore EdgeRuntime is a Deno Deploy/Supabase global, not in the TS lib defs.
+        if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(job); else await job;
+      }
+      return new Response(JSON.stringify({ success: true, queued, skipped }), {
+        status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -1046,15 +1161,21 @@ serve(async (req) => {
       const { data: index, error: idxErr } = await idxQ;
       if (idxErr) throw idxErr;
 
-      const seen = new Set<string>();
-      const keepIds: string[] = [];
-      for (const r of index || []) {
-        const key = `${r.period_type}|${r.period_start}|${r.period_end}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        keepIds.push(r.id);
-        if (keepIds.length >= 40) break;
-      }
+      // Ids of reports that actually carry an AI analysis. Within a window, one of
+      // those wins over a newer analysis-less report (a failed AI call used to hide
+      // the good screening of the same window behind an empty card).
+      let goodQ = supabase
+        .from('crypto_periodic_reports')
+        .select('id')
+        .eq('access_code', accessCode)
+        .neq('ai_analysis', '')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      if (region) goodQ = goodQ.eq('region', region);
+      const { data: goodRows, error: goodErr } = await goodQ;
+      if (goodErr) console.error('periodic-reports analysis index failed, using newest-only:', goodErr.message);
+      const goodIds = new Set<string>((goodRows || []).map((r: any) => r.id));
+      const keepIds = pickReportIds(index || [], goodIds, 40);
 
       let data: any[] = [];
       if (keepIds.length > 0) {

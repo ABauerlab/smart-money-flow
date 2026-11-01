@@ -1,38 +1,84 @@
-name: Health check (listas)
+name: Health check e autocorreção (relatórios)
 
-# Every 2 hours, asks the crypto-analysis function to reconcile the summed totals
-# (database aggregate vs. raw rows) and to report how old the last ingested round is.
-# The job FAILS when totals diverge or no report arrived for more than 9h, so GitHub
-# emails the repo owners: the client no longer has to be the one who notices.
+# Inspects the reports pipeline (crypto-analysis) and fixes what can be fixed on its own:
+#   * every 2 hours (schedule)
+#   * whenever the "ALERTA: RELATORIOS" message fires: have the Make/n8n scenario that
+#     sends the alert also POST to the GitHub API (see README_AUTOHEAL below), which
+#     triggers `repository_dispatch` with type `relatorios-alert`
+#   * by hand (workflow_dispatch)
 #
-# Needs one repository secret: HEALTH_ACCESS_CODE (an active client access code).
-# Without it the job is skipped instead of failing.
+# scripts/heal-relatorios.mjs does the work: health check with retries, then redeploy of
+# the function if it is down, or regeneration of a report whose AI analysis failed.
+# When something is left that only a person can fix (VPS/Make stopped sending, wrong
+# access code, totals that do not reconcile) the job fails, opens/updates an issue
+# labelled `relatorios-alert` with the diagnosis, and GitHub emails the owners.
+#
+# Secrets/variables:
+#   HEALTH_ACCESS_CODE        (secret, required) an active client access code
+#   SUPABASE_PUBLISHABLE_KEY  (variable, required) public anon key, already in the bundle
+#   SUPABASE_ACCESS_TOKEN     (secret, optional) enables automatic redeploy of the function
+#
+# README_AUTOHEAL: in Make/n8n, after the alert step add an HTTP request:
+#   POST https://api.github.com/repos/ABauerlab/smart-money-flow/dispatches
+#   headers: Authorization: Bearer <fine-grained token, Contents: read/write>,
+#            Accept: application/vnd.github+json
+#   body:    {"event_type":"relatorios-alert"}
 
 on:
   schedule:
     - cron: "17 */2 * * *"
+  repository_dispatch:
+    types: [relatorios-alert]
   workflow_dispatch:
 
+# One inspection at a time: a burst of alerts must not stack repairs or AI calls.
+concurrency:
+  group: relatorios-heal
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
 jobs:
-  health:
+  heal:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       HEALTH_ACCESS_CODE: ${{ secrets.HEALTH_ACCESS_CODE }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       # Public values, already embedded in the client bundle (.env).
       FUNCTION_URL: https://xinzvskuxnxgjrcqncmy.supabase.co/functions/v1/crypto-analysis
+      SUPABASE_PROJECT_REF: xinzvskuxnxgjrcqncmy
       PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
     steps:
-      - name: Check
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Inspect and self-heal
+        run: node scripts/heal-relatorios.mjs
+
+      - name: Open or update the alert issue
+        if: failure() && hashFiles('heal-report.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -z "$HEALTH_ACCESS_CODE" ]; then
-            echo "HEALTH_ACCESS_CODE not set, skipping."; exit 0
+          gh label create relatorios-alert --color B60205 --description "Relatórios fora do ar" 2>/dev/null || true
+          existing=$(gh issue list --label relatorios-alert --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file heal-report.md
+          else
+            gh issue create --label relatorios-alert --title "ALERTA: relatórios precisam de atenção" --body-file heal-report.md
           fi
-          status=$(curl -sS -m 90 -o health.json -w '%{http_code}' -X POST "$FUNCTION_URL?action=health" \
-            -H "Authorization: Bearer $PUBLISHABLE_KEY" -H "Content-Type: application/json" \
-            -d "{\"accessCode\":\"$HEALTH_ACCESS_CODE\"}")
-          python3 - <<'PY'
-          import json
-          d = json.load(open("health.json"))
-          print(json.dumps({k: v for k, v in d.items()}, indent=2))
-          PY
-          [ "$status" = "200" ] || { echo "::error::Health check failed (HTTP $status)"; exit 1; }
+
+      - name: Close the alert issue once healthy
+        if: success() && hashFiles('heal-report.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --label relatorios-alert --state open --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Saudável novamente: $(date -u +%FT%TZ)"
+          done
