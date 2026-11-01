@@ -1122,9 +1122,14 @@ serve(async (req) => {
       const { rows: rowsIn, csvText, title: titleRaw, reportDate: fallbackDate, fileCount } = reqBody;
       const title = typeof titleRaw === 'string' ? titleRaw.slice(0, 200) : titleRaw;
       let sourceFileId = typeof reqBody.sourceFileId === 'string' ? reqBody.sourceFileId.slice(0, 200) : null;
-      const sourceFileName = typeof reqBody.sourceFileName === 'string' ? reqBody.sourceFileName.slice(0, 300) : null;
-      const driveModifiedTime = typeof reqBody.sourceModifiedTime === 'string' && !isNaN(Date.parse(reqBody.sourceModifiedTime))
-        ? new Date(reqBody.sourceModifiedTime).toISOString()
+      // The VPS macro (NotificarWebhookMake) posts { fileName, modifiedTime, csvText };
+      // the Drive automation posts { sourceFileName, sourceModifiedTime, ... }. Accept both
+      // so the same file arriving through both paths is recognised by name and not counted twice.
+      const nameRaw = reqBody.sourceFileName ?? reqBody.fileName;
+      const modRaw = reqBody.sourceModifiedTime ?? reqBody.modifiedTime;
+      const sourceFileName = typeof nameRaw === 'string' ? nameRaw.slice(0, 300) : null;
+      const driveModifiedTime = typeof modRaw === 'string' && !isNaN(Date.parse(modRaw))
+        ? new Date(modRaw).toISOString()
         : null;
       const sourceModifiedTime = extractTimestampFromFilename(sourceFileName) || driveModifiedTime;
 
