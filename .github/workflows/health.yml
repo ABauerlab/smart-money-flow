@@ -27,9 +27,20 @@ jobs:
           if [ -z "$HEALTH_ACCESS_CODE" ]; then
             echo "HEALTH_ACCESS_CODE not set, skipping."; exit 0
           fi
-          status=$(curl -sS -m 90 -o health.json -w '%{http_code}' -X POST "$FUNCTION_URL?action=health" \
-            -H "Authorization: Bearer $PUBLISHABLE_KEY" -H "Content-Type: application/json" \
-            -d "{\"accessCode\":\"$HEALTH_ACCESS_CODE\"}")
+          # Some GitHub-hosted runners occasionally fail to resolve the Supabase
+          # host (transient resolver hiccup, unrelated to the project itself).
+          # Retry a few times before treating it as a real outage.
+          status=""
+          for attempt in 1 2 3 4; do
+            status=$(curl -sS -m 90 -o health.json -w '%{http_code}' -X POST "$FUNCTION_URL?action=health" \
+              -H "Authorization: Bearer $PUBLISHABLE_KEY" -H "Content-Type: application/json" \
+              -d "{\"accessCode\":\"$HEALTH_ACCESS_CODE\"}") && break
+            echo "Attempt $attempt failed to reach $FUNCTION_URL, retrying in 15s..."
+            sleep 15
+          done
+          if [ -z "$status" ]; then
+            echo "::error::Could not reach the function after 4 attempts (DNS/network issue on the runner)"; exit 1
+          fi
           python3 - <<'PY'
           import json
           d = json.load(open("health.json"))
