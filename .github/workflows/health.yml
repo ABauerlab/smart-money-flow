@@ -18,9 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HEALTH_ACCESS_CODE: ${{ secrets.HEALTH_ACCESS_CODE }}
-      # Public values, already embedded in the client bundle (.env).
+      # crypto-analysis runs with verify_jwt = false (supabase/config.toml) and checks the
+      # access code itself, so no Supabase key is sent. Do NOT add one back through a
+      # repository *variable*: variables are printed in clear text in the job logs.
       FUNCTION_URL: https://erwbgzuksqwrgzvounqj.supabase.co/functions/v1/crypto-analysis
-      PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - name: Check
         run: |
@@ -32,7 +33,7 @@ jobs:
           status=000
           for attempt in 1 2 3; do
             status=$(curl -sS -m 90 -o health.json -w '%{http_code}' -X POST "$FUNCTION_URL?action=health" \
-              -H "Authorization: Bearer $PUBLISHABLE_KEY" -H "Content-Type: application/json" \
+              -H "Content-Type: application/json" \
               -d "{\"accessCode\":\"$HEALTH_ACCESS_CODE\"}" || echo 000)
             [ "$status" = "200" ] && break
             echo "Attempt $attempt returned HTTP $status"; sleep $((attempt * 20))
