@@ -569,7 +569,9 @@ async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promis
       lastError = await resp.text();
       console.error(`Gemini attempt ${attempt}/3 error:`, resp.status, lastError);
       // Quota/auth problems will not fix themselves within seconds: stop retrying.
+      // (A plain per-minute 429 is worth retrying; a spending-cap 429 is not.)
       if (resp.status === 400 || resp.status === 401 || resp.status === 403) break;
+      if (resp.status === 429 && /spending cap|billing|RESOURCE_EXHAUSTED/i.test(lastError) && /cap|billing/i.test(lastError)) break;
     }
     if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
   }
@@ -700,6 +702,63 @@ async function pruneSupersededReports(supabase: any, accessCode: string, report:
   if (error) console.error('prune superseded reports failed:', error.message);
 }
 
+// Saves the report of one window without ever replacing a good AI screening by an empty one.
+//  - With an AI analysis: insert it as the new newest report and prune the older ones.
+//  - Without one (Gemini down, quota, empty answer): the lists only show the NEWEST report
+//    of a window, so inserting a blank row used to hide the last good screening and, every
+//    2 hours, piled up one more blank row. Instead, refresh the counts of the best existing
+//    report of the window (the newest one that has an analysis, else the newest) and keep
+//    its analysis; only when the window has no report yet is a blank one inserted.
+async function saveWindowReport(
+  supabase: any, accessCode: string,
+  row: { period_type: string; period_start: string; period_end: string; year: number; week_number: number; rankings: any; summary: string; ai_analysis: string },
+): Promise<any> {
+  const insertRow = async () => {
+    const { data, error } = await supabase
+      .from('crypto_periodic_reports')
+      .insert({ ...row, access_code: accessCode || null })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  };
+
+  if (row.ai_analysis) {
+    const report = await insertRow();
+    await pruneSupersededReports(supabase, accessCode, report);
+    return report;
+  }
+
+  const { data: existing, error: exErr } = await supabase
+    .from('crypto_periodic_reports')
+    .select('id, ai_analysis, created_at')
+    .eq('access_code', accessCode)
+    .eq('period_type', row.period_type)
+    .eq('period_start', row.period_start)
+    .eq('period_end', row.period_end)
+    .order('created_at', { ascending: false });
+  if (exErr) throw exErr;
+
+  const list = existing || [];
+  const best = list.find((r: any) => r.ai_analysis && r.ai_analysis.length > 0) || list[0];
+  if (!best) return await insertRow();
+
+  const { data: updated, error: upErr } = await supabase
+    .from('crypto_periodic_reports')
+    .update({ rankings: row.rankings, summary: row.summary, year: row.year, week_number: row.week_number })
+    .eq('id', best.id)
+    .select()
+    .single();
+  if (upErr) throw upErr;
+
+  const others = list.filter((r: any) => r.id !== best.id).map((r: any) => r.id);
+  if (others.length > 0) {
+    const { error: delErr } = await supabase.from('crypto_periodic_reports').delete().in('id', others);
+    if (delErr) console.error('cleanup of blank duplicate reports failed:', delErr.message);
+  }
+  return updated;
+}
+
 // Shared by the manual "generate-periodic" action and by the automatic call
 // fired after every CSV ingestion (analyze-csv), so a report produced by the
 // Make.com/VPS pipeline goes through the exact same 18-step AI screening as
@@ -725,23 +784,16 @@ async function generateAIPeriodicReport(
     if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
   }
 
-  const { data: report, error: insertErr } = await supabase
-    .from('crypto_periodic_reports')
-    .insert({
-      period_type: periodType,
-      period_start: win.start,
-      period_end: win.end,
-      year: new Date().getFullYear(),
-      week_number: getISOWeek(new Date(win.start)),
-      rankings: rankings as any,
-      summary: `${win.label}: ${altaRankings.length} criptos`,
-      ai_analysis: aiAnalysis,
-      access_code: accessCode || null,
-    })
-    .select()
-    .single();
-  if (insertErr) throw insertErr;
-  await pruneSupersededReports(supabase, accessCode, report);
+  const report = await saveWindowReport(supabase, accessCode, {
+    period_type: periodType,
+    period_start: win.start,
+    period_end: win.end,
+    year: new Date().getFullYear(),
+    week_number: getISOWeek(new Date(win.start)),
+    rankings: rankings as any,
+    summary: `${win.label}: ${altaRankings.length} criptos`,
+    ai_analysis: aiAnalysis,
+  });
 
   return { report, aiModelUsed };
 }
@@ -1420,23 +1472,16 @@ serve(async (req) => {
         if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
       }
 
-      const { data: report, error: insertErr } = await supabase
-        .from('crypto_periodic_reports')
-        .insert({
-          period_type: periodType,
-          period_start: win.start,
-          period_end: win.end,
-          year: new Date().getFullYear(),
-          week_number: getISOWeek(new Date(win.start)),
-          rankings: rankings as any,
-          summary: `[ATUALIZAÇÃO] ${win.label}: ${altaRankings.length} criptos`,
-          ai_analysis: aiAnalysis,
-          access_code: accessCode || null,
-        })
-        .select()
-        .single();
-      if (insertErr) throw insertErr;
-      await pruneSupersededReports(supabase, accessCode, report);
+      const report = await saveWindowReport(supabase, accessCode, {
+        period_type: periodType,
+        period_start: win.start,
+        period_end: win.end,
+        year: new Date().getFullYear(),
+        week_number: getISOWeek(new Date(win.start)),
+        rankings: rankings as any,
+        summary: `[ATUALIZAÇÃO] ${win.label}: ${altaRankings.length} criptos`,
+        ai_analysis: aiAnalysis,
+      });
 
       return new Response(JSON.stringify({
         success: true, altaRankings, report, aiModelUsed,
