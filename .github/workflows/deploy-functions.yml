@@ -52,10 +52,10 @@ jobs:
             [ -n "$v" ] && args+=("$k=$v")
           done
           if [ ${#args[@]} -gt 0 ]; then
-            supabase secrets set "${args[@]}" --project-ref "$PROJECT_REF"
+            supabase secrets set "${args[@]}" --project-ref "$PROJECT_REF" --yes
           else
             echo "No optional secrets provided; set them in the Supabase dashboard instead."
           fi
 
       - name: Deploy functions
-        run: supabase functions deploy --project-ref "$PROJECT_REF"
+        run: supabase functions deploy --project-ref "$PROJECT_REF" --yes
