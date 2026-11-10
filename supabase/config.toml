@@ -1,4 +1,4 @@
-project_id = "xinzvskuxnxgjrcqncmy"
+project_id = "erwbgzuksqwrgzvounqj"
 
 # crypto-analysis implements its own authorization (the accessCode check + the
 # rate limiters in the function body) instead of relying on Supabase's platform

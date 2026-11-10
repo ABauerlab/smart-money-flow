@@ -18,32 +18,25 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HEALTH_ACCESS_CODE: ${{ secrets.HEALTH_ACCESS_CODE }}
-      # Public values, already embedded in the client bundle (.env).
-      FUNCTION_URL: https://xinzvskuxnxgjrcqncmy.supabase.co/functions/v1/crypto-analysis
-      PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+      # crypto-analysis runs with verify_jwt = false (supabase/config.toml) and checks the
+      # access code itself, so no Supabase key is sent. Do NOT add one back through a
+      # repository *variable*: variables are printed in clear text in the job logs.
+      FUNCTION_URL: https://erwbgzuksqwrgzvounqj.supabase.co/functions/v1/crypto-analysis
     steps:
       - name: Check
         run: |
           if [ -z "$HEALTH_ACCESS_CODE" ]; then
             echo "HEALTH_ACCESS_CODE not set, skipping."; exit 0
           fi
-          # Some GitHub-hosted runners occasionally fail to resolve the Supabase
-          # host (transient resolver hiccup, unrelated to the project itself).
-          # Retry a few times before treating it as a real outage.
-          status=""
-          for attempt in 1 2 3 4; do
+          # Up to 3 attempts: cold starts, a transient network blip or a round landing
+          # mid-check must not page anyone. Only a persistent failure fails the job.
+          status=000
+          for attempt in 1 2 3; do
             status=$(curl -sS -m 90 -o health.json -w '%{http_code}' -X POST "$FUNCTION_URL?action=health" \
-              -H "Authorization: Bearer $PUBLISHABLE_KEY" -H "Content-Type: application/json" \
-              -d "{\"accessCode\":\"$HEALTH_ACCESS_CODE\"}") && break
-            echo "Attempt $attempt failed to reach $FUNCTION_URL, retrying in 15s..."
-            sleep 15
+              -H "Content-Type: application/json" \
+              -d "{\"accessCode\":\"$HEALTH_ACCESS_CODE\"}" || echo 000)
+            [ "$status" = "200" ] && break
+            echo "Attempt $attempt returned HTTP $status"; sleep $((attempt * 20))
           done
-          if [ -z "$status" ]; then
-            echo "::error::Could not reach the function after 4 attempts (DNS/network issue on the runner)"; exit 1
-          fi
-          python3 - <<'PY'
-          import json
-          d = json.load(open("health.json"))
-          print(json.dumps({k: v for k, v in d.items()}, indent=2))
-          PY
-          [ "$status" = "200" ] || { echo "::error::Health check failed (HTTP $status)"; exit 1; }
+          cat health.json 2>/dev/null || true; echo
+          [ "$status" = "200" ] || { echo "::error::Health check failed (HTTP $status). See body above: reason=stale/no_rounds means the pipeline stopped sending, mismatch means wrong totals, 5xx means the function itself failed."; exit 1; }

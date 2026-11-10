@@ -545,18 +545,35 @@ async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promis
   const body: any = { contents, tools: [{ googleSearch: {} }] };
   if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
 
-  const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-  );
-  if (resp.ok) {
-    const data = await resp.json();
-    const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
-    return { ok: true, status: 200, content, model: `google/${model} (official)` };
+  // Gemini sometimes answers HTTP 200 with no text at all (finishReason MAX_TOKENS/OTHER,
+  // or only grounding metadata). That used to be stored as an "AI report" with an empty
+  // analysis. Treat an empty answer as a failure and retry, then fall back to the
+  // same request without the search tool, before giving up.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  let lastStatus = 200;
+  let lastError = '';
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const payload = attempt === 3 ? { ...body, tools: undefined } : body;
+    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (resp.ok) {
+      const data = await resp.json();
+      const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
+      if (content.trim().length > 0) {
+        return { ok: true, status: 200, content, model: `google/${model} (official)` };
+      }
+      lastStatus = 200;
+      lastError = `empty answer (finishReason=${data.candidates?.[0]?.finishReason ?? 'none'}, blockReason=${data.promptFeedback?.blockReason ?? 'none'})`;
+      console.error(`Gemini attempt ${attempt}/3 returned no text:`, lastError);
+    } else {
+      lastStatus = resp.status;
+      lastError = await resp.text();
+      console.error(`Gemini attempt ${attempt}/3 error:`, resp.status, lastError);
+      // Quota/auth problems will not fix themselves within seconds: stop retrying.
+      if (resp.status === 400 || resp.status === 401 || resp.status === 403) break;
+    }
+    if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
   }
-  const errText = await resp.text();
-  console.error('Gemini official error:', resp.status, errText);
-  return { ok: false, status: resp.status, content: '', model: `google/${model} (official)`, error: errText };
+  return { ok: false, status: lastStatus, content: '', model: `google/${model} (official)`, error: lastError || 'no text' };
 }
 
 async function callLovableGateway(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
@@ -806,7 +823,19 @@ serve(async (req) => {
         .then(({ error }: any) => { if (error) console.error('last_used_at update failed:', error.message); });
     }
 
-    if (expensiveActions.has(action)) {
+    // Bulk history import (skipAi): inserts rounds without calling the AI, so it does
+    // not carry the AI-cost risk. It gets its own, larger budget (DB writes only).
+    const bulkImport = (action === 'analyze' || action === 'analyze-csv') && reqBody.skipAi === true;
+
+    if (bulkImport) {
+      const bulkRl = await rateLimitBucket(supabase, `bulk:${accessCode}`, 120);
+      if (!bulkRl.ok) {
+        return new Response(
+          JSON.stringify({ error: `Limite de requisições atingido. Tente novamente em ${bulkRl.retryAfter}s.` }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(bulkRl.retryAfter) } },
+        );
+      }
+    } else if (expensiveActions.has(action)) {
       const [rl, codeRl] = await Promise.all([
         rateLimit(supabase, `${accessCode}:${ip}:${action}`),
         codeRateLimit(supabase, accessCode),
@@ -982,26 +1011,48 @@ serve(async (req) => {
     // last ingested round is. A mismatch means the numbers shown in "Listas" are wrong
     // (exactly what the 1000-row truncation did, silently, for days). Read-only.
     if (action === 'health') {
-      const checks = [] as Array<{ window: string; start: string; end: string; aggregateTotal: number; rowsTotal: number; match: boolean }>;
-      for (const periodType of ['daily', 'weekly'] as const) {
-        const win = resolveWindow(periodType, 0);
+      type Check = { window: string; start: string; end: string; aggregateTotal: number; rowsTotal: number; match: boolean; retried?: boolean };
+      const reconcile = async (win: { start: string; end: string; label: string }): Promise<Check> => {
         const { total: aggregateTotal } = await getWindowRanking(supabase, accessCode, win);
         const rows = await fetchWindowMentions(supabase, accessCode, win);
         const rowsTotal = sumMentions(rows).reduce((sum, r) => sum + r.count, 0);
-        checks.push({ window: win.label, start: win.start, end: win.end, aggregateTotal, rowsTotal, match: aggregateTotal === rowsTotal });
+        return { window: win.label, start: win.start, end: win.end, aggregateTotal, rowsTotal, match: aggregateTotal === rowsTotal };
+      };
+      const checks: Check[] = [];
+      for (const periodType of ['daily', 'weekly'] as const) {
+        const win = resolveWindow(periodType, 0);
+        let check = await reconcile(win);
+        // A round ingested between the two reads makes them differ for a moment;
+        // that is not a data problem. Look again before calling it a mismatch.
+        if (!check.match) {
+          await new Promise(r => setTimeout(r, 2000));
+          check = { ...(await reconcile(win)), retried: true };
+        }
+        checks.push(check);
       }
-      const { data: last } = await supabase
+      // "Stale" = no round has ARRIVED recently. Measure from the insert time (created_at),
+      // not from the timestamp in the file name: the VPS clock is not guaranteed to be in
+      // Brasília time (it is currently 4h ahead), which would put the last round in the
+      // future and delay the alert by hours. Rows loaded by the history import
+      // (source_file_id 'import:...') are ignored so a bulk load cannot hide a stopped pipeline.
+      const { data: last, error: lastErr } = await supabase
         .from('crypto_report_submissions')
-        .select('created_at, source_modified_time')
+        .select('created_at')
         .eq('access_code', accessCode)
+        .or('source_file_id.is.null,source_file_id.not.like.import:%')
         .order('created_at', { ascending: false })
         .limit(1);
-      const lastAt = last?.[0]?.source_modified_time || last?.[0]?.created_at || null;
+      // A failed query is NOT "no round yet": surface it as a real error (caught below, HTTP 500).
+      if (lastErr) throw lastErr;
+      const lastAt = last?.[0]?.created_at || null;
       const minutesSinceLastRound = lastAt ? Math.round((Date.now() - new Date(lastAt).getTime()) / 60000) : null;
       // 9h = longest normal gap between the 4 daily reports (21:00 -> 05:00) plus slack.
-      const stale = minutesSinceLastRound === null || minutesSinceLastRound > 9 * 60;
-      const ok = checks.every(c => c.match) && !stale;
-      return new Response(JSON.stringify({ ok, stale, minutesSinceLastRound, lastRoundAt: lastAt, checks }), {
+      const noRounds = lastAt === null;
+      const stale = noRounds || (minutesSinceLastRound as number) > 9 * 60;
+      const mismatch = checks.some(c => !c.match);
+      const ok = !mismatch && !stale;
+      const reason = ok ? 'ok' : noRounds ? 'no_rounds' : stale && mismatch ? 'stale_and_mismatch' : stale ? 'stale' : 'mismatch';
+      return new Response(JSON.stringify({ ok, reason, stale, noRounds, minutesSinceLastRound, lastRoundAt: lastAt, checks }), {
         status: ok ? 200 : 503,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -1091,11 +1142,50 @@ serve(async (req) => {
       const { rows: rowsIn, csvText, title: titleRaw, reportDate: fallbackDate, fileCount } = reqBody;
       const title = typeof titleRaw === 'string' ? titleRaw.slice(0, 200) : titleRaw;
       let sourceFileId = typeof reqBody.sourceFileId === 'string' ? reqBody.sourceFileId.slice(0, 200) : null;
-      const sourceFileName = typeof reqBody.sourceFileName === 'string' ? reqBody.sourceFileName.slice(0, 300) : null;
+      // The VPS macro (NotificarWebhookMake) posts { fileName, modifiedTime, csvText };
+      // the Drive automation posts { sourceFileName, sourceModifiedTime, ... }. Accept both
+      // so the same file arriving through both paths is recognised by name and not counted twice.
+      const nameRaw = reqBody.sourceFileName ?? reqBody.fileName;
+      const sourceFileName = typeof nameRaw === 'string' ? nameRaw.slice(0, 300) : null;
       const driveModifiedTime = typeof reqBody.sourceModifiedTime === 'string' && !isNaN(Date.parse(reqBody.sourceModifiedTime))
         ? new Date(reqBody.sourceModifiedTime).toISOString()
         : null;
-      const sourceModifiedTime = extractTimestampFromFilename(sourceFileName) || driveModifiedTime;
+      // Which clock decides WHEN a round happened (and therefore its 21:00 Brasília day)?
+      // Never the VPS clock: its time zone has been wrong before (4h ahead of Brasília), which
+      // moved the daily/weekly/monthly rollover by hours.
+      //  1. Drive automation: sourceModifiedTime is the file's real modified time in UTC.
+      //  2. VPS macro webhook (fileName + modifiedTime in VPS local time, no zone): the file
+      //     was written seconds ago, so the moment of arrival is the accurate one.
+      //  3. Anything else (history import, manual upload): the time in the file name, read as
+      //     Brasília time (-03:00).
+      const fromVpsMacro = reqBody.sourceFileName === undefined && reqBody.sourceModifiedTime === undefined
+        && typeof reqBody.fileName === 'string';
+      const sourceModifiedTime = driveModifiedTime
+        || (fromVpsMacro ? new Date().toISOString() : extractTimestampFromFilename(sourceFileName));
+
+      // Same file name already ingested for this code (e.g. history imported by name,
+      // then the Drive/VPS automation sends the same file under its Drive id): the VPS
+      // stamps every export with its own generation time, so a name is unique per round.
+      if (sourceFileName) {
+        const { data: sameName } = await supabase
+          .from('crypto_report_submissions')
+          .select('id, analysis_id, crypto_analyses(id, title, summary, crypto_symbols, created_at)')
+          .eq('source_file_name', sourceFileName)
+          .eq('access_code', accessCode)
+          .limit(1);
+        if (sameName && sameName.length > 0) {
+          return new Response(JSON.stringify({
+            duplicate: true,
+            analysis: sameName[0].crypto_analyses,
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+
+      // One canonical id per exported file, whatever path delivered it (VPS webhook or
+      // Drive polling). The unique index on source_file_id then makes a double delivery
+      // impossible even when both arrive at the same moment (the name check above is only
+      // the fast path; this is the atomic guarantee).
+      if (sourceFileName) sourceFileId = `file:${sourceFileName}`;
 
       // Idempotency: an automation (Make.com) re-polling the same Drive file must not
       // create a second round. One unique index on source_file_id enforces this at the
@@ -1291,7 +1381,7 @@ serve(async (req) => {
       // person happens to click. Backgrounded via waitUntil: it can take several
       // seconds (AI call), and must not delay the response back to the VPS macro's
       // synchronous HTTP request or Make's module timeout.
-      if (submission) {
+      if (submission && !bulkImport) {
         const bgReport = generateAIPeriodicReport(supabase, accessCode, 'daily', 0)
           .catch((e) => console.error('Background daily AI report failed:', e));
         // @ts-ignore EdgeRuntime is a Deno Deploy/Supabase global, not in the TS lib defs.

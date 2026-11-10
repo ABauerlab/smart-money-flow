@@ -52,7 +52,8 @@ export const MONTHS_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO',
 export function sumMentions(mentions: any[]): { symbol: string; count: number }[] {
   const agg: Record<string, { count: number; last: string }> = {};
   for (const m of mentions) {
-    const sym = String(m.symbol || '').toUpperCase();
+    // trim: crypto_window_sums skips blank symbols with btrim(), keep both paths identical
+    const sym = String(m.symbol || '').trim().toUpperCase();
     if (!sym) continue;
     const rep = Number(m.repetition);
     const value = Number.isFinite(rep) && rep > 0 ? rep : 1;
