@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  resolveGeminiModel, gatewayModelName, isSearchGroundingEnabled,
+  resolveGeminiModel, resolveFallbackModel, resolveMaxOutputTokens, resolveDedupeTtlHours, isWithinTtl, isSearchGroundingEnabled,
   extractGeminiUsage, extractGatewayUsage, rankingInputHash, DEFAULT_GEMINI_MODEL,
 } from "../../supabase/functions/crypto-analysis/ai";
 
@@ -12,13 +12,37 @@ describe("model / flags", () => {
     expect(resolveGeminiModel(undefined)).toBe(DEFAULT_GEMINI_MODEL);
     expect(resolveGeminiModel("  ")).toBe(DEFAULT_GEMINI_MODEL);
     expect(resolveGeminiModel("google/gemini-x")).toBe("gemini-x");
-    expect(gatewayModelName("gemini-x")).toBe("google/gemini-x");
+    expect(resolveFallbackModel(undefined)).toBe("google/gemini-2.5-flash");
+    expect(resolveFallbackModel("google/other")).toBe("google/other");
   });
   it("grounding is off unless exactly 'true'", () => {
     expect(isSearchGroundingEnabled(undefined)).toBe(false);
     expect(isSearchGroundingEnabled("false")).toBe(false);
     expect(isSearchGroundingEnabled("1")).toBe(false);
     expect(isSearchGroundingEnabled(" TRUE ")).toBe(true);
+  });
+});
+
+describe("limits and TTL", () => {
+  it("max output tokens: default 4500, only positive integers accepted", () => {
+    expect(resolveMaxOutputTokens(undefined)).toBe(4500);
+    expect(resolveMaxOutputTokens("6000")).toBe(6000);
+    for (const bad of ["abc", "0", "-5", "1.5", ""]) expect(resolveMaxOutputTokens(bad)).toBe(4500);
+  });
+  it("dedupe TTL: default 6, 0 allowed, junk falls back", () => {
+    expect(resolveDedupeTtlHours(undefined)).toBe(6);
+    expect(resolveDedupeTtlHours("2")).toBe(2);
+    expect(resolveDedupeTtlHours("0")).toBe(0);
+    expect(resolveDedupeTtlHours("x")).toBe(6);
+    expect(resolveDedupeTtlHours("-1")).toBe(6);
+  });
+  it("isWithinTtl", () => {
+    const now = Date.parse("2026-11-18T12:00:00Z");
+    expect(isWithinTtl("2026-11-18T07:00:00Z", 6, now)).toBe(true);
+    expect(isWithinTtl("2026-11-18T06:00:00Z", 6, now)).toBe(false);
+    expect(isWithinTtl("2026-11-18T11:59:00Z", 0, now)).toBe(false);
+    expect(isWithinTtl(null, 6, now)).toBe(false);
+    expect(isWithinTtl("garbage", 6, now)).toBe(false);
   });
 });
 

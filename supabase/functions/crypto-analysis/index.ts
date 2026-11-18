@@ -3,8 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { fetchAllRows } from "./pagination.ts";
 import { manualUploadFingerprint } from "./dedupe.ts";
 import {
-  AIUsage, EMPTY_USAGE, addUsage, resolveGeminiModel, gatewayModelName, isSearchGroundingEnabled,
-  extractGeminiUsage, extractGatewayUsage, rankingInputHash, AI_TEMPERATURE, AI_MAX_OUTPUT_TOKENS,
+  AIUsage, EMPTY_USAGE, addUsage, resolveGeminiModel, resolveFallbackModel, resolveMaxOutputTokens, resolveDedupeTtlHours, isWithinTtl, isSearchGroundingEnabled,
+  extractGeminiUsage, extractGatewayUsage, rankingInputHash, AI_TEMPERATURE,
 } from "./ai.ts";
 import { businessDateBR, getISOWeek, fmtDate, sumMentions, resolveWindow } from "./windows.ts";
 
@@ -540,10 +540,11 @@ async function callGeminiOfficial(messages: any[]): Promise<AIResult> {
     contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }] });
   }
 
+  const maxOutputTokens = resolveMaxOutputTokens(Deno.env.get('GEMINI_MAX_OUTPUT_TOKENS'));
   const grounding = isSearchGroundingEnabled(Deno.env.get('ENABLE_SEARCH_GROUNDING'));
   const body: any = {
     contents,
-    generationConfig: { temperature: AI_TEMPERATURE, maxOutputTokens: AI_MAX_OUTPUT_TOKENS },
+    generationConfig: { temperature: AI_TEMPERATURE, maxOutputTokens },
   };
   if (grounding) body.tools = [{ googleSearch: {} }];
   if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
@@ -570,7 +571,7 @@ async function callGeminiOfficial(messages: any[]): Promise<AIResult> {
       const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
       const finishReason = data.candidates?.[0]?.finishReason;
       if (content.trim().length > 0) {
-        if (finishReason === 'MAX_TOKENS') console.warn(`Gemini answer truncated at maxOutputTokens=${AI_MAX_OUTPUT_TOKENS}`);
+        if (finishReason === 'MAX_TOKENS') console.warn(`Gemini answer truncated at maxOutputTokens=${maxOutputTokens}`);
         return { ok: true, status: 200, content, model: `google/${model} (official)`, usage, truncated: finishReason === 'MAX_TOKENS' };
       }
       lastStatus = 200;
@@ -592,12 +593,13 @@ async function callGeminiOfficial(messages: any[]): Promise<AIResult> {
 // Fallback: a single attempt, no retries.
 async function callLovableGateway(messages: any[]): Promise<AIResult> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  const model = gatewayModelName(resolveGeminiModel(Deno.env.get('GEMINI_MODEL')));
+  const model = resolveFallbackModel(Deno.env.get('LOVABLE_FALLBACK_MODEL'));
+  const maxOutputTokens = resolveMaxOutputTokens(Deno.env.get('GEMINI_MAX_OUTPUT_TOKENS'));
   if (!LOVABLE_API_KEY) return { ok: false, status: 500, content: '', model: 'none', error: 'Lovable AI Gateway não configurado', usage: EMPTY_USAGE };
   const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages, temperature: AI_TEMPERATURE, max_tokens: AI_MAX_OUTPUT_TOKENS }),
+    body: JSON.stringify({ model, messages, temperature: AI_TEMPERATURE, max_tokens: maxOutputTokens }),
   });
   if (resp.ok) {
     const data = await resp.json();
@@ -727,7 +729,7 @@ async function pruneSupersededReports(supabase: any, accessCode: string, report:
 async function saveWindowReport(
   supabase: any, accessCode: string,
   row: { period_type: string; period_start: string; period_end: string; year: number; week_number: number; rankings: any; summary: string; ai_analysis: string;
-    ai_model_used?: string; ai_input_hash?: string; ai_prompt_tokens?: number; ai_output_tokens?: number; ai_cached_tokens?: number },
+    ai_model_used?: string; ai_input_hash?: string; ai_prompt_tokens?: number; ai_output_tokens?: number; ai_cached_tokens?: number; ai_truncated?: boolean },
 ): Promise<any> {
   const insertRow = async () => {
     const { data, error } = await supabase
@@ -790,10 +792,11 @@ async function generateAIPeriodicReport(
 
   let aiAnalysis = '';
   let aiModelUsed = 'none';
-  let aiMeta: { ai_model_used?: string; ai_input_hash?: string; ai_prompt_tokens?: number; ai_output_tokens?: number; ai_cached_tokens?: number } = {};
+  let aiMeta: { ai_model_used?: string; ai_input_hash?: string; ai_prompt_tokens?: number; ai_output_tokens?: number; ai_cached_tokens?: number; ai_truncated?: boolean } = {};
   if (rankings.length > 0) {
     // Dedup (analyze-csv only): same period + same top-20 scores as the last valid
-    // analysis of this window means the screening would come out the same, so reuse it.
+    // analysis of this window, generated less than AI_DEDUPE_TTL_HOURS ago (default 6h, so
+    // prices stay fresh through the day), means the screening would come out the same: reuse it.
     // saveWindowReport() with an empty analysis refreshes the counts of the existing
     // report and keeps its analysis.
     const inputHash = await rankingInputHash(periodType, win.start, win.end, altaRankings);
@@ -801,7 +804,7 @@ async function generateAIPeriodicReport(
     if (opts.dedupe) {
       const { data: last, error: lastErr } = await supabase
         .from('crypto_periodic_reports')
-        .select('ai_input_hash')
+        .select('ai_input_hash, created_at')
         .eq('access_code', accessCode)
         .eq('period_type', periodType)
         .eq('period_start', win.start)
@@ -811,7 +814,8 @@ async function generateAIPeriodicReport(
         .order('created_at', { ascending: false })
         .limit(1);
       if (lastErr) console.error('dedup lookup failed (calling AI anyway):', lastErr.message);
-      reuse = !lastErr && last?.[0]?.ai_input_hash === inputHash;
+      const ttlHours = resolveDedupeTtlHours(Deno.env.get('AI_DEDUPE_TTL_HOURS'));
+      reuse = !lastErr && last?.[0]?.ai_input_hash === inputHash && isWithinTtl(last?.[0]?.created_at, ttlHours);
     }
 
     if (reuse) {
@@ -830,7 +834,7 @@ async function generateAIPeriodicReport(
         aiMeta = {
           ai_model_used: aiResult.model, ai_input_hash: inputHash,
           ai_prompt_tokens: aiResult.usage.promptTokens, ai_output_tokens: aiResult.usage.outputTokens,
-          ai_cached_tokens: aiResult.usage.cachedTokens,
+          ai_cached_tokens: aiResult.usage.cachedTokens, ai_truncated: !!aiResult.truncated,
         };
       }
     }
@@ -1514,7 +1518,7 @@ serve(async (req) => {
 
       let aiAnalysis = '';
       let aiModelUsed = 'none';
-      let aiMeta: Record<string, string | number> = {};
+      let aiMeta: Record<string, string | number | boolean> = {};
       if (rankings.length > 0) {
         const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
         const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
@@ -1529,7 +1533,7 @@ serve(async (req) => {
             ai_model_used: aiResult.model,
             ai_input_hash: await rankingInputHash(periodType, win.start, win.end, altaRankings),
             ai_prompt_tokens: aiResult.usage.promptTokens, ai_output_tokens: aiResult.usage.outputTokens,
-            ai_cached_tokens: aiResult.usage.cachedTokens,
+            ai_cached_tokens: aiResult.usage.cachedTokens, ai_truncated: !!aiResult.truncated,
           };
         }
       }

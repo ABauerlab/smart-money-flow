@@ -228,6 +228,7 @@ export type Database = {
           ai_model_used: string | null
           ai_output_tokens: number | null
           ai_prompt_tokens: number | null
+          ai_truncated: boolean
           created_at: string
           id: string
           period_end: string
@@ -248,6 +249,7 @@ export type Database = {
           ai_model_used?: string | null
           ai_output_tokens?: number | null
           ai_prompt_tokens?: number | null
+          ai_truncated?: boolean
           created_at?: string
           id?: string
           period_end: string
@@ -268,6 +270,7 @@ export type Database = {
           ai_model_used?: string | null
           ai_output_tokens?: number | null
           ai_prompt_tokens?: number | null
+          ai_truncated?: boolean
           created_at?: string
           id?: string
           period_end?: string

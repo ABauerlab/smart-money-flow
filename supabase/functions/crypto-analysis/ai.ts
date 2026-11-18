@@ -3,7 +3,9 @@
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 export const AI_TEMPERATURE = 0.2;
-export const AI_MAX_OUTPUT_TOKENS = 2500;
+export const DEFAULT_MAX_OUTPUT_TOKENS = 4500;
+export const DEFAULT_LOVABLE_FALLBACK_MODEL = 'google/gemini-2.5-flash';
+export const DEFAULT_DEDUPE_TTL_HOURS = 6;
 // How many top assets (and their scores) feed the dedup hash.
 export const HASH_TOP_N = 20;
 
@@ -29,9 +31,31 @@ export function resolveGeminiModel(envValue: string | undefined | null): string 
   return v || DEFAULT_GEMINI_MODEL;
 }
 
-/** Same model, named the way the Lovable gateway expects it. */
-export function gatewayModelName(model: string): string {
-  return `google/${model}`;
+/** Fallback model for the Lovable gateway (its alias map can lag behind the official API). */
+export function resolveFallbackModel(envValue: string | undefined | null): string {
+  return (envValue ?? '').trim() || DEFAULT_LOVABLE_FALLBACK_MODEL;
+}
+
+/** Output token cap: a positive integer from env, otherwise the default. */
+export function resolveMaxOutputTokens(envValue: string | undefined | null): number {
+  const n = Number((envValue ?? '').trim());
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_MAX_OUTPUT_TOKENS;
+}
+
+/** Dedup TTL in hours: a number >= 0 from env (0 disables reuse), otherwise the default. */
+export function resolveDedupeTtlHours(envValue: string | undefined | null): number {
+  const raw = (envValue ?? '').trim();
+  if (raw === '') return DEFAULT_DEDUPE_TTL_HOURS;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_DEDUPE_TTL_HOURS;
+}
+
+/** True when a report generated at `createdAt` is still younger than the TTL. */
+export function isWithinTtl(createdAt: string | null | undefined, ttlHours: number, now: number = Date.now()): boolean {
+  if (!createdAt) return false;
+  const t = Date.parse(createdAt);
+  if (!Number.isFinite(t)) return false;
+  return now - t < ttlHours * 3600_000;
 }
 
 /** Search grounding is opt-in: only the literal string "true" enables it. */
