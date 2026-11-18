@@ -223,6 +223,11 @@ export type Database = {
         Row: {
           access_code: string | null
           ai_analysis: string | null
+          ai_cached_tokens: number | null
+          ai_input_hash: string | null
+          ai_model_used: string | null
+          ai_output_tokens: number | null
+          ai_prompt_tokens: number | null
           created_at: string
           id: string
           period_end: string
@@ -238,6 +243,11 @@ export type Database = {
         Insert: {
           access_code?: string | null
           ai_analysis?: string | null
+          ai_cached_tokens?: number | null
+          ai_input_hash?: string | null
+          ai_model_used?: string | null
+          ai_output_tokens?: number | null
+          ai_prompt_tokens?: number | null
           created_at?: string
           id?: string
           period_end: string
@@ -253,6 +263,11 @@ export type Database = {
         Update: {
           access_code?: string | null
           ai_analysis?: string | null
+          ai_cached_tokens?: number | null
+          ai_input_hash?: string | null
+          ai_model_used?: string | null
+          ai_output_tokens?: number | null
+          ai_prompt_tokens?: number | null
           created_at?: string
           id?: string
           period_end?: string
