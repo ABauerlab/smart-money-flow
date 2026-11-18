@@ -2,6 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { fetchAllRows } from "./pagination.ts";
 import { manualUploadFingerprint } from "./dedupe.ts";
+import {
+  AIUsage, EMPTY_USAGE, addUsage, resolveGeminiModel, resolveFallbackModel, resolveMaxOutputTokens, resolveDedupeTtlHours, isWithinTtl, isSearchGroundingEnabled,
+  extractGeminiUsage, extractGatewayUsage, rankingInputHash, AI_TEMPERATURE,
+} from "./ai.ts";
 import { businessDateBR, getISOWeek, fmtDate, sumMentions, resolveWindow } from "./windows.ts";
 
 // ---- CORS allowlist ----
@@ -513,11 +517,18 @@ function formatLivePriceBlock(priceData: Record<string, { price: string; changeP
 }
 
 // ====== AI call abstraction ======
-async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) return { ok: false, status: 0, content: '', model: 'none', error: 'no key' };
+interface AIResult {
+  ok: boolean; status: number; content: string; model: string; error?: string;
+  usage: AIUsage; truncated?: boolean;
+}
 
-  const model = wantsVision ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+// The model comes from GEMINI_MODEL (same model for the official API and the gateway).
+// Grounding (googleSearch) is opt-in via ENABLE_SEARCH_GROUNDING=true: live prices are
+// already injected in the user prompt, and search requests are billed separately.
+async function callGeminiOfficial(messages: any[]): Promise<AIResult> {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  const model = resolveGeminiModel(Deno.env.get('GEMINI_MODEL'));
+  if (!GEMINI_API_KEY) return { ok: false, status: 0, content: '', model: 'none', error: 'no key', usage: EMPTY_USAGE };
 
   let systemInstruction: string | undefined;
   const contents: any[] = [];
@@ -526,85 +537,91 @@ async function callGeminiOfficial(messages: any[], wantsVision: boolean): Promis
       systemInstruction = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
       continue;
     }
-    const parts: any[] = [];
-    if (typeof m.content === 'string') {
-      parts.push({ text: m.content });
-    } else if (Array.isArray(m.content)) {
-      for (const p of m.content) {
-        if (p.type === 'text') parts.push({ text: p.text });
-        else if (p.type === 'image_url') {
-          const url: string = p.image_url?.url || '';
-          const match = url.match(/^data:(.+?);base64,(.+)$/);
-          if (match) parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
-        }
-      }
-    }
-    contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts });
+    contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }] });
   }
 
-  const body: any = { contents, tools: [{ googleSearch: {} }] };
+  const maxOutputTokens = resolveMaxOutputTokens(Deno.env.get('GEMINI_MAX_OUTPUT_TOKENS'));
+  const grounding = isSearchGroundingEnabled(Deno.env.get('ENABLE_SEARCH_GROUNDING'));
+  const body: any = {
+    contents,
+    generationConfig: { temperature: AI_TEMPERATURE, maxOutputTokens },
+  };
+  if (grounding) body.tools = [{ googleSearch: {} }];
   if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
 
   // Gemini sometimes answers HTTP 200 with no text at all (finishReason MAX_TOKENS/OTHER,
-  // or only grounding metadata). That used to be stored as an "AI report" with an empty
-  // analysis. Treat an empty answer as a failure and retry, then fall back to the
-  // same request without the search tool, before giving up.
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  // or only grounding metadata). Treat an empty answer as a failure. At most 2 attempts;
+  // with grounding on, the 2nd one drops the search tool.
+  // The key travels in a header, not in the URL, so it never lands in logs.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const MAX_ATTEMPTS = 2;
   let lastStatus = 200;
   let lastError = '';
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const payload = attempt === 3 ? { ...body, tools: undefined } : body;
-    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  let usage = EMPTY_USAGE;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const payload = attempt === 2 && grounding ? { ...body, tools: undefined } : body;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+      body: JSON.stringify(payload),
+    });
     if (resp.ok) {
       const data = await resp.json();
+      usage = addUsage(usage, extractGeminiUsage(data)); // failed/empty attempts are billed too
       const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
+      const finishReason = data.candidates?.[0]?.finishReason;
       if (content.trim().length > 0) {
-        return { ok: true, status: 200, content, model: `google/${model} (official)` };
+        if (finishReason === 'MAX_TOKENS') console.warn(`Gemini answer truncated at maxOutputTokens=${maxOutputTokens}`);
+        return { ok: true, status: 200, content, model: `google/${model} (official)`, usage, truncated: finishReason === 'MAX_TOKENS' };
       }
       lastStatus = 200;
-      lastError = `empty answer (finishReason=${data.candidates?.[0]?.finishReason ?? 'none'}, blockReason=${data.promptFeedback?.blockReason ?? 'none'})`;
-      console.error(`Gemini attempt ${attempt}/3 returned no text:`, lastError);
+      lastError = `empty answer (finishReason=${finishReason ?? 'none'}, blockReason=${data.promptFeedback?.blockReason ?? 'none'})`;
+      console.error(`Gemini attempt ${attempt}/${MAX_ATTEMPTS} returned no text:`, lastError);
     } else {
       lastStatus = resp.status;
       lastError = await resp.text();
-      console.error(`Gemini attempt ${attempt}/3 error:`, resp.status, lastError);
-      // Quota/auth problems will not fix themselves within seconds: stop retrying.
-      // (A plain per-minute 429 is worth retrying; a spending-cap 429 is not.)
-      if (resp.status === 400 || resp.status === 401 || resp.status === 403) break;
+      console.error(`Gemini attempt ${attempt}/${MAX_ATTEMPTS} error:`, resp.status, lastError);
+      // Bad request / auth / unknown model will not fix themselves: do not retry.
+      if (resp.status === 400 || resp.status === 401 || resp.status === 403 || resp.status === 404) break;
       if (resp.status === 429 && /spending cap|billing|RESOURCE_EXHAUSTED/i.test(lastError) && /cap|billing/i.test(lastError)) break;
     }
-    if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
+    if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, 2000 * attempt));
   }
-  return { ok: false, status: lastStatus, content: '', model: `google/${model} (official)`, error: lastError || 'no text' };
+  return { ok: false, status: lastStatus, content: '', model: `google/${model} (official)`, error: lastError || 'no text', usage };
 }
 
-async function callLovableGateway(messages: any[], wantsVision: boolean): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
+// Fallback: a single attempt, no retries.
+async function callLovableGateway(messages: any[]): Promise<AIResult> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) return { ok: false, status: 500, content: '', model: 'none', error: 'Lovable AI Gateway não configurado' };
-  const model = wantsVision ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
+  const model = resolveFallbackModel(Deno.env.get('LOVABLE_FALLBACK_MODEL'));
+  const maxOutputTokens = resolveMaxOutputTokens(Deno.env.get('GEMINI_MAX_OUTPUT_TOKENS'));
+  if (!LOVABLE_API_KEY) return { ok: false, status: 500, content: '', model: 'none', error: 'Lovable AI Gateway não configurado', usage: EMPTY_USAGE };
   const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages }),
+    body: JSON.stringify({ model, messages, temperature: AI_TEMPERATURE, max_tokens: maxOutputTokens }),
   });
   if (resp.ok) {
     const data = await resp.json();
     const content = data.choices?.[0]?.message?.content || '';
-    return { ok: true, status: 200, content, model: `${model} (gateway)` };
+    const usage = extractGatewayUsage(data);
+    if (!content.trim()) return { ok: false, status: 200, content: '', model, error: 'empty answer', usage };
+    return { ok: true, status: 200, content, model: `${model} (gateway)`, usage, truncated: data.choices?.[0]?.finish_reason === 'length' };
   }
   const errText = await resp.text();
   console.error('Lovable AI error:', resp.status, errText);
-  return { ok: false, status: resp.status, content: '', model, error: errText };
+  return { ok: false, status: resp.status, content: '', model, error: errText, usage: EMPTY_USAGE };
 }
 
-async function callAI(messages: any[], opts: { wantsVision?: boolean } = {}): Promise<{ ok: boolean; status: number; content: string; model: string; error?: string }> {
-  const wantsVision = !!opts.wantsVision;
-  const official = await callGeminiOfficial(messages, wantsVision);
+async function callAI(messages: any[]): Promise<AIResult> {
+  const official = await callGeminiOfficial(messages);
   if (official.ok) return official;
   if (official.error && official.error !== 'no key') {
     console.log('Falling back to Lovable Gateway after official Gemini error:', official.status);
   }
-  return await callLovableGateway(messages, wantsVision);
+  const gateway = await callLovableGateway(messages);
+  // Tokens burned by the failed official attempts are still part of this report's cost.
+  return { ...gateway, usage: addUsage(gateway.usage, official.usage) };
 }
 
 // Rate limiter backed by the `rl_check` Postgres function (see migration) instead of
@@ -711,7 +728,8 @@ async function pruneSupersededReports(supabase: any, accessCode: string, report:
 //    its analysis; only when the window has no report yet is a blank one inserted.
 async function saveWindowReport(
   supabase: any, accessCode: string,
-  row: { period_type: string; period_start: string; period_end: string; year: number; week_number: number; rankings: any; summary: string; ai_analysis: string },
+  row: { period_type: string; period_start: string; period_end: string; year: number; week_number: number; rankings: any; summary: string; ai_analysis: string;
+    ai_model_used?: string; ai_input_hash?: string; ai_prompt_tokens?: number; ai_output_tokens?: number; ai_cached_tokens?: number; ai_truncated?: boolean },
 ): Promise<any> {
   const insertRow = async () => {
     const { data, error } = await supabase
@@ -765,6 +783,7 @@ async function saveWindowReport(
 // one a person triggers by hand from the "Listas" tab — not just a raw count.
 async function generateAIPeriodicReport(
   supabase: any, accessCode: string, periodType: string, windowIndex: number,
+  opts: { dedupe?: boolean } = {},
 ): Promise<{ report: any; aiModelUsed: string }> {
   const win = resolveWindow(periodType, windowIndex);
 
@@ -773,15 +792,52 @@ async function generateAIPeriodicReport(
 
   let aiAnalysis = '';
   let aiModelUsed = 'none';
+  let aiMeta: { ai_model_used?: string; ai_input_hash?: string; ai_prompt_tokens?: number; ai_output_tokens?: number; ai_cached_tokens?: number; ai_truncated?: boolean } = {};
   if (rankings.length > 0) {
-    const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
-    const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
-    const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
-    const aiResult = await callAI([
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${totalRepetitions}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
-    ]);
-    if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
+    // Dedup (analyze-csv only): same period + same top-20 scores as the last valid
+    // analysis of this window, generated less than AI_DEDUPE_TTL_HOURS ago (default 6h, so
+    // prices stay fresh through the day), means the screening would come out the same: reuse it.
+    // saveWindowReport() with an empty analysis refreshes the counts of the existing
+    // report and keeps its analysis.
+    const inputHash = await rankingInputHash(periodType, win.start, win.end, altaRankings);
+    let reuse = false;
+    if (opts.dedupe) {
+      const { data: last, error: lastErr } = await supabase
+        .from('crypto_periodic_reports')
+        .select('ai_input_hash, created_at')
+        .eq('access_code', accessCode)
+        .eq('period_type', periodType)
+        .eq('period_start', win.start)
+        .eq('period_end', win.end)
+        .neq('ai_analysis', '')
+        .not('ai_analysis', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (lastErr) console.error('dedup lookup failed (calling AI anyway):', lastErr.message);
+      const ttlHours = resolveDedupeTtlHours(Deno.env.get('AI_DEDUPE_TTL_HOURS'));
+      reuse = !lastErr && last?.[0]?.ai_input_hash === inputHash && isWithinTtl(last?.[0]?.created_at, ttlHours);
+    }
+
+    if (reuse) {
+      aiModelUsed = 'cached (same ranking hash)';
+      console.log(`AI skipped for ${periodType} ${win.start}..${win.end}: ranking hash unchanged`);
+    } else {
+      const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
+      const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
+      const priceText = formatLivePriceBlock(await fetchLivePriceData(topSymbols));
+      const aiResult = await callAI([
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: `Relatório consolidado.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos rastreadas: ${rankings.length}\nTotal de repetições no recorte: ${totalRepetitions}\n\nAnalise os padrões deste recorte ISOLADO. Não some nem compare com outros recortes. Não use emojis.` },
+      ]);
+      if (aiResult.ok) {
+        aiAnalysis = aiResult.content; aiModelUsed = aiResult.model;
+        aiMeta = {
+          ai_model_used: aiResult.model, ai_input_hash: inputHash,
+          ai_prompt_tokens: aiResult.usage.promptTokens, ai_output_tokens: aiResult.usage.outputTokens,
+          ai_cached_tokens: aiResult.usage.cachedTokens, ai_truncated: !!aiResult.truncated,
+        };
+      }
+    }
   }
 
   const report = await saveWindowReport(supabase, accessCode, {
@@ -793,6 +849,7 @@ async function generateAIPeriodicReport(
     rankings: rankings as any,
     summary: `${win.label}: ${altaRankings.length} criptos`,
     ai_analysis: aiAnalysis,
+    ...aiMeta,
   });
 
   return { report, aiModelUsed };
@@ -1434,7 +1491,7 @@ serve(async (req) => {
       // seconds (AI call), and must not delay the response back to the VPS macro's
       // synchronous HTTP request or Make's module timeout.
       if (submission && !bulkImport) {
-        const bgReport = generateAIPeriodicReport(supabase, accessCode, 'daily', 0)
+        const bgReport = generateAIPeriodicReport(supabase, accessCode, 'daily', 0, { dedupe: true })
           .catch((e) => console.error('Background daily AI report failed:', e));
         // @ts-ignore EdgeRuntime is a Deno Deploy/Supabase global, not in the TS lib defs.
         if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(bgReport);
@@ -1461,6 +1518,7 @@ serve(async (req) => {
 
       let aiAnalysis = '';
       let aiModelUsed = 'none';
+      let aiMeta: Record<string, string | number | boolean> = {};
       if (rankings.length > 0) {
         const topSymbols = altaRankings.slice(0, MAX_AI_RANKING_ROWS).map(r => r.symbol);
         const laText = `### Lista Geral (somatório)\n${altaRankings.slice(0, MAX_AI_RANKING_ROWS).map((r, i) => `${i + 1}. ${r.symbol}: ${r.count} repetições`).join('\n')}`;
@@ -1469,7 +1527,15 @@ serve(async (req) => {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: `Atualização de listas.\nTipo: ${periodType} (${win.label}).\nJanela: ${win.start} a ${win.end}.\n\n${laText}\n\n${priceText}\n\nTotal de criptos: ${rankings.length}\nTotal de repetições: ${totalRepetitions}\n\nReanalise os padrões atuais deste recorte isolado. Não use emojis.` },
         ]);
-        if (aiResult.ok) { aiAnalysis = aiResult.content; aiModelUsed = aiResult.model; }
+        if (aiResult.ok) {
+          aiAnalysis = aiResult.content; aiModelUsed = aiResult.model;
+          aiMeta = {
+            ai_model_used: aiResult.model,
+            ai_input_hash: await rankingInputHash(periodType, win.start, win.end, altaRankings),
+            ai_prompt_tokens: aiResult.usage.promptTokens, ai_output_tokens: aiResult.usage.outputTokens,
+            ai_cached_tokens: aiResult.usage.cachedTokens, ai_truncated: !!aiResult.truncated,
+          };
+        }
       }
 
       const report = await saveWindowReport(supabase, accessCode, {
@@ -1481,6 +1547,7 @@ serve(async (req) => {
         rankings: rankings as any,
         summary: `[ATUALIZAÇÃO] ${win.label}: ${altaRankings.length} criptos`,
         ai_analysis: aiAnalysis,
+        ...aiMeta,
       });
 
       return new Response(JSON.stringify({
